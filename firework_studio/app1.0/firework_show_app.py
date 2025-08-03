@@ -120,7 +120,7 @@ class FireworkShowApp(QMainWindow):
         # Set a default background color (night sky) for the container
         fireworks_canvas_container.setStyleSheet("background-color: #10101e; border-radius: 8px;")
         fireworks_canvas_layout = QVBoxLayout(fireworks_canvas_container)
-        fireworks_canvas_container.setMinimumHeight(425)  # Make the window/canvas taller
+        fireworks_canvas_container.setMinimumHeight(435)  # Make the window/canvas taller
         fireworks_canvas_layout.setContentsMargins(0, 0, 0, 0)
         fireworks_canvas_layout.setSpacing(0)
         self.fireworks_canvas = FireworksCanvas()
@@ -138,20 +138,21 @@ class FireworkShowApp(QMainWindow):
         media_controls_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         button_style = """
             QPushButton {
-            background-color: #1976d2;
+            background-color: #2196f3;
             color: #fff;
             border: none;
-            border-radius: 8px;
-            font-size: 16px;
+            border-radius: 7px;
+            font-size: 14px;
             font-weight: bold;
-            min-width: 90px;
-            min-height: 36px;
+            min-width: 60px;
+            min-height: 28px;
+            padding: 4px 8px;
             }
             QPushButton:hover {
-            background-color: #1565c0;
+            background-color: #1e88e5;
             }
             QPushButton:pressed {
-            background-color: #0d47a1;
+            background-color: #1565c0;
             }
         """
         # Ensure all three buttons are aligned properly in the media_controls_layout
