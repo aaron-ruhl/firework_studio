@@ -23,6 +23,29 @@ from PyQt6.QtWidgets import QGraphicsScene, QGraphicsView
 from PyQt6.QtGui import QLinearGradient, QBrush
 from PyQt6.QtGui import QPolygonF
 from PyQt6.QtWidgets import QSizePolicy
+from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel
+from PyQt6.QtCore import QTimer
+
+class ToastDialog(QDialog):
+    def __init__(self, message, parent=None):
+        super().__init__(parent)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setStyleSheet("""
+            QDialog {
+            background-color: rgba(40, 40, 40, 220);
+            border-radius: 10px;
+            }
+            QLabel {
+            color: #fff;
+            padding: 12px 24px;
+            font-size: 16px;
+            }
+        """)
+        layout = QVBoxLayout(self)
+        label = QLabel(message)
+        layout.addWidget(label)
+        self.adjustSize()
 
 '''THIS IS THE MAIN WINDOW CLASS FOR THE FIREWORK STUDIO APPLICATION'''
 class FireworkShowApp(QMainWindow):
@@ -88,33 +111,6 @@ class FireworkShowApp(QMainWindow):
         self.setCentralWidget(central_widget)
         layout = QVBoxLayout(central_widget)
         
-        ''' Load Audio Button '''
-        self.load_btn = QPushButton("Load Audio")
-        self.load_btn.clicked.connect(self.load_audio)
-        layout.addWidget(self.load_btn)
-        self.info_label = QLabel("No audio loaded.")
-        layout.addWidget(self.info_label)
-
-        ''' Fireworks show generator button'''
-        # This button also resets the show (like stop_btn) before generating
-        def generate_and_reset():
-            self.fireworks_canvas.reset_fireworks()
-            self.preview_widget.stop_preview()
-            # Always reset play/pause button state and icon so playback can start again
-            self.play_pause_btn.blockSignals(True)
-            self.play_pause_btn.setChecked(False)
-            self.play_pause_btn.setText("▶️")
-            self.play_pause_btn.blockSignals(False)
-            self.generate_btn.setText("Generating show...")
-            QApplication.processEvents()
-            self.update_preview_widget()
-            self.generate_btn.setText("Generate Fireworks Show")
-
-        self.generate_btn = QPushButton("Generate Fireworks Show")
-        self.info_label.setText("Load audio to generate fireworks show.")
-        self.generate_btn.clicked.connect(generate_and_reset)
-        layout.addWidget(self.generate_btn)
-
         ''' Fireworks Show Preview Screen'''
         # Fireworks Show Preview Screen with background support
         fireworks_canvas_container = QWidget()
@@ -208,6 +204,15 @@ class FireworkShowApp(QMainWindow):
         self.clear_btn = QPushButton("Clear Show")
         self.clear_btn.setStyleSheet(button_style)
         self.clear_btn.clicked.connect(clear_show)
+        def show_cleared_toast():
+            toast = ToastDialog("Show cleared!", parent=self)
+            geo = self.geometry()
+            x = geo.x() + geo.width() - toast.width() - 40
+            y = geo.y() + geo.height() - toast.height() - 40
+            toast.move(x, y)
+            toast.show()
+            QTimer.singleShot(2500, toast.close)
+        self.clear_btn.clicked.connect(show_cleared_toast)
         media_controls_layout.addWidget(self.clear_btn)
 
         # Ensure all media control buttons are perfectly aligned horizontally
@@ -262,7 +267,32 @@ class FireworkShowApp(QMainWindow):
 
         self.play_pause_btn.toggled.connect(on_play_pause)
         self.stop_btn.clicked.connect(lambda: (self.current_time_label.setText("00:00"), self.time_update_timer.stop()))
+        ''' Load Audio Button '''
+        self.load_btn = QPushButton("Load Audio")
+        self.load_btn.clicked.connect(self.load_audio)
+        media_controls_layout.addWidget(self.load_btn)
+        self.info_label = QLabel("No audio loaded.")
+        layout.addWidget(self.info_label)
 
+        ''' Fireworks show generator button'''
+        # This button also resets the show (like stop_btn) before generating
+        def generate_and_reset():
+            self.fireworks_canvas.reset_fireworks()
+            self.preview_widget.stop_preview()
+            # Always reset play/pause button state and icon so playback can start again
+            self.play_pause_btn.blockSignals(True)
+            self.play_pause_btn.setChecked(False)
+            self.play_pause_btn.setText("▶️")
+            self.play_pause_btn.blockSignals(False)
+            self.generate_btn.setText("Generating show...")
+            QApplication.processEvents()
+            self.update_preview_widget()
+            self.generate_btn.setText("Generate Fireworks Show")
+
+        self.generate_btn = QPushButton("Generate Fireworks Show")
+        self.info_label.setText("Load audio to generate fireworks show.")
+        self.generate_btn.clicked.connect(generate_and_reset)
+        media_controls_layout.addWidget(self.generate_btn)
         layout.addLayout(media_controls_layout)
 
         ''' Canvas for waveform display and firework firing display '''
@@ -274,7 +304,6 @@ class FireworkShowApp(QMainWindow):
         ax.set_title("Waveform with Segments", color='white')
         self.waveform_canvas.setFixedHeight(150)
         self.waveform_canvas.figure.subplots_adjust(left=0, right=1, top=1, bottom=0)
-        layout.addWidget(self.waveform_canvas)
         layout.addWidget(self.waveform_canvas)
 
         layout.addWidget(self.preview_widget)
@@ -307,9 +336,18 @@ class FireworkShowApp(QMainWindow):
             self.plot_waveform()  # Draw waveform as soon as audio is loaded
 
             duration = librosa.get_duration(y=self.audio_data, sr=self.sr)
-            self.info_label.setText(
-                f"Loaded: {len(paths)} file(s)\nSample Rate: {self.sr} Hz, Duration: {duration:.2f} seconds"
+            self.info_label.setText("")
+            toast = ToastDialog(
+                f"Loaded: {len(paths)} file(s)\nSample Rate: {self.sr} Hz, Duration: {duration:.2f} seconds",
+                parent=self
             )
+            # Position at bottom right of main window
+            geo = self.geometry()
+            x = geo.x() + geo.width() - toast.width() - 40
+            y = geo.y() + geo.height() - toast.height() - 40
+            toast.move(x, y)
+            toast.show()
+            QTimer.singleShot(7500, toast.close)
             self.waveform_canvas.figure.patch.set_facecolor('black')
             ax = self.waveform_canvas.figure.axes[0]
             ax.set_facecolor('black')
@@ -321,11 +359,19 @@ class FireworkShowApp(QMainWindow):
         self.periods_info, self.segment_times = self.make_segments(self.sr)
         self.firework_firing = self.simple_beatsample(self.audio_data, self.sr, self.segment_times)
         self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, self.firework_firing)
-        current_text = self.info_label.text()
-        self.info_label.setText(
-            current_text +
-            f"\nShow generated!\nSegments: {len(self.segment_times)-1}, Firework firings: {len(self.firework_firing)}"
+        # Show a small dialog box at the bottom right that pops up then goes away
+
+        toast = ToastDialog(
+            f"Show generated!\nSegments: {len(self.segment_times)-1}, Firework firings: {len(self.firework_firing)}",
+            parent=self
         )
+        # Position at bottom right of main window
+        geo = self.geometry()
+        x = geo.x() + geo.width() - toast.width() - 40
+        y = geo.y() + geo.height() - toast.height() - 40
+        toast.move(x, y)
+        toast.show()
+        QTimer.singleShot(7500, toast.close)
 
     def plot_waveform(self):
         # Enable interactive zooming/panning for the waveform canvas
@@ -377,6 +423,9 @@ class FireworkShowApp(QMainWindow):
         if self.audio_data is not None:
             sr = self.sr if self.sr is not None else 22050  # Default librosa sample rate
             librosa.display.waveshow(self.audio_data, sr=sr, ax=ax, alpha=0.5)
+            ax.set_facecolor('black')
+            ax.set_xticks([])
+            ax.set_yticks([])
         # Ensure all spines are invisible (removes white edge)
         for spine in ax.spines.values():
             spine.set_visible(False)
