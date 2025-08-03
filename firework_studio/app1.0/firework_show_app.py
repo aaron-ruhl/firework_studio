@@ -120,7 +120,10 @@ class FireworkShowApp(QMainWindow):
 
         # Clear show button
         self.clear_btn = QPushButton("Clear Show")
-        self.clear_btn.clicked.connect(self.fireworks_canvas.reset_fireworks)
+        def clear_show():
+            self.fireworks_canvas.reset_fireworks()
+            self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, None)
+        self.clear_btn.clicked.connect(clear_show)
         controls_layout.addWidget(self.clear_btn)
 
         # Define these here because it is used in the media playback controls

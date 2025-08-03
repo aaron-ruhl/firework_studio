@@ -25,7 +25,10 @@ class FireworkPreviewWidget(QWidget):
         self.sr = sr
         self.segment_times = segment_times
         self.firework_firing = firework_firing
-        self.duration = librosa.get_duration(y=audio_data, sr=sr)
+        if audio_data is not None and sr is not None:
+            self.duration = librosa.get_duration(y=audio_data, sr=sr)
+        else:
+            self.duration = 0
         self.update()
 
     def start_preview(self):
