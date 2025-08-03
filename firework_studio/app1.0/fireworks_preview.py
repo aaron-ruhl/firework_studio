@@ -62,23 +62,14 @@ class FireworkPreviewWidget(QWidget):
             sd.stop(ignore_errors=True)
         self.update()
 
-    def skip_forward(self, seconds=15):
-        if self.audio_data is None or self.sr is None:
-            return
-        self.current_time = min(self.current_time + seconds, self.duration)
-        if sd.get_stream() is not None:
-            sd.stop(ignore_errors=True)
-            sd.play(self.audio_data[int(self.current_time * self.sr):], self.sr, blocking=False)
+    def add_time(self, seconds):
+        if self.firework_firing is None:
+            self.firework_firing = []
+        elif not isinstance(self.firework_firing, list):
+            self.firework_firing = list(self.firework_firing)
+        self.firework_firing.append(self.current_time)
         self.update()
 
-    def skip_backward(self, seconds=15):
-        if self.audio_data is None or self.sr is None:
-            return
-        self.current_time = max(self.current_time - seconds, 0)
-        if sd.get_stream() is not None:
-            sd.stop(ignore_errors=True)
-            sd.play(self.audio_data[int(self.current_time * self.sr):], self.sr, blocking=False)
-        self.update()
     def advance_preview(self):
         self.current_time += 0.05
         if self.current_time > self.duration:

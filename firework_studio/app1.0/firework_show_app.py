@@ -146,19 +146,10 @@ class FireworkShowApp(QMainWindow):
         self.stop_btn.clicked.connect(self.preview_widget.stop_preview)
         media_controls_layout.addWidget(self.stop_btn)
 
-        # Skip backward button
-        self.skip_back_btn = QPushButton("⏪")
-        self.skip_back_btn.setFixedSize(40, 40)
-        self.skip_back_btn.setStyleSheet("font-size: 20px; border-radius: 20px; background-color: #222; color: white;")
-        self.skip_back_btn.clicked.connect(self.preview_widget.skip_backward)
-        media_controls_layout.addWidget(self.skip_back_btn)
-
-        # Skip forward button
-        self.skip_forward_btn = QPushButton("⏩")
-        self.skip_forward_btn.setFixedSize(40, 40)
-        self.skip_forward_btn.setStyleSheet("font-size: 20px; border-radius: 20px; background-color: #222; color: white;")
-        self.skip_forward_btn.clicked.connect(self.preview_widget.skip_forward)
-        media_controls_layout.addWidget(self.skip_forward_btn)
+        # add firing button
+        self.add_firing_btn = QPushButton("Add Firing")
+        self.add_firing_btn.clicked.connect(lambda: self.preview_widget.add_time(1))
+        media_controls_layout.addWidget(self.add_firing_btn)
 
         layout.addLayout(media_controls_layout)
 
