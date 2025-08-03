@@ -132,7 +132,7 @@ class FireworkShowApp(QMainWindow):
         media_controls_layout = QHBoxLayout()
         button_style = """
             QPushButton {
-            background-color: #333;
+            background-color: #1976d2;
             color: #fff;
             border: none;
             border-radius: 8px;
@@ -145,10 +145,10 @@ class FireworkShowApp(QMainWindow):
             transition: background 0.2s;
             }
             QPushButton:hover {
-            background-color: #444;
+            background-color: #1565c0;
             }
             QPushButton:pressed {
-            background-color: #222;
+            background-color: #0d47a1;
             }
         """
 
@@ -156,10 +156,17 @@ class FireworkShowApp(QMainWindow):
         self.play_pause_btn = QPushButton()
         self.play_pause_btn.setFixedSize(40, 40)
         self.play_pause_btn.setCheckable(True)
-        self.play_pause_btn.setStyleSheet(
-            "font-size: 20px; border-radius: 20px; background-color: #333; color: white;"
-        )
         self.play_pause_btn.setText("▶️")
+        # Use a blue color that matches the icon style in setText (e.g., #1976d2)
+        self.play_pause_btn.setStyleSheet(
+            """
+            font-size: 20px;
+            border-radius: 20px;
+            background-color: #1976d2;
+            color: white;
+            """
+        )
+        
         def toggle_icon(checked):
             self.play_pause_btn.setText("⏸️" if checked else "▶️")
             self.preview_widget.toggle_play_pause()
@@ -169,9 +176,23 @@ class FireworkShowApp(QMainWindow):
         self.stop_btn = QPushButton("⏹️")
         self.stop_btn.setFixedSize(40, 40)
         self.stop_btn.setStyleSheet(
-            "font-size: 20px; border-radius: 20px; background-color: #333; color: white;"
+            """
+            font-size: 20px;
+            border-radius: 20px;
+            background-color: #1976d2;
+            color: white;
+            """
         )
         self.stop_btn.clicked.connect(self.preview_widget.stop_preview)
+        self.stop_btn.clicked.connect(self.fireworks_canvas.reset_fireworks)
+        def reset_play_pause():
+            # Only update the button state and icon, do not trigger play
+            self.play_pause_btn.blockSignals(True)
+            if self.play_pause_btn.isChecked():
+                self.play_pause_btn.setChecked(False)
+            self.play_pause_btn.setText("▶️")
+            self.play_pause_btn.blockSignals(False)
+        self.stop_btn.clicked.connect(reset_play_pause)
         media_controls_layout.addWidget(self.stop_btn)
 
         self.add_firing_btn = QPushButton("Add Firing")

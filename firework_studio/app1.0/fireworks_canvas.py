@@ -26,7 +26,9 @@ class FireworksCanvas(QWidget):
         self.fireworks.append(Firework(x, self.height(), 
                                      self.firework_color,
                                      self.particle_count))
-
+    def reset_fireworks(self):
+        self.fireworks.clear()
+        self.fired_times.clear()
     def update_animation(self):
         self.fireworks = [fw for fw in self.fireworks if fw.update()]
         parent = self.parentWidget()
