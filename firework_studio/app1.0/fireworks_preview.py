@@ -60,6 +60,8 @@ class FireworkPreviewWidget(QWidget):
             sd.stop(ignore_errors=True)
 
     def stop_preview(self):
+        if self.audio_data is None or self.sr is None:
+            return
         if self.preview_timer and self.preview_timer.isActive():
             self.preview_timer.stop()
         self.current_time = 0
@@ -68,6 +70,8 @@ class FireworkPreviewWidget(QWidget):
         self.update()
 
     def add_time(self, seconds):
+        if self.audio_data is None or self.sr is None:
+            return
         if self.firework_firing is None:
             self.firework_firing = []
         elif not isinstance(self.firework_firing, list):

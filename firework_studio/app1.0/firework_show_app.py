@@ -14,6 +14,14 @@ import librosa.display
 
 from fireworks_canvas import FireworksCanvas
 from fireworks_preview import FireworkPreviewWidget
+from PyQt6.QtWidgets import QGraphicsRectItem, QGraphicsEllipseItem, QGraphicsPolygonItem
+from PyQt6.QtGui import QBrush, QPen, QColor, QPolygonF
+from PyQt6.QtCore import QPointF
+import random
+from PyQt6.QtWidgets import QGraphicsScene, QGraphicsView
+from PyQt6.QtGui import QLinearGradient, QBrush
+from PyQt6.QtGui import QPolygonF
+from PyQt6.QtWidgets import QSizePolicy
 
 '''THIS IS THE MAIN WINDOW CLASS FOR THE FIREWORK STUDIO APPLICATION'''
 class FireworkShowApp(QMainWindow):
@@ -98,42 +106,25 @@ class FireworkShowApp(QMainWindow):
         layout.addWidget(self.generate_btn)
 
         ''' Fireworks Show Preview Screen'''
+        # Fireworks Show Preview Screen with background support
         fireworks_canvas_container = QWidget()
+        # Set a default background color (night sky) for the container
+        fireworks_canvas_container.setStyleSheet("background-color: #10101e; border-radius: 8px;")
         fireworks_canvas_layout = QVBoxLayout(fireworks_canvas_container)
         fireworks_canvas_container.setMinimumHeight(425)  # Make the window/canvas taller
         fireworks_canvas_layout.setContentsMargins(0, 0, 0, 0)
         fireworks_canvas_layout.setSpacing(0)
         self.fireworks_canvas = FireworksCanvas()
         fireworks_canvas_layout.addWidget(self.fireworks_canvas)
-        layout.addWidget(fireworks_canvas_container, stretch=5, )
+        layout.addWidget(fireworks_canvas_container, stretch=5)
 
         # Create controls
         controls_layout = QHBoxLayout()
-        # Background selector
-        background_label = QLabel("Background:")
-        self.background_combo = QComboBox()
-        self.background_combo.addItems(["Night Sky", "Cityscape", "Mountains"])
-        self.background_combo.currentTextChanged.connect(self.update_background)
-        controls_layout.addWidget(background_label)
-        controls_layout.addWidget(self.background_combo)
-        layout.addLayout(controls_layout)
+        controls_layout.addStretch()  # Pushes the clear button to the right
 
-        # Clear show button
+        # Clear show button (styled to match Add Firing)
         self.clear_btn = QPushButton("Clear Show")
-        def clear_show():
-            self.fireworks_canvas.reset_fireworks()
-            self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, None)
-        self.clear_btn.clicked.connect(clear_show)
-        controls_layout.addWidget(self.clear_btn)
-
-        # Define these here because it is used in the media playback controls
-        self.preview_widget = FireworkPreviewWidget()
-        self.preview_widget.setMinimumHeight(150)  # Make the preview widget taller
-
-        ''' Preview firework show button (needs to be updated with media playback controls) '''
-        # Media playback controls layout
-        media_controls_layout = QHBoxLayout()
-        button_style = """
+        clear_btn_style = """
             QPushButton {
             background-color: #1976d2;
             color: #fff;
@@ -143,6 +134,42 @@ class FireworkShowApp(QMainWindow):
             font-size: 16px;
             font-weight: bold;
             margin: 0 6px;
+            min-width: 110px;
+            min-height: 36px;
+            }
+            QPushButton:hover {
+            background-color: #1565c0;
+            }
+            QPushButton:pressed {
+            background-color: #0d47a1;
+            }
+        """
+        self.clear_btn.setStyleSheet(clear_btn_style)
+        def clear_show():
+            self.fireworks_canvas.reset_fireworks()
+            self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, None)
+        self.clear_btn.clicked.connect(clear_show)
+        controls_layout.addWidget(self.clear_btn)
+
+        layout.addLayout(controls_layout)
+
+        # Define these here because it is used in the media playback controls
+        self.preview_widget = FireworkPreviewWidget()
+        self.preview_widget.setMinimumHeight(150)  # Make the preview widget taller
+
+        ''' Preview firework show button with media playback controls '''
+        # Media playback controls layout
+        media_controls_layout = QHBoxLayout()
+        # Align the media controls layout vertically centered
+        media_controls_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+        button_style = """
+            QPushButton {
+            background-color: #1976d2;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
             min-width: 90px;
             min-height: 36px;
             }
@@ -153,21 +180,17 @@ class FireworkShowApp(QMainWindow):
             background-color: #0d47a1;
             }
         """
-
+        # Ensure all three buttons are aligned properly in the media_controls_layout
+        media_controls_layout.setSpacing(12)
+        media_controls_layout.setContentsMargins(0, 0, 0, 0)
+        media_controls_layout.addStretch()
         # Play/Pause button with icon toggle
         self.play_pause_btn = QPushButton()
         self.play_pause_btn.setFixedSize(40, 40)
         self.play_pause_btn.setCheckable(True)
         self.play_pause_btn.setText("▶️")
         # Use a blue color that matches the icon style in setText (e.g., #1976d2)
-        self.play_pause_btn.setStyleSheet(
-            """
-            font-size: 20px;
-            border-radius: 20px;
-            background-color: #2196f3;
-            color: white;
-            """
-        )
+        self.play_pause_btn.setStyleSheet(button_style)
         
         def toggle_icon(checked):
             self.play_pause_btn.setText("⏸️" if checked else "▶️")
@@ -177,14 +200,7 @@ class FireworkShowApp(QMainWindow):
 
         self.stop_btn = QPushButton("⏹️")
         self.stop_btn.setFixedSize(40, 40)
-        self.stop_btn.setStyleSheet(
-            """
-            font-size: 20px;
-            border-radius: 20px;
-            background-color: #2196f3;
-            color: white;
-            """
-        )
+        self.stop_btn.setStyleSheet(button_style)
         self.stop_btn.clicked.connect(self.preview_widget.stop_preview)
         self.stop_btn.clicked.connect(self.fireworks_canvas.reset_fireworks)
         def reset_play_pause():
@@ -201,6 +217,16 @@ class FireworkShowApp(QMainWindow):
         self.add_firing_btn.setStyleSheet(button_style)
         self.add_firing_btn.clicked.connect(lambda: self.preview_widget.add_time(1))
         media_controls_layout.addWidget(self.add_firing_btn)
+
+        # Ensure all media control buttons are perfectly aligned horizontally
+        # by setting a fixed height for all buttons and aligning them to the center
+        button_height = 40
+        self.play_pause_btn.setFixedSize(40, button_height)
+        self.stop_btn.setFixedSize(40, button_height)
+        self.add_firing_btn.setFixedHeight(button_height)
+        # Set the size policy to ensure vertical alignment
+        for btn in [self.play_pause_btn, self.stop_btn, self.add_firing_btn]:
+            btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
 
         layout.addLayout(media_controls_layout)
 
@@ -315,23 +341,11 @@ class FireworkShowApp(QMainWindow):
 
         # periods_info now contains all detected similar periods with start/end times
         return periods_info, segment_times
-    
-    def update_particle_count(self, value):
-        self.fireworks_canvas.particle_count = value
 
-    def choose_color(self):
-        color = QColorDialog.getColor()
-        if color.isValid():
-            self.fireworks_canvas.firework_color = color
-
-    def update_pattern(self, pattern):
-        self.fireworks_canvas.pattern = pattern
-        # Pattern implementation will be added later
-
+    # Update the fireworks_canvas background based on selection
     def update_background(self, background):
-        self.fireworks_canvas.background = background
-        # Background implementation will be added later
-    
+        self.fireworks_canvas.paintEvent(background)
+
     def simple_beatsample(self, audio_data, sr, segment_times):
         # Calculate beat times in seconds
         _, beats = librosa.beat.beat_track(y=audio_data, sr=sr)
