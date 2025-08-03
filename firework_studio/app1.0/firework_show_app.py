@@ -110,7 +110,7 @@ class FireworkShowApp(QMainWindow):
             self.generate_btn.setText("Generate Fireworks Show")
 
         self.generate_btn = QPushButton("Generate Fireworks Show")
-        self.info_label.setText("Click to generate fireworks show based on audio.")
+        self.info_label.setText("Load audio to generate fireworks show.")
         self.generate_btn.clicked.connect(generate_and_reset)
         layout.addWidget(self.generate_btn)
 
