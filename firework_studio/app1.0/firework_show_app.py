@@ -108,16 +108,10 @@ class FireworkShowApp(QMainWindow):
             QApplication.processEvents()
             self.update_preview_widget()
             self.generate_btn.setText("Generate Fireworks Show")
+
         self.generate_btn = QPushButton("Generate Fireworks Show")
         self.info_label.setText("Click to generate fireworks show based on audio.")
         self.generate_btn.clicked.connect(generate_and_reset)
-        layout.addWidget(self.generate_btn)
-        def on_generate_clicked():
-            self.generate_btn.setText("Generating show...")
-            QApplication.processEvents()
-            self.update_preview_widget()
-            self.generate_btn.setText("Generate Fireworks Show")
-        self.generate_btn.clicked.connect(on_generate_clicked)
         layout.addWidget(self.generate_btn)
 
         ''' Fireworks Show Preview Screen'''
@@ -225,6 +219,48 @@ class FireworkShowApp(QMainWindow):
         # Set the size policy to ensure vertical alignment
         for btn in [self.play_pause_btn, self.stop_btn, self.add_firing_btn, self.clear_btn]:
             btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        # Current time display label
+
+        self.current_time_label = QLabel("00:00")
+        self.current_time_label.setStyleSheet("""
+            QLabel {
+                color: #e0e0e0;
+                font-size: 18px;
+                font-weight: bold;
+                min-width: 60px;
+                qproperty-alignment: 'AlignVCenter | AlignLeft';
+            }
+        """)
+        self.current_time_label.setFixedWidth(70)
+
+        # Place the label at the left of the media controls
+        media_controls_layout.insertWidget(0, self.current_time_label, alignment=Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+
+        # Update current_time_label whenever playback time changes
+        from PyQt6.QtCore import QTimer
+
+        def update_time_label():
+            if hasattr(self.preview_widget, "current_time"):
+                t = int(self.preview_widget.current_time)
+                mins, secs = divmod(t, 60)
+                self.current_time_label.setText(f"{mins:02d}:{secs:02d}")
+            else:
+                self.current_time_label.setText("00:00")
+
+        # Timer to update the label during playback
+        self.time_update_timer = QTimer(self)
+        self.time_update_timer.setInterval(200)  # update every 200 ms
+        self.time_update_timer.timeout.connect(update_time_label)
+
+        def on_play_pause(checked):
+            update_time_label()
+            if checked:
+                self.time_update_timer.start()
+            else:
+                self.time_update_timer.stop()
+
+        self.play_pause_btn.toggled.connect(on_play_pause)
+        self.stop_btn.clicked.connect(lambda: (self.current_time_label.setText("00:00"), self.time_update_timer.stop()))
 
         layout.addLayout(media_controls_layout)
 
@@ -273,8 +309,10 @@ class FireworkShowApp(QMainWindow):
         self.periods_info, self.segment_times = self.make_segments(self.audio_path)
         self.firework_firing = self.simple_beatsample(self.audio_data, self.sr, self.segment_times)
         self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, self.firework_firing)
+        current_text = self.info_label.text()
         self.info_label.setText(
-            f"Show generated!\nSegments: {len(self.segment_times)-1}, Firework firings: {len(self.firework_firing)}"
+            current_text +
+            f"\nShow generated!\nSegments: {len(self.segment_times)-1}, Firework firings: {len(self.firework_firing)}"
         )
 
     def plot_waveform(self):
@@ -339,10 +377,6 @@ class FireworkShowApp(QMainWindow):
 
         # periods_info now contains all detected similar periods with start/end times
         return periods_info, segment_times
-
-    # Update the fireworks_canvas background based on selection
-    def update_background(self, background):
-        self.fireworks_canvas.paintEvent(background)
 
     def simple_beatsample(self, audio_data, sr, segment_times):
         # Calculate beat times in seconds
