@@ -1,9 +1,10 @@
-name: Hello, World Workflow
+name: Hello, World
+
 on: workflow_dispatch
+
 jobs:
   say_hello:
     name: "Say Hello!"
     runs-on: ubuntu-latest
     steps:
       - run: echo "Hello, World!"
-      - run: echo "This is a GitHub Actions workflow example."
