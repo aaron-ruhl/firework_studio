@@ -36,6 +36,7 @@ class FireworkPreviewWidget(QWidget):
         self.duration = 0
         self.resume=False
         self.fireworks_colors = []
+        self.audio_thread = None
 
     def set_show_data(self, audio_data, sr, segment_times, firework_firing):
         self.audio_data = audio_data
@@ -47,12 +48,18 @@ class FireworkPreviewWidget(QWidget):
         else:
             self.duration = 0
         self.update()
-
     def start_preview(self):
         if self.audio_data is not None and self.sr is not None:
             sd.stop()
             # Start playback from current_time, not from 0
-            sd.play(self.audio_data[int(self.current_time * self.sr):], self.sr, blocking=False)
+            import threading
+            def play_audio():
+                sd.play(self.audio_data[int(self.current_time * self.sr):], self.sr, blocking=False)
+            if self.audio_thread is not None and self.audio_thread.is_alive():
+                # Wait for previous thread to finish
+                self.audio_thread.join(timeout=1)
+            self.audio_thread = threading.Thread(target=play_audio, daemon=True)
+            self.audio_thread.start()
         # Only reset current_time if starting from the beginning
         if not self.resume:
             self.current_time = 0
@@ -62,21 +69,34 @@ class FireworkPreviewWidget(QWidget):
         self.preview_timer = QTimer(self)
         self.preview_timer.timeout.connect(self.advance_preview)
         self.preview_timer.start(50)  # 20 FPS
-        
+
     def toggle_play_pause(self):
         if self.preview_timer and self.preview_timer.isActive():
-            self.pause_preview()
+            self.preview_timer.stop()
+            try:
+                if sd.get_stream() is not None:
+                    sd.stop(ignore_errors=True)
+            except RuntimeError:
+                pass
+            self.resume = True
         else:
             self.start_preview()
 
-    def pause_preview(self):
+    def stop_preview(self):
+        if self.audio_data is None or self.sr is None:
+            return
         if self.preview_timer and self.preview_timer.isActive():
             self.preview_timer.stop()
-            self.resume = True
-        if sd.get_stream() is not None:
-            sd.stop(ignore_errors=True)
-
-    def stop_preview(self):
+        self.current_time = 0
+        try:
+            if sd.get_stream() is not None:
+                sd.stop(ignore_errors=True)
+        except RuntimeError:
+            pass
+        if self.audio_thread is not None and self.audio_thread.is_alive():
+            self.audio_thread.join(timeout=1)
+            self.audio_thread = None
+        self.update()
         if self.audio_data is None or self.sr is None:
             return
         if self.preview_timer and self.preview_timer.isActive():
@@ -106,18 +126,19 @@ class FireworkPreviewWidget(QWidget):
         self.firework_colors.append(
             QColor(random.randint(50, 255), random.randint(50, 255), random.randint(50, 255))
         )
-        self.update()
-
-    def get_firework_colors(self):
-        if not hasattr(self, 'firework_colors'):
-            return []
-        return self.firework_colors
-    
     def advance_preview(self):
-        self.current_time += 0.05
-        if self.current_time > self.duration:
-            if self.preview_timer is not None:
+        if self.audio_data is None or self.sr is None or self.duration == 0:
+            return
+        self.current_time += 0.05  # 50 ms per timer tick
+        if self.current_time >= self.duration:
+            self.current_time = self.duration
+            if self.preview_timer:
                 self.preview_timer.stop()
+            try:
+                if sd.get_stream() is not None:
+                    sd.stop(ignore_errors=True)
+            except RuntimeError:
+                pass
         self.update()
 
     def paintEvent(self, event):
@@ -140,14 +161,14 @@ class FireworkPreviewWidget(QWidget):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
         # Draw segments
-        if self.segment_times is not None:
+        if self.segment_times is not None and self.duration:
             for t in self.segment_times:
                 x = left_margin + usable_w * t / self.duration
                 painter.setPen(QColor(255, 165, 0))
                 painter.drawLine(int(x), timeline_y - 100, int(x), timeline_y + 100)
 
         # Draw firework firings
-        if self.firework_firing is not None:
+        if self.firework_firing is not None and self.duration:
             if not hasattr(self, 'firework_colors') or len(self.firework_colors) != len(self.firework_firing):
                 # Generate and store a random color for each firing
                 self.firework_colors = [
@@ -171,4 +192,3 @@ class FireworkPreviewWidget(QWidget):
             playhead_x = left_margin + usable_w * self.current_time / self.duration
             painter.setPen(QColor(0, 255, 0))
             painter.drawLine(int(playhead_x), timeline_y - 40, int(playhead_x), timeline_y + 40)
-        w = self.width()

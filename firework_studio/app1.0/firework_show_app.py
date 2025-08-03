@@ -1,6 +1,6 @@
 # firework_show_app.py
 # This is the main application file for the Firework Studio, which includes the main window and
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal
 from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -16,7 +16,41 @@ import librosa.display
 
 from fireworks_canvas import FireworksCanvas
 from fireworks_preview import FireworkPreviewWidget
+class SimpleBeatSampleThread(QThread):
+        finished = pyqtSignal(object)
 
+        def __init__(self, audio_data, sr, segment_times):
+            super().__init__()
+            self.audio_data = audio_data
+            self.sr = sr
+            self.segment_times = segment_times
+
+        def run(self):
+            _, beats = librosa.beat.beat_track(y=self.audio_data, sr=self.sr)
+            beat_times = librosa.frames_to_time(beats, sr=self.sr)
+
+            beat_interval = 5  # target seconds between sampled beats
+            cluster_window = 2 # seconds for clustering
+
+            firework_firing = []
+            for i in range(len(self.segment_times) - 1):
+                seg_start = self.segment_times[i]
+                seg_end = self.segment_times[i + 1]
+                beats_in_seg = beat_times[(beat_times >= seg_start) & (beat_times < seg_end)]
+                if len(beats_in_seg) > 0:
+                    last_time = seg_start
+                    for bt in beats_in_seg:
+                        if bt - last_time >= beat_interval or len(firework_firing) == 0:
+                            firework_firing.append(bt)
+                            last_time = bt
+                    seg_center = (seg_start + seg_end) / 2
+                    clustered = beats_in_seg[(np.abs(beats_in_seg - seg_center) < cluster_window)]
+                    for bt in clustered:
+                        if bt not in firework_firing:
+                            firework_firing.append(bt)
+            firework_firing = np.sort(np.array(firework_firing))
+            self.finished.emit(firework_firing)
+            
 class ToastDialog(QDialog):
     def __init__(self, message, parent=None):
         super().__init__(parent)
@@ -40,9 +74,60 @@ class ToastDialog(QDialog):
         layout.addWidget(label)
         self.adjustSize()
 
+class AudioLoaderThread(QThread):
+    audio_loaded = pyqtSignal(list, int)
+
+    def __init__(self, paths):
+        super().__init__()
+        self.paths = paths
+
+    def run(self):
+        audio_datas = []
+        sr = None
+        for path in self.paths:
+            y, s = librosa.load(path, sr=None)
+            if sr is None:
+                sr = s
+            elif sr != s:
+                y = librosa.resample(y, orig_sr=s, target_sr=sr)
+            audio_datas.append(y)
+        self.audio_loaded.emit(audio_datas, sr)
+
+class SegmenterThread(QThread):
+    segments_ready = pyqtSignal(list, object)
+
+    def __init__(self, audio_datas, sr):
+        super().__init__()
+        self.audio_datas = audio_datas
+        self.sr = sr
+
+    def run(self):
+        all_periods_info = []
+        all_segment_times = []
+        offset = 0.0
+        for idx, y in enumerate(self.audio_datas):
+            chroma = librosa.feature.chroma_cqt(y=y, sr=self.sr)
+            recurrence = librosa.segment.recurrence_matrix(chroma, mode='affinity', sym=True)
+            segments = librosa.segment.agglomerative(recurrence, k=8)
+            segment_times = librosa.frames_to_time(segments, sr=self.sr)
+            segment_times_offset = segment_times + offset
+            for i in range(len(segment_times_offset) - 1):
+                start_min, start_sec = divmod(int(segment_times_offset[i]), 60)
+                end_min, end_sec = divmod(int(segment_times_offset[i+1]), 60)
+                all_periods_info.append({
+                    'start': f"{start_min:02d}:{start_sec:02d}",
+                    'end': f"{end_min:02d}:{end_sec:02d}",
+                    'segment_id': len(all_periods_info)
+                })
+            if idx == 0:
+                all_segment_times.extend(segment_times_offset)
+            else:
+                all_segment_times.extend(segment_times_offset[1:])
+            offset += librosa.get_duration(y=y, sr=self.sr)
+        self.segments_ready.emit(all_periods_info, np.array(all_segment_times))
+
 '''THIS IS THE MAIN WINDOW CLASS FOR THE FIREWORK STUDIO APPLICATION'''
 class FireworkShowApp(QMainWindow):
-
     def __init__(self):
         super().__init__()
         # Set dark theme palette for the entire application
@@ -277,7 +362,13 @@ class FireworkShowApp(QMainWindow):
             self.play_pause_btn.setChecked(False)
             self.play_pause_btn.setText("▶️")
             self.play_pause_btn.blockSignals(False)
-            self.generate_btn.setText("Generating show...")
+            # Show "Generating show..." toast persistently until generation is done
+            self.generating_toast = ToastDialog("Generating show...", parent=self)
+            geo = self.geometry()
+            x = geo.x() + geo.width() - self.generating_toast.width() - 40
+            y = geo.y() + geo.height() - self.generating_toast.height() - 40
+            self.generating_toast.move(x, y)
+            self.generating_toast.show()
             QApplication.processEvents()
             self.update_preview_widget()
             self.generate_btn.setText("Generate Fireworks Show")
@@ -300,10 +391,10 @@ class FireworkShowApp(QMainWindow):
         layout.addWidget(self.waveform_canvas)
 
         layout.addWidget(self.preview_widget)
-
+        # Use a worker thread for loading audio and segmenting to keep UI responsive
+        # Override load_audio to use the worker thread
+        
     def load_audio(self):
-        """Load one or more audio files, concatenate, and update waveform display."""
-        # Reset segments and firework firings when loading new audio
         self.segment_times = None
         self.firework_firing = None
         self.fireworks_canvas.reset_fireworks()
@@ -312,59 +403,85 @@ class FireworkShowApp(QMainWindow):
         if paths:
             self.info_label.setText(f"Loading audio from: {', '.join(paths)}")
             QApplication.processEvents()
-            self.audio_datas = []
-            sr = None
-            for path in paths:
-                y, s = librosa.load(path, sr=None)
-                if sr is None:
-                    sr = s
-                elif sr != s:
-                    # Resample to first file's sample rate
-                    y = librosa.resample(y, orig_sr=s, target_sr=sr)
-                self.audio_datas.append(y)
-            self.audio_data = np.concatenate(self.audio_datas)
-            self.sr = sr
-            self.audio_path = paths[0] if len(paths) == 1 else None  # Only keep path if single file
+            self.audio_loader_thread = AudioLoaderThread(paths)
+            self.audio_loader_thread.audio_loaded.connect(self.on_audio_loaded)
+            self.audio_loader_thread.start()
 
-            self.plot_waveform()  # Draw waveform as soon as audio is loaded
-
-            duration = librosa.get_duration(y=self.audio_data, sr=self.sr)
-            self.info_label.setText("")
-            toast = ToastDialog(
-                f"Loaded: {len(paths)} file(s)\nSample Rate: {self.sr} Hz, Duration: {duration:.2f} seconds",
-                parent=self
-            )
-            # Position at bottom right of main window
-            geo = self.geometry()
-            x = geo.x() + geo.width() - toast.width() - 40
-            y = geo.y() + geo.height() - toast.height() - 40
-            toast.move(x, y)
-            toast.show()
-            QTimer.singleShot(7500, toast.close)
-            self.waveform_canvas.figure.patch.set_facecolor('black')
-            ax = self.waveform_canvas.figure.axes[0]
-            ax.set_facecolor('black')
-            ax.tick_params(axis='x', colors='white')
-            ax.tick_params(axis='y', colors='white')
-            self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, self.firework_firing)
-
-    def update_preview_widget(self):
-        self.periods_info, self.segment_times = self.make_segments(self.sr)
-        self.firework_firing = self.simple_beatsample(self.audio_data, self.sr, self.segment_times)
-        self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, self.firework_firing)
-        # Show a small dialog box at the bottom right that pops up then goes away
-
+    def on_audio_loaded(self, audio_datas, sr):
+        self.audio_datas = audio_datas
+        self.audio_data = np.concatenate(self.audio_datas)
+        self.sr = sr
+        self.audio_path = None if len(self.audio_datas) > 1 else None
+        self.plot_waveform()
+        duration = librosa.get_duration(y=self.audio_data, sr=self.sr)
+        self.info_label.setText("")
         toast = ToastDialog(
-            f"Show generated!\nSegments: {len(self.segment_times)-1}, Firework firings: {len(self.firework_firing)}",
-            parent=self
+        f"Loaded: {len(self.audio_datas)} file(s)\nSample Rate: {self.sr} Hz, Duration: {duration:.2f} seconds",
+        parent=self
         )
-        # Position at bottom right of main window
         geo = self.geometry()
         x = geo.x() + geo.width() - toast.width() - 40
         y = geo.y() + geo.height() - toast.height() - 40
         toast.move(x, y)
         toast.show()
         QTimer.singleShot(7500, toast.close)
+        self.waveform_canvas.figure.patch.set_facecolor('black')
+        ax = self.waveform_canvas.figure.axes[0]
+        ax.set_facecolor('black')
+        ax.tick_params(axis='x', colors='white')
+        ax.tick_params(axis='y', colors='white')
+        self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, self.firework_firing)
+
+    # Override make_segments to use the worker thread
+    def make_segments(self, sr):
+        # Start segmenter thread and return after segments_ready signal
+        self.segmenter_thread = SegmenterThread(self.audio_datas, sr)
+        result = {}
+
+        def on_segments_ready(periods_info, segment_times):
+            result['periods_info'] = periods_info
+            result['segment_times'] = segment_times
+
+        self.segmenter_thread.segments_ready.connect(on_segments_ready)
+        self.segmenter_thread.start()
+        self.segmenter_thread.wait()
+        return result.get('periods_info', []), result.get('segment_times', None)
+   
+    def update_preview_widget(self):
+        # Run segmentation and beat sampling in background threads to keep UI responsive
+        def on_segments_ready(periods_info, segment_times):
+            self.periods_info = periods_info
+            self.segment_times = segment_times
+
+            def on_beats_ready(firework_firing):
+                self.firework_firing = firework_firing
+                self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, self.firework_firing)
+                toast = ToastDialog(
+                    f"Show generated!\nSegments: {len(self.segment_times)-1}, Firework firings: {len(self.firework_firing)}",
+                    parent=self
+                )
+                geo = self.geometry()
+                x = geo.x() + geo.width() - toast.width() - 40
+                y = geo.y() + geo.height() - toast.height() - 40
+                toast.move(x, y)
+                toast.show()
+                QTimer.singleShot(7500, toast.close)
+                # Remove reference to thread after finished
+                if hasattr(self, "_running_threads"):
+                    self._running_threads.remove(thread)
+
+            # Start beat sampling in background
+            if not hasattr(self, "_running_threads"):
+                self._running_threads = []
+            thread = SimpleBeatSampleThread(self.audio_data, self.sr, self.segment_times)
+            thread.finished.connect(on_beats_ready)
+            self._running_threads.append(thread)
+            thread.start()
+
+        # Start segmentation in background
+        self.segmenter_thread = SegmenterThread(self.audio_datas, self.sr)
+        self.segmenter_thread.segments_ready.connect(on_segments_ready)
+        self.segmenter_thread.start()
 
     def plot_waveform(self):
         # Enable interactive zooming/panning for the waveform canvas
@@ -437,65 +554,16 @@ class FireworkShowApp(QMainWindow):
         if self.audio_data is not None and self.firework_firing is not None:
             self.preview_widget.start_preview()
 
-    def make_segments(self,sr):
-        # Make segments for each entry in self.audio_datas, then concatenate
-        all_periods_info = []
-        all_segment_times = []
-        offset = 0.0
-        for idx, y in enumerate(self.audio_datas):
-            # Compute self-similarity matrix using chroma features
-            chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
-            recurrence = librosa.segment.recurrence_matrix(chroma, mode='affinity', sym=True)
-            # Segment the song using agglomerative clustering
-            segments = librosa.segment.agglomerative(recurrence, k=8)
-            segment_times = librosa.frames_to_time(segments, sr=sr)
-            # Offset segment times by the current offset (total duration so far)
-            segment_times_offset = segment_times + offset
-            # Organize information in a dictionary
-            for i in range(len(segment_times_offset) - 1):
-                start_min, start_sec = divmod(int(segment_times_offset[i]), 60)
-                end_min, end_sec = divmod(int(segment_times_offset[i+1]), 60)
-                all_periods_info.append({
-                    'start': f"{start_min:02d}:{start_sec:02d}",
-                    'end': f"{end_min:02d}:{end_sec:02d}",
-                    'segment_id': len(all_periods_info)
-                })
-            # Add segment times (except last, to avoid duplicate at joins)
-            if idx == 0:
-                all_segment_times.extend(segment_times_offset)
-            else:
-                all_segment_times.extend(segment_times_offset[1:])
-            # Update offset for next song
-            offset += librosa.get_duration(y=y, sr=sr)
-        # periods_info now contains all detected similar periods with start/end times
-        return all_periods_info, np.array(all_segment_times)
-
-    def simple_beatsample(self, audio_data, sr, segment_times):
-        # Calculate beat times in seconds
-        _, beats = librosa.beat.beat_track(y=audio_data, sr=sr)
-        beat_times = librosa.frames_to_time(beats, sr=sr)
-
-        beat_interval = 5  # target seconds between sampled beats
-        cluster_window = 2 # seconds for clustering
-
-        # Sample beats: start with first beat in each segment, then add clustered beats within cluster_window
-        firework_firing = []
-        for i in range(len(segment_times) - 1):
-            seg_start = segment_times[i]
-            seg_end = segment_times[i + 1]
-            beats_in_seg = beat_times[(beat_times >= seg_start) & (beat_times < seg_end)]
-            if len(beats_in_seg) > 0:
-                # Sample every ~beat_interval seconds
-                last_time = seg_start
-                for bt in beats_in_seg:
-                    if bt - last_time >= beat_interval or len(firework_firing) == 0:
-                        firework_firing.append(bt)
-                        last_time = bt
-                # Add clustered beats within cluster_window near segment center
-                seg_center = (seg_start + seg_end) / 2
-                clustered = beats_in_seg[(np.abs(beats_in_seg - seg_center) < cluster_window)]
-                for bt in clustered:
-                    if bt not in firework_firing:
-                        firework_firing.append(bt)
-        firework_firing = np.sort(np.array(firework_firing))
-        return firework_firing
+    def simple_beatsample(self, audio_data, sr, segment_times, callback=None):
+        # Run beat sampling in a worker thread to keep UI responsive
+        if audio_data is None or sr is None or segment_times is None:
+            return None
+        def on_finished(firework_firing):
+            self.firework_firing = firework_firing
+            if callback:
+                callback(firework_firing)
+        thread = SimpleBeatSampleThread(audio_data, sr, segment_times)
+        thread.finished.connect(on_finished)
+        thread.start()
+        # Do not call thread.wait() here; let it run asynchronously
+        return None
