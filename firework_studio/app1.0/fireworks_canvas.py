@@ -63,14 +63,20 @@ class FireworksCanvas(QWidget):
         gradient.setColorAt(1.0, QColor(30, 30, 80))
         painter.fillRect(self.rect(), gradient)
 
-        # Draw stars
-        star_count = 120
+        # Draw stars (flicker less, drawn down to waterline)
+        coastline_height = int(self.height() * 0.15)
+        coastline_y = self.height() - coastline_height
+        star_count = 180
+        # Use a fixed random seed per frame for consistent star positions and brightness
+        random.seed(42)
         for _ in range(star_count):
             x = random.randint(0, self.width())
-            y = random.randint(0, int(self.height() * 0.5))
+            y = random.randint(0, coastline_y)
+            # Flicker less: brightness is fixed per star, not per frame
             brightness = random.randint(180, 255)
             painter.setPen(QColor(brightness, brightness, brightness))
             painter.drawPoint(x, y)
+        random.seed()  # Reset random seed
 
         # Draw moon
         moon_radius = 28

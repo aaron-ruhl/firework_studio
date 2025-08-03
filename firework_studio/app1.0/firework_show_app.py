@@ -118,41 +118,6 @@ class FireworkShowApp(QMainWindow):
         fireworks_canvas_layout.addWidget(self.fireworks_canvas)
         layout.addWidget(fireworks_canvas_container, stretch=5)
 
-        # Create controls
-        controls_layout = QHBoxLayout()
-        controls_layout.addStretch()  # Pushes the clear button to the right
-
-        # Clear show button (styled to match Add Firing)
-        self.clear_btn = QPushButton("Clear Show")
-        clear_btn_style = """
-            QPushButton {
-            background-color: #1976d2;
-            color: #fff;
-            border: none;
-            border-radius: 8px;
-            padding: 8px 18px;
-            font-size: 16px;
-            font-weight: bold;
-            margin: 0 6px;
-            min-width: 110px;
-            min-height: 36px;
-            }
-            QPushButton:hover {
-            background-color: #1565c0;
-            }
-            QPushButton:pressed {
-            background-color: #0d47a1;
-            }
-        """
-        self.clear_btn.setStyleSheet(clear_btn_style)
-        def clear_show():
-            self.fireworks_canvas.reset_fireworks()
-            self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, None)
-        self.clear_btn.clicked.connect(clear_show)
-        controls_layout.addWidget(self.clear_btn)
-
-        layout.addLayout(controls_layout)
-
         # Define these here because it is used in the media playback controls
         self.preview_widget = FireworkPreviewWidget()
         self.preview_widget.setMinimumHeight(150)  # Make the preview widget taller
@@ -218,14 +183,25 @@ class FireworkShowApp(QMainWindow):
         self.add_firing_btn.clicked.connect(lambda: self.preview_widget.add_time(1))
         media_controls_layout.addWidget(self.add_firing_btn)
 
+                # Clear show button (styled to match Add Firing)
+        self.clear_btn = QPushButton("Clear Show")
+        self.clear_btn.setStyleSheet(button_style)
+        def clear_show():
+            self.fireworks_canvas.reset_fireworks()
+            self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, None)
+        self.clear_btn.clicked.connect(clear_show)
+        media_controls_layout.addWidget(self.clear_btn)
+
         # Ensure all media control buttons are perfectly aligned horizontally
         # by setting a fixed height for all buttons and aligning them to the center
         button_height = 40
+    
         self.play_pause_btn.setFixedSize(40, button_height)
         self.stop_btn.setFixedSize(40, button_height)
         self.add_firing_btn.setFixedHeight(button_height)
+        self.clear_btn.setFixedHeight(button_height)
         # Set the size policy to ensure vertical alignment
-        for btn in [self.play_pause_btn, self.stop_btn, self.add_firing_btn]:
+        for btn in [self.play_pause_btn, self.stop_btn, self.add_firing_btn, self.clear_btn]:
             btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
 
         layout.addLayout(media_controls_layout)
