@@ -88,7 +88,13 @@ class FireworkShowApp(QMainWindow):
 
         ''' Fireworks show generator button'''
         self.generate_btn = QPushButton("Generate Fireworks Show")
-        self.generate_btn.clicked.connect(self.update_preview_widget)
+        self.info_label.setText("Click to generate fireworks show based on audio.")
+        def on_generate_clicked():
+            self.generate_btn.setText("Generating show...")
+            QApplication.processEvents()
+            self.update_preview_widget()
+            self.generate_btn.setText("Generate Fireworks Show")
+        self.generate_btn.clicked.connect(on_generate_clicked)
         layout.addWidget(self.generate_btn)
 
         ''' Fireworks Show Preview Screen'''
@@ -162,7 +168,7 @@ class FireworkShowApp(QMainWindow):
             """
             font-size: 20px;
             border-radius: 20px;
-            background-color: #1976d2;
+            background-color: #2196f3;
             color: white;
             """
         )
@@ -179,7 +185,7 @@ class FireworkShowApp(QMainWindow):
             """
             font-size: 20px;
             border-radius: 20px;
-            background-color: #1976d2;
+            background-color: #2196f3;
             color: white;
             """
         )
