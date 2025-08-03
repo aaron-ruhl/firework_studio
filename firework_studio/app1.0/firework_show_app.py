@@ -109,17 +109,6 @@ class FireworkShowApp(QMainWindow):
 
         # Create controls
         controls_layout = QHBoxLayout()
-        # Color picker button
-        self.color_button = QPushButton("Choose Color")
-        self.color_button.clicked.connect(self.choose_color)
-        controls_layout.addWidget(self.color_button)
-        # Pattern selector
-        pattern_label = QLabel("Pattern:")
-        self.pattern_combo = QComboBox()
-        self.pattern_combo.addItems(["Random", "Circle", "Heart", "Text"])
-        self.pattern_combo.currentTextChanged.connect(self.update_pattern)
-        controls_layout.addWidget(pattern_label)
-        controls_layout.addWidget(self.pattern_combo)
         # Background selector
         background_label = QLabel("Background:")
         self.background_combo = QComboBox()
@@ -128,7 +117,12 @@ class FireworkShowApp(QMainWindow):
         controls_layout.addWidget(background_label)
         controls_layout.addWidget(self.background_combo)
         layout.addLayout(controls_layout)
-        
+
+        # Clear show button
+        self.clear_btn = QPushButton("Clear Show")
+        self.clear_btn.clicked.connect(self.fireworks_canvas.reset_fireworks)
+        controls_layout.addWidget(self.clear_btn)
+
         # Define these here because it is used in the media playback controls
         self.preview_widget = FireworkPreviewWidget()
         self.preview_widget.setMinimumHeight(150)  # Make the preview widget taller
@@ -222,6 +216,11 @@ class FireworkShowApp(QMainWindow):
         layout.addWidget(self.preview_widget)
 
     def load_audio(self):
+        """Load audio file and update waveform display."""
+        # Reset segments and firework firings when loading new audio
+        self.segment_times = None
+        self.firework_firing = None
+        self.fireworks_canvas.reset_fireworks()
         file_dialog = QFileDialog()
         path, _ = file_dialog.getOpenFileName(self, "Open Audio File", "", "Audio Files (*.wav *.mp3 *.ogg)")
         if path:
