@@ -1,5 +1,7 @@
+name: Hello World!
+
 on: workflow_dispatch
-name: Hello, World 
+
 jobs:
   say_hello:
     name: "Say Hello!"
