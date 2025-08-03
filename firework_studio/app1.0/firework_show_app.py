@@ -174,6 +174,7 @@ class FireworkShowApp(QMainWindow):
         file_dialog = QFileDialog()
         path, _ = file_dialog.getOpenFileName(self, "Open Audio File", "", "Audio Files (*.wav *.mp3 *.ogg)")
         if path:
+            self.info_label.setText(f"Loading audio from: {path}")
             self.audio_path = path
             self.audio_data, self.sr = librosa.load(path)
             self.periods_info, self.segment_times = self.make_segments(path)
@@ -182,13 +183,11 @@ class FireworkShowApp(QMainWindow):
            
             # Make waveform plot taller and higher contrast
             self.plot_waveform()
-            # Set background to black for contrast (only for matplotlib FigureCanvas)
-            if isinstance(self.waveform_canvas, FigureCanvas):
-                self.waveform_canvas.figure.patch.set_facecolor('black')
-                ax = self.waveform_canvas.figure.axes[0]
-                ax.set_facecolor('black')
-                ax.tick_params(axis='x', colors='white')
-                ax.tick_params(axis='y', colors='white')
+            self.waveform_canvas.figure.patch.set_facecolor('black')
+            ax = self.waveform_canvas.figure.axes[0]
+            ax.set_facecolor('black')
+            ax.tick_params(axis='x', colors='white')
+            ax.tick_params(axis='y', colors='white')
             self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, self.firework_firing)
 
     def plot_waveform(self):
