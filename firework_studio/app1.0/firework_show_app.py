@@ -1,30 +1,21 @@
-import sys
-import numpy as np
-from PyQt6.QtCore import Qt
+# firework_show_app.py
+# This is the main application file for the Firework Studio, which includes the main window and
+from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QColor
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.figure import Figure
-import librosa
-from PyQt6.QtCore import QTimer
-from matplotlib.backends.backend_qt import NavigationToolbar2QT
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QPushButton, QLabel, QSlider, QComboBox, QFileDialog, QColorDialog
+    QPushButton, QLabel, QFileDialog, QSizePolicy, QDialog
 )
+
+import numpy as np
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_qt import NavigationToolbar2QT
+import librosa
 import librosa.display
 
 from fireworks_canvas import FireworksCanvas
 from fireworks_preview import FireworkPreviewWidget
-from PyQt6.QtWidgets import QGraphicsRectItem, QGraphicsEllipseItem, QGraphicsPolygonItem
-from PyQt6.QtGui import QBrush, QPen, QColor, QPolygonF
-from PyQt6.QtCore import QPointF
-import random
-from PyQt6.QtWidgets import QGraphicsScene, QGraphicsView
-from PyQt6.QtGui import QLinearGradient, QBrush
-from PyQt6.QtGui import QPolygonF
-from PyQt6.QtWidgets import QSizePolicy
-from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel
-from PyQt6.QtCore import QTimer
 
 class ToastDialog(QDialog):
     def __init__(self, message, parent=None):
@@ -34,12 +25,14 @@ class ToastDialog(QDialog):
         self.setStyleSheet("""
             QDialog {
             background-color: rgba(40, 40, 40, 220);
-            border-radius: 10px;
+            border-radius: 14px;
+            min-width: 320px;
+            min-height: 80px;
             }
             QLabel {
             color: #fff;
-            padding: 12px 24px;
-            font-size: 16px;
+            padding: 18px 32px;
+            font-size: 20px;
             }
         """)
         layout = QVBoxLayout(self)
