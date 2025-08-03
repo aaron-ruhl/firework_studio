@@ -27,14 +27,14 @@ class FireworkPreviewWidget(QWidget):
         self.update()
 
     def start_preview(self):
-        if self.resume and self.preview_timer and self.preview_timer.isActive():
-            self.current_time = self.preview_timer.remainingTime() / 1000
-            self.resume = False
         if self.audio_data is not None and self.sr is not None:
             sd.stop()
+            # Start playback from current_time, not from 0
             sd.play(self.audio_data[int(self.current_time * self.sr):], self.sr, blocking=False)
-        self.current_time = 0
-        self.fired_times = []  # Reset fired times for new preview
+        # Only reset current_time if starting from the beginning
+        if not self.resume:
+            self.current_time = 0
+        self.resume = False
         if self.preview_timer:
             self.preview_timer.stop()
         self.preview_timer = QTimer(self)

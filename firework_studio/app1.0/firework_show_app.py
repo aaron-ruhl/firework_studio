@@ -85,7 +85,13 @@ class FireworkShowApp(QMainWindow):
         layout.addWidget(self.load_btn)
         self.info_label = QLabel("No audio loaded.")
         layout.addWidget(self.info_label)
-        ''' Fireworks Show Preview '''
+
+        ''' Fireworks show generator button'''
+        self.generate_btn = QPushButton("Generate Fireworks Show")
+        self.generate_btn.clicked.connect(self.update_preview_widget)
+        layout.addWidget(self.generate_btn)
+
+        ''' Fireworks Show Preview Screen'''
         fireworks_canvas_container = QWidget()
         fireworks_canvas_layout = QVBoxLayout(fireworks_canvas_container)
         fireworks_canvas_container.setMinimumHeight(425)  # Make the window/canvas taller
@@ -180,16 +186,14 @@ class FireworkShowApp(QMainWindow):
             # Load audio in a way that allows UI to update
             QApplication.processEvents()
             self.audio_data, self.sr = librosa.load(path)
-            self.plot_waveform()  # Draw waveform as soon as audio is loaded
-
-            QApplication.processEvents()
+            # Generate segments and firework firing info before displaying info
             self.periods_info, self.segment_times = self.make_segments(path)
             self.firework_firing = self.simple_beatsample(self.audio_data, self.sr, self.segment_times)
+            self.plot_waveform()  # Draw waveform as soon as audio is loaded
 
             self.info_label.setText(
                 f"Loaded: {path}\nSegments: {len(self.periods_info)}\nFirework firings: {len(self.firework_firing)}"
             )
-
             # Update waveform with segments and style
             self.plot_waveform()
             self.waveform_canvas.figure.patch.set_facecolor('black')
@@ -198,7 +202,10 @@ class FireworkShowApp(QMainWindow):
             ax.tick_params(axis='x', colors='white')
             ax.tick_params(axis='y', colors='white')
 
-            self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, self.firework_firing)
+    def update_preview_widget(self):
+        self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, self.firework_firing)
+        self.periods_info, self.segment_times = self.make_segments(self.audio_path)
+        self.firework_firing = self.simple_beatsample(self.audio_data, self.sr, self.segment_times)
 
     def plot_waveform(self):
         self.waveform_canvas.setFixedHeight(150)  # Increase height for better visibility
