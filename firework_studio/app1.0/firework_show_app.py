@@ -176,18 +176,28 @@ class FireworkShowApp(QMainWindow):
         if path:
             self.info_label.setText(f"Loading audio from: {path}")
             self.audio_path = path
+
+            # Load audio in a way that allows UI to update
+            QApplication.processEvents()
             self.audio_data, self.sr = librosa.load(path)
+            self.plot_waveform()  # Draw waveform as soon as audio is loaded
+
+            QApplication.processEvents()
             self.periods_info, self.segment_times = self.make_segments(path)
             self.firework_firing = self.simple_beatsample(self.audio_data, self.sr, self.segment_times)
-            self.info_label.setText(f"Loaded: {path}\nSegments: {len(self.periods_info)}\nFirework firings: {len(self.firework_firing)}")
-           
-            # Make waveform plot taller and higher contrast
+
+            self.info_label.setText(
+                f"Loaded: {path}\nSegments: {len(self.periods_info)}\nFirework firings: {len(self.firework_firing)}"
+            )
+
+            # Update waveform with segments and style
             self.plot_waveform()
             self.waveform_canvas.figure.patch.set_facecolor('black')
             ax = self.waveform_canvas.figure.axes[0]
             ax.set_facecolor('black')
             ax.tick_params(axis='x', colors='white')
             ax.tick_params(axis='y', colors='white')
+
             self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, self.firework_firing)
 
     def plot_waveform(self):
