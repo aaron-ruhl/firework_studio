@@ -280,24 +280,35 @@ class FireworkShowApp(QMainWindow):
         layout.addWidget(self.preview_widget)
 
     def load_audio(self):
-        """Load audio file and update waveform display."""
+        """Load one or more audio files, concatenate, and update waveform display."""
         # Reset segments and firework firings when loading new audio
         self.segment_times = None
         self.firework_firing = None
         self.fireworks_canvas.reset_fireworks()
         file_dialog = QFileDialog()
-        path, _ = file_dialog.getOpenFileName(self, "Open Audio File", "", "Audio Files (*.wav *.mp3 *.ogg)")
-        if path:
-            self.info_label.setText(f"Loading audio from: {path}")
-            self.audio_path = path
-
-            # Load audio in a way that allows UI to update
+        paths, _ = file_dialog.getOpenFileNames(self, "Open Audio File(s)", "", "Audio Files (*.wav *.mp3 *.ogg)")
+        if paths:
+            self.info_label.setText(f"Loading audio from: {', '.join(paths)}")
             QApplication.processEvents()
-            self.audio_data, self.sr = librosa.load(path)
+            self.audio_datas = []
+            sr = None
+            for path in paths:
+                y, s = librosa.load(path, sr=None)
+                if sr is None:
+                    sr = s
+                elif sr != s:
+                    # Resample to first file's sample rate
+                    y = librosa.resample(y, orig_sr=s, target_sr=sr)
+                self.audio_datas.append(y)
+            self.audio_data = np.concatenate(self.audio_datas)
+            self.sr = sr
+            self.audio_path = paths[0] if len(paths) == 1 else None  # Only keep path if single file
+
             self.plot_waveform()  # Draw waveform as soon as audio is loaded
 
+            duration = librosa.get_duration(y=self.audio_data, sr=self.sr)
             self.info_label.setText(
-                f"Loaded: {path}\nSample Rate: {self.sr} Hz, Duration: {librosa.get_duration(y=self.audio_data, sr=self.sr):.2f} seconds"
+                f"Loaded: {len(paths)} file(s)\nSample Rate: {self.sr} Hz, Duration: {duration:.2f} seconds"
             )
             self.waveform_canvas.figure.patch.set_facecolor('black')
             ax = self.waveform_canvas.figure.axes[0]
@@ -307,7 +318,7 @@ class FireworkShowApp(QMainWindow):
             self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, self.firework_firing)
 
     def update_preview_widget(self):
-        self.periods_info, self.segment_times = self.make_segments(self.audio_path)
+        self.periods_info, self.segment_times = self.make_segments(self.audio_data, self.sr)
         self.firework_firing = self.simple_beatsample(self.audio_data, self.sr, self.segment_times)
         self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, self.firework_firing)
         current_text = self.info_label.text()
@@ -352,9 +363,40 @@ class FireworkShowApp(QMainWindow):
         if self.audio_data is not None and self.firework_firing is not None:
             self.preview_widget.start_preview()
 
-    def make_segments(self, path):
+    def make_segments(self, audio_data, sr):
+        # Make segments for each entry in self.audio_datas, then concatenate
+        all_periods_info = []
+        all_segment_times = []
+        offset = 0.0
+        for idx, y in enumerate(self.audio_datas):
+            # Compute self-similarity matrix using chroma features
+            chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
+            recurrence = librosa.segment.recurrence_matrix(chroma, mode='affinity', sym=True)
+            # Segment the song using agglomerative clustering
+            segments = librosa.segment.agglomerative(recurrence, k=8)
+            segment_times = librosa.frames_to_time(segments, sr=sr)
+            # Offset segment times by the current offset (total duration so far)
+            segment_times_offset = segment_times + offset
+            # Organize information in a dictionary
+            for i in range(len(segment_times_offset) - 1):
+                start_min, start_sec = divmod(int(segment_times_offset[i]), 60)
+                end_min, end_sec = divmod(int(segment_times_offset[i+1]), 60)
+                all_periods_info.append({
+                    'start': f"{start_min:02d}:{start_sec:02d}",
+                    'end': f"{end_min:02d}:{end_sec:02d}",
+                    'segment_id': len(all_periods_info)
+                })
+            # Add segment times (except last, to avoid duplicate at joins)
+            if idx == 0:
+                all_segment_times.extend(segment_times_offset)
+            else:
+                all_segment_times.extend(segment_times_offset[1:])
+            # Update offset for next song
+            offset += librosa.get_duration(y=y, sr=sr)
+        # periods_info now contains all detected similar periods with start/end times
+        return all_periods_info, np.array(all_segment_times)
         # Use librosa to detect similar periods (repeating patterns) in the song
-        y, sr = librosa.load(path)
+        y = audio_data
         # Compute self-similarity matrix using chroma features
         chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
         recurrence = librosa.segment.recurrence_matrix(chroma, mode='affinity', sym=True)
