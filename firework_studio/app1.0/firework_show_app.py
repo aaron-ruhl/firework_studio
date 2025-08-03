@@ -2,7 +2,7 @@ import sys
 import numpy as np
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 import librosa
 
@@ -68,7 +68,7 @@ class FireworkShowApp(QMainWindow):
         self.setGeometry(100, 100, 1800, 1000)
 
         self.audio_path = None
-        self.y = None
+        self.audio_data = None
         self.sr = None
         self.segment_times = None
         self.periods_info = None
@@ -91,8 +91,8 @@ class FireworkShowApp(QMainWindow):
         fireworks_canvas_container.setMinimumHeight(425)  # Make the window/canvas taller
         fireworks_canvas_layout.setContentsMargins(0, 0, 0, 0)
         fireworks_canvas_layout.setSpacing(0)
-        self.canvas = FireworksCanvas()
-        fireworks_canvas_layout.addWidget(self.canvas)
+        self.fireworks_canvas = FireworksCanvas()
+        fireworks_canvas_layout.addWidget(self.fireworks_canvas)
         layout.addWidget(fireworks_canvas_container, stretch=5, )
 
         # Create controls
@@ -157,16 +157,16 @@ class FireworkShowApp(QMainWindow):
         layout.addLayout(media_controls_layout)
 
         ''' Canvas for waveform display and firework firing display '''
-        self.canvas = FigureCanvas(Figure(figsize=(20, 1)))
-        ax = self.canvas.figure.subplots()
+        self.waveform_canvas = FigureCanvas(Figure(figsize=(20, 1)))
+        ax = self.waveform_canvas.figure.subplots()
         ax.set_facecolor('black')
         ax.tick_params(axis='x', colors='white')
         ax.tick_params(axis='y', colors='white')
         ax.set_title("Waveform with Segments", color='white')
-        self.canvas.setFixedHeight(150)
-        self.canvas.figure.subplots_adjust(left=0, right=1, top=1, bottom=0)
-        layout.addWidget(self.canvas)
-        layout.addWidget(self.canvas)
+        self.waveform_canvas.setFixedHeight(150)
+        self.waveform_canvas.figure.subplots_adjust(left=0, right=1, top=1, bottom=0)
+        layout.addWidget(self.waveform_canvas)
+        layout.addWidget(self.waveform_canvas)
 
         layout.addWidget(self.preview_widget)
 
@@ -175,23 +175,25 @@ class FireworkShowApp(QMainWindow):
         path, _ = file_dialog.getOpenFileName(self, "Open Audio File", "", "Audio Files (*.wav *.mp3 *.ogg)")
         if path:
             self.audio_path = path
-            self.y, self.sr = librosa.load(path)
+            self.audio_data, self.sr = librosa.load(path)
             self.periods_info, self.segment_times = self.make_segments(path)
-            self.firework_firing = self.simple_beatsample(self.y, self.sr, self.segment_times)
+            self.firework_firing = self.simple_beatsample(self.audio_data, self.sr, self.segment_times)
             self.info_label.setText(f"Loaded: {path}\nSegments: {len(self.periods_info)}\nFirework firings: {len(self.firework_firing)}")
            
             # Make waveform plot taller and higher contrast
             self.plot_waveform()
-            self.canvas.figure.patch.set_facecolor('black')  # Set background to black for contrast
-            ax = self.canvas.figure.axes[0]
-            ax.set_facecolor('black')
-            ax.tick_params(axis='x', colors='white')
-            ax.tick_params(axis='y', colors='white')
-            self.preview_widget.set_show_data(self.y, self.sr, self.segment_times, self.firework_firing)
+            # Set background to black for contrast (only for matplotlib FigureCanvas)
+            if isinstance(self.waveform_canvas, FigureCanvas):
+                self.waveform_canvas.figure.patch.set_facecolor('black')
+                ax = self.waveform_canvas.figure.axes[0]
+                ax.set_facecolor('black')
+                ax.tick_params(axis='x', colors='white')
+                ax.tick_params(axis='y', colors='white')
+            self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, self.firework_firing)
 
     def plot_waveform(self):
-        self.canvas.setFixedHeight(150)  # Increase height for better visibility
-        ax = self.canvas.figure.subplots()
+        self.waveform_canvas.setFixedHeight(150)  # Increase height for better visibility
+        ax = self.waveform_canvas.figure.subplots()
         ax.clear()
         # Remove all spines and ticks for a seamless look
         for spine in ax.spines.values():
@@ -200,8 +202,10 @@ class FireworkShowApp(QMainWindow):
         ax.set_yticks([])
         ax.set_frame_on(False)
         # Make axes occupy the full canvas area, removing all padding/margins
-        ax.set_position([0, 0, 1, 1])
-        librosa.display.waveshow(self.y, sr=self.sr, ax=ax, alpha=0.5)
+        ax.set_position((0.0, 0.0, 1.0, 1.0))
+        if self.audio_data is not None:
+            sr = self.sr if self.sr is not None else 22050  # Default librosa sample rate
+            librosa.display.waveshow(self.audio_data, sr=sr, ax=ax, alpha=0.5)
         # Ensure all spines are invisible (removes white edge)
         for spine in ax.spines.values():
             spine.set_visible(False)
@@ -209,16 +213,18 @@ class FireworkShowApp(QMainWindow):
         ax.tick_params(axis='y', colors='white', length=0)
         ax.title.set_color('white')
         # Plot segments
-        for i, t in enumerate(self.segment_times):
-            ax.axvline(t, color='orange', linestyle='--', alpha=0.7)
+        if self.segment_times is not None:
+            for i, t in enumerate(self.segment_times):
+                ax.axvline(t, color='orange', linestyle='--', alpha=0.7)
         ax.set_title("Waveform with Segments")
         # Fit x-axis to audio duration
-        duration = librosa.get_duration(y=self.y, sr=self.sr)
-        ax.set_xlim([0, duration])
-        self.canvas.draw()
+        sr = float(self.sr) if self.sr is not None else 22050.0  # Default librosa sample rate as float
+        duration = librosa.get_duration(y=self.audio_data, sr=sr)
+        ax.set_xlim((0, duration))
+        self.waveform_canvas.draw()
 
     def preview_show(self):
-        if self.y is not None and self.firework_firing is not None:
+        if self.audio_data is not None and self.firework_firing is not None:
             self.preview_widget.start_preview()
 
     def make_segments(self, path):
@@ -249,24 +255,24 @@ class FireworkShowApp(QMainWindow):
         return periods_info, segment_times
     
     def update_particle_count(self, value):
-        self.canvas.particle_count = value
+        self.fireworks_canvas.particle_count = value
 
     def choose_color(self):
         color = QColorDialog.getColor()
         if color.isValid():
-            self.canvas.firework_color = color
+            self.fireworks_canvas.firework_color = color
 
     def update_pattern(self, pattern):
-        self.canvas.pattern = pattern
+        self.fireworks_canvas.pattern = pattern
         # Pattern implementation will be added later
 
     def update_background(self, background):
-        self.canvas.background = background
+        self.fireworks_canvas.background = background
         # Background implementation will be added later
     
-    def simple_beatsample(self, y, sr, segment_times):
+    def simple_beatsample(self, audio_data, sr, segment_times):
         # Calculate beat times in seconds
-        _, beats = librosa.beat.beat_track(y=y, sr=sr)
+        _, beats = librosa.beat.beat_track(y=audio_data, sr=sr)
         beat_times = librosa.frames_to_time(beats, sr=sr)
 
         beat_interval = 5  # target seconds between sampled beats
