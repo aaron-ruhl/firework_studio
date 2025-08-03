@@ -1,8 +1,8 @@
 import random
 import math
 from PyQt6.QtWidgets import QWidget
-from PyQt6.QtCore import QTimer, QPointF
-from PyQt6.QtGui import QColor, QPainter, QPen
+from PyQt6.QtCore import QTimer, QPointF, Qt
+from PyQt6.QtGui import QColor, QPainter, QPen, QLinearGradient, QRadialGradient
 
 
 '''THIS SECTION CONTAINS THE CODE FOR FIREWORKS SHOW PREVIEW AND PARTICLE EFFECTS'''
@@ -59,41 +59,74 @@ class FireworksCanvas(QWidget):
 
         # Draw background - night sky with a coastline
         # Draw sky gradient
-        from PyQt6.QtGui import QLinearGradient
         gradient = QLinearGradient(0, 0, 0, self.height())
         gradient.setColorAt(0.0, QColor(10, 10, 40))
         gradient.setColorAt(0.7, QColor(20, 20, 60))
         gradient.setColorAt(1.0, QColor(30, 30, 80))
         painter.fillRect(self.rect(), gradient)
 
-        # Draw stars (flicker less, drawn down to waterline)
+        # Draw stars (drawn down to waterline)
         coastline_height = int(self.height() * 0.15)
         coastline_y = self.height() - coastline_height
+        random.seed()  # Reset random seed
         star_count = 180
-        # Use a fixed random seed per frame for consistent star positions and brightness
-        random.seed(42)
         for _ in range(star_count):
             x = random.randint(0, self.width())
             y = random.randint(0, coastline_y)
-            # Flicker less: brightness is fixed per star, not per frame
+        # Dynamic stars: add/remove stars slowly
+        if not hasattr(self, "_dynamic_stars"):
+            self._dynamic_stars = set()
+            for _ in range(star_count):
+                sx = random.randint(0, self.width())
+                sy = random.randint(0, coastline_y)
+                self._dynamic_stars.add((sx, sy))
+        if not hasattr(self, "_star_tick"):
+            self._star_tick = 0
+        self._star_tick += 1
+        if self._star_tick > 120:  # About every 2 seconds at 60 FPS
+            self._star_tick = 0
+            # Remove a random star
+            if len(self._dynamic_stars) > 0:
+                self._dynamic_stars.pop()
+            # Add a new star
+            sx = random.randint(0, self.width())
+            sy = random.randint(0, coastline_y)
+            self._dynamic_stars.add((sx, sy))
+        for sx, sy in self._dynamic_stars:
             brightness = random.randint(180, 255)
             painter.setPen(QColor(brightness, brightness, brightness))
+            painter.drawPoint(sx, sy)
+            painter.setPen(QColor(brightness, brightness, brightness))
             painter.drawPoint(x, y)
-        random.seed()  # Reset random seed
 
-        # Draw moon
-        moon_radius = 28
+        
+        moon_radius = 38  # Increased from 28 to 38 for a bigger moon
         moon_x = int(self.width() * 0.8)
         moon_y = int(self.height() * 0.18)
-        painter.setBrush(QColor(230, 230, 210, 220))
-        painter.setPen(QColor(230, 230, 210, 220))
+        # Draw moon with texture and slightly yellow tint
+        moon_color = QColor(245, 235, 180, 220)  # Slightly yellowish
+        painter.setBrush(moon_color)
+        painter.setPen(moon_color)
         painter.drawEllipse(moon_x, moon_y, moon_radius, moon_radius)
+
+        # Subtle radial gradient for moon shading
+        grad = QRadialGradient(
+            moon_x + moon_radius // 2, moon_y + moon_radius // 2, moon_radius
+        )
+        grad.setColorAt(0.0, QColor(255, 255, 230, 180))
+        grad.setColorAt(0.7, QColor(230, 230, 210, 120))
+        grad.setColorAt(1.0, QColor(180, 180, 170, 80))
+        painter.setBrush(grad)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawEllipse(moon_x, moon_y, moon_radius, moon_radius)
+        painter.setPen(QColor(230, 230, 210, 220))  # Restore pen
 
         # Draw coastline silhouette
         coastline_height = int(self.height() * 0.15)
         coastline_y = self.height() - coastline_height
         painter.setPen(QColor(10, 10, 20))
         painter.setBrush(QColor(10, 10, 20))
+
         # Draw a wavy coastline
         path = []
         for i in range(0, self.width(), 10):
