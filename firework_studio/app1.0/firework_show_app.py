@@ -5,7 +5,8 @@ from PyQt6.QtGui import QColor
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 import librosa
-
+from PyQt6.QtCore import QTimer
+from matplotlib.backends.backend_qt import NavigationToolbar2QT
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QSlider, QComboBox, QFileDialog, QColorDialog
@@ -238,7 +239,6 @@ class FireworkShowApp(QMainWindow):
         media_controls_layout.insertWidget(0, self.current_time_label, alignment=Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
 
         # Update current_time_label whenever playback time changes
-        from PyQt6.QtCore import QTimer
 
         def update_time_label():
             if hasattr(self.preview_widget, "current_time"):
@@ -318,7 +318,7 @@ class FireworkShowApp(QMainWindow):
             self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, self.firework_firing)
 
     def update_preview_widget(self):
-        self.periods_info, self.segment_times = self.make_segments(self.audio_data, self.sr)
+        self.periods_info, self.segment_times = self.make_segments(self.sr)
         self.firework_firing = self.simple_beatsample(self.audio_data, self.sr, self.segment_times)
         self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, self.firework_firing)
         current_text = self.info_label.text()
@@ -328,6 +328,18 @@ class FireworkShowApp(QMainWindow):
         )
 
     def plot_waveform(self):
+        # Enable interactive zooming/panning for the waveform canvas
+        self.waveform_canvas.figure.clear()
+        self.waveform_canvas.figure.subplots()
+        self.waveform_canvas.figure.tight_layout()
+        self.waveform_canvas.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
+        self.waveform_canvas.setFocus()
+
+        # Enable matplotlib's built-in navigation toolbar for zoom/pan
+        if not hasattr(self, 'waveform_toolbar'):
+            self.waveform_toolbar = NavigationToolbar2QT(self.waveform_canvas, self)
+            parent_layout = self.centralWidget().layout()
+            parent_layout.insertWidget(parent_layout.indexOf(self.waveform_canvas), self.waveform_toolbar)
         self.waveform_canvas.setFixedHeight(150)  # Increase height for better visibility
         ax = self.waveform_canvas.figure.subplots()
         ax.clear()
@@ -363,7 +375,7 @@ class FireworkShowApp(QMainWindow):
         if self.audio_data is not None and self.firework_firing is not None:
             self.preview_widget.start_preview()
 
-    def make_segments(self, audio_data, sr):
+    def make_segments(self,sr):
         # Make segments for each entry in self.audio_datas, then concatenate
         all_periods_info = []
         all_segment_times = []
@@ -395,31 +407,6 @@ class FireworkShowApp(QMainWindow):
             offset += librosa.get_duration(y=y, sr=sr)
         # periods_info now contains all detected similar periods with start/end times
         return all_periods_info, np.array(all_segment_times)
-        # Use librosa to detect similar periods (repeating patterns) in the song
-        y = audio_data
-        # Compute self-similarity matrix using chroma features
-        chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
-        recurrence = librosa.segment.recurrence_matrix(chroma, mode='affinity', sym=True)
-
-        # Segment the song using agglomerative clustering
-        segments = librosa.segment.agglomerative(recurrence, k=8)  # k is the number of segments, adjust as needed
-
-        # Get segment boundaries in time
-        segment_times = librosa.frames_to_time(segments, sr=sr)
-
-        # Organize information in a dictionary
-        periods_info = []
-        for i in range(len(segment_times) - 1):
-            start_min, start_sec = divmod(int(segment_times[i]), 60)
-            end_min, end_sec = divmod(int(segment_times[i+1]), 60)
-            periods_info.append({
-                'start': f"{start_min:02d}:{start_sec:02d}",
-                'end': f"{end_min:02d}:{end_sec:02d}",
-                'segment_id': i
-            })
-
-        # periods_info now contains all detected similar periods with start/end times
-        return periods_info, segment_times
 
     def simple_beatsample(self, audio_data, sr, segment_times):
         # Calculate beat times in seconds

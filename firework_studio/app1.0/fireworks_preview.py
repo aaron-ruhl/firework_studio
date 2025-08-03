@@ -7,6 +7,23 @@ import random
 
 '''THIS IS THE BAR CLASS FOR ALONG THE BOTTOM TWO PLOTS'''
 class FireworkPreviewWidget(QWidget):
+    def set_zoom_region(self, start_time, end_time):
+        """
+        Set the visible region (in seconds) for the timeline.
+        Only firework firings and segments within this region will be shown.
+        """
+        self.zoom_start = start_time
+        self.zoom_end = end_time
+        self.update()
+
+    def clear_zoom(self):
+        """
+        Reset to show the full duration.
+        """
+        self.zoom_start = None
+        self.zoom_end = None
+        self.update()
+    
     def __init__(self):
         super().__init__()
         self.setMinimumHeight(200)
