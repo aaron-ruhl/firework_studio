@@ -336,18 +336,41 @@ class FireworkShowApp(QMainWindow):
         self.waveform_canvas.setFocus()
 
         # Enable matplotlib's built-in navigation toolbar for zoom/pan
+        # Add a compact, dark-themed navigation toolbar above the waveform
         if not hasattr(self, 'waveform_toolbar'):
             self.waveform_toolbar = NavigationToolbar2QT(self.waveform_canvas, self)
+            self.waveform_toolbar.setStyleSheet("""
+            QToolBar {
+                background: #181818;
+                border: none;
+                spacing: 2px;
+                padding: 2px 4px;
+                min-height: 28px;
+                max-height: 28px;
+            }
+            QToolButton {
+                background: transparent;
+                color: #e0e0e0;
+                border: none;
+                margin: 0 2px;
+                padding: 2px;
+                min-width: 22px;
+                min-height: 22px;
+            }
+            QToolButton:checked, QToolButton:pressed {
+                background: #222;
+            }
+            """)
+            self.waveform_toolbar.setIconSize(self.waveform_toolbar.iconSize().scaled(18, 18, Qt.AspectRatioMode.KeepAspectRatio))
             parent_layout = self.centralWidget().layout()
-            parent_layout.insertWidget(parent_layout.indexOf(self.waveform_canvas), self.waveform_toolbar)
+            idx = parent_layout.indexOf(self.waveform_canvas)
+            parent_layout.insertWidget(idx, self.waveform_toolbar)
+            ax = self.waveform_canvas.figure.axes[0]
+            ax.set_xticks([])
+            ax.set_yticks([])
         self.waveform_canvas.setFixedHeight(150)  # Increase height for better visibility
         ax = self.waveform_canvas.figure.subplots()
         ax.clear()
-        # Remove all spines and ticks for a seamless look
-        for spine in ax.spines.values():
-            spine.set_visible(False)
-        ax.set_xticks([])
-        ax.set_yticks([])
         ax.set_frame_on(False)
         # Make axes occupy the full canvas area, removing all padding/margins
         ax.set_position((0.0, 0.0, 1.0, 1.0))
@@ -357,9 +380,6 @@ class FireworkShowApp(QMainWindow):
         # Ensure all spines are invisible (removes white edge)
         for spine in ax.spines.values():
             spine.set_visible(False)
-        ax.tick_params(axis='x', colors='white', length=0)
-        ax.tick_params(axis='y', colors='white', length=0)
-        ax.title.set_color('white')
         # Plot segments
         if self.segment_times is not None:
             for i, t in enumerate(self.segment_times):
