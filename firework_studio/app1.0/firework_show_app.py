@@ -95,8 +95,23 @@ class FireworkShowApp(QMainWindow):
         layout.addWidget(self.info_label)
 
         ''' Fireworks show generator button'''
+        # This button also resets the show (like stop_btn) before generating
+        def generate_and_reset():
+            self.fireworks_canvas.reset_fireworks()
+            self.preview_widget.stop_preview()
+            # Always reset play/pause button state and icon so playback can start again
+            self.play_pause_btn.blockSignals(True)
+            self.play_pause_btn.setChecked(False)
+            self.play_pause_btn.setText("▶️")
+            self.play_pause_btn.blockSignals(False)
+            self.generate_btn.setText("Generating show...")
+            QApplication.processEvents()
+            self.update_preview_widget()
+            self.generate_btn.setText("Generate Fireworks Show")
         self.generate_btn = QPushButton("Generate Fireworks Show")
         self.info_label.setText("Click to generate fireworks show based on audio.")
+        self.generate_btn.clicked.connect(generate_and_reset)
+        layout.addWidget(self.generate_btn)
         def on_generate_clicked():
             self.generate_btn.setText("Generating show...")
             QApplication.processEvents()
@@ -183,12 +198,19 @@ class FireworkShowApp(QMainWindow):
         self.add_firing_btn.clicked.connect(lambda: self.preview_widget.add_time(1))
         media_controls_layout.addWidget(self.add_firing_btn)
 
-                # Clear show button (styled to match Add Firing)
-        self.clear_btn = QPushButton("Clear Show")
-        self.clear_btn.setStyleSheet(button_style)
+        # Clear show button (styled to match Add Firing)
+        # Also pause the show if playing
         def clear_show():
             self.fireworks_canvas.reset_fireworks()
             self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, None)
+            self.preview_widget.stop_preview()
+            # Always reset play/pause button state and icon so playback can start again
+            self.play_pause_btn.blockSignals(True)
+            self.play_pause_btn.setChecked(False)
+            self.play_pause_btn.setText("▶️")
+            self.play_pause_btn.blockSignals(False)
+        self.clear_btn = QPushButton("Clear Show")
+        self.clear_btn.setStyleSheet(button_style)
         self.clear_btn.clicked.connect(clear_show)
         media_controls_layout.addWidget(self.clear_btn)
 

@@ -21,11 +21,13 @@ class FireworksCanvas(QWidget):
         self.background = None
         self.fired_times = set()  # Track fired times
 
-    def add_firework(self, x=None):
+    def add_firework(self, x=None, color=None):
         if x is None:
             x = random.randint(0, self.width())
+        if color is None:
+            color = self.firework_color
         self.fireworks.append(Firework(x, self.height(), 
-                                     self.firework_color,
+                                     color,
                                      self.particle_count))
     def reset_fireworks(self):
         self.fireworks.clear()
@@ -44,8 +46,9 @@ class FireworksCanvas(QWidget):
             parent = parent.parentWidget()
         if preview_widget and preview_widget.firework_firing is not None:
             time_list = preview_widget.firework_firing
-            for t in time_list:
+            for idx, t in enumerate(time_list):
                 if abs(preview_widget.current_time - t) < 0.1 and t not in self.fired_times:
+                    self.firework_color = preview_widget.firework_colors[idx] if hasattr(preview_widget, "firework_colors") else QColor(255, 0, 0)
                     self.add_firework()
                     self.fired_times.add(t)
         self.update()

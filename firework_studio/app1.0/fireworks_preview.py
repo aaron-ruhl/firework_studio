@@ -65,8 +65,11 @@ class FireworkPreviewWidget(QWidget):
         if self.preview_timer and self.preview_timer.isActive():
             self.preview_timer.stop()
         self.current_time = 0
-        if sd.get_stream() is not None:
-            sd.stop(ignore_errors=True)
+        try:
+            if sd.get_stream() is not None:
+                sd.stop(ignore_errors=True)
+        except RuntimeError:
+            pass
         self.update()
 
     def add_time(self, seconds):
@@ -77,8 +80,22 @@ class FireworkPreviewWidget(QWidget):
         elif not isinstance(self.firework_firing, list):
             self.firework_firing = list(self.firework_firing)
         self.firework_firing.append(self.current_time)
+        # Add a new color for the new firing, keep existing colors
+        if not hasattr(self, 'firework_colors') or len(self.firework_colors) != len(self.firework_firing) - 1:
+            self.firework_colors = [
+                QColor(random.randint(50, 255), random.randint(50, 255), random.randint(50, 255))
+                for _ in self.firework_firing[:-1]
+            ]
+        self.firework_colors.append(
+            QColor(random.randint(50, 255), random.randint(50, 255), random.randint(50, 255))
+        )
         self.update()
 
+    def get_firework_colors(self):
+        if not hasattr(self, 'firework_colors'):
+            return []
+        return self.firework_colors
+    
     def advance_preview(self):
         self.current_time += 0.05
         if self.current_time > self.duration:
