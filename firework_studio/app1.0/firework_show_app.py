@@ -130,24 +130,52 @@ class FireworkShowApp(QMainWindow):
         ''' Preview firework show button (needs to be updated with media playback controls) '''
         # Media playback controls layout
         media_controls_layout = QHBoxLayout()
+        button_style = """
+            QPushButton {
+            background-color: #333;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 18px;
+            font-size: 16px;
+            font-weight: bold;
+            margin: 0 6px;
+            min-width: 90px;
+            min-height: 36px;
+            transition: background 0.2s;
+            }
+            QPushButton:hover {
+            background-color: #444;
+            }
+            QPushButton:pressed {
+            background-color: #222;
+            }
+        """
 
-        # Play/Pause button
-        self.play_pause_btn = QPushButton("▶️")
+        # Play/Pause button with icon toggle
+        self.play_pause_btn = QPushButton()
         self.play_pause_btn.setFixedSize(40, 40)
-        self.play_pause_btn.setStyleSheet("font-size: 20px; border-radius: 20px; background-color: #222; color: white;")
         self.play_pause_btn.setCheckable(True)
-        self.play_pause_btn.clicked.connect(self.preview_widget.toggle_play_pause)
+        self.play_pause_btn.setStyleSheet(
+            "font-size: 20px; border-radius: 20px; background-color: #333; color: white;"
+        )
+        self.play_pause_btn.setText("▶️")
+        def toggle_icon(checked):
+            self.play_pause_btn.setText("⏸️" if checked else "▶️")
+            self.preview_widget.toggle_play_pause()
+        self.play_pause_btn.toggled.connect(toggle_icon)
         media_controls_layout.addWidget(self.play_pause_btn)
 
-        # Stop button
         self.stop_btn = QPushButton("⏹️")
         self.stop_btn.setFixedSize(40, 40)
-        self.stop_btn.setStyleSheet("font-size: 20px; border-radius: 20px; background-color: #222; color: white;")
+        self.stop_btn.setStyleSheet(
+            "font-size: 20px; border-radius: 20px; background-color: #333; color: white;"
+        )
         self.stop_btn.clicked.connect(self.preview_widget.stop_preview)
         media_controls_layout.addWidget(self.stop_btn)
 
-        # add firing button
         self.add_firing_btn = QPushButton("Add Firing")
+        self.add_firing_btn.setStyleSheet(button_style)
         self.add_firing_btn.clicked.connect(lambda: self.preview_widget.add_time(1))
         media_controls_layout.addWidget(self.add_firing_btn)
 
