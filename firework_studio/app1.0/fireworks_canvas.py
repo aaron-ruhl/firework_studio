@@ -7,6 +7,7 @@ from PyQt6.QtGui import QColor, QPainter, QPen
 
 '''THIS SECTION CONTAINS THE CODE FOR FIREWORKS SHOW PREVIEW AND PARTICLE EFFECTS'''
 class FireworksCanvas(QWidget):
+
     def __init__(self):
         super().__init__()
         self.fireworks = []
@@ -29,6 +30,7 @@ class FireworksCanvas(QWidget):
     def reset_fireworks(self):
         self.fireworks.clear()
         self.fired_times.clear()
+
     def update_animation(self):
         self.fireworks = [fw for fw in self.fireworks if fw.update()]
         parent = self.parentWidget()
@@ -47,6 +49,7 @@ class FireworksCanvas(QWidget):
                     self.add_firework()
                     self.fired_times.add(t)
         self.update()
+
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -64,6 +67,7 @@ class FireworksCanvas(QWidget):
                     color = particle.get_color()
                     painter.setPen(QPen(color, 2))
                     painter.drawPoint(int(particle.x), int(particle.y))
+                    
 class Particle:
     def __init__(self, x, y, angle, speed, color, lifetime=100):
         self.x = x
@@ -105,10 +109,22 @@ class Firework:
 
     def explode(self):
         self.exploded = True
+        # Use a brighter color palette for particles
+        base_color = self.color
         for _ in range(self.particle_count):
             angle = random.uniform(0, 2 * math.pi)
-            speed = random.uniform(3.7, 5)
-            self.particles.append(Particle(self.x, self.y, angle, speed, self.color))
+            speed = random.uniform(4.5, 7)  # Faster, more energetic
+            # Vary color for brilliance
+            hue_shift = random.randint(-30, 30)
+            hsv = base_color.toHsv()
+            new_hue = (hsv.hue() + hue_shift) % 360 if hsv.hue() is not None else 0
+            new_color = QColor.fromHsv(new_hue, 255, 255)
+            # Add a few "sparkle" particles with white/yellow
+            if random.random() < 0.15:
+                sparkle_color = QColor(255, 255, random.randint(180, 255))
+                self.particles.append(Particle(self.x, self.y, angle, speed * 1.2, sparkle_color, lifetime=120))
+            else:
+                self.particles.append(Particle(self.x, self.y, angle, speed, new_color, lifetime=random.randint(90, 120)))
 
     def update(self):
         if not self.exploded:

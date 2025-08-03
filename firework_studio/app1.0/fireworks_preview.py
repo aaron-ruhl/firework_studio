@@ -3,6 +3,7 @@ from PyQt6.QtCore import QTimer, QRect, Qt
 from PyQt6.QtGui import QPainter, QColor
 import librosa
 import sounddevice as sd
+import random
 
 '''THIS IS THE BAR CLASS FOR ALONG THE BOTTOM TWO PLOTS'''
 class FireworkPreviewWidget(QWidget):
@@ -17,6 +18,7 @@ class FireworkPreviewWidget(QWidget):
         self.current_time = 0
         self.duration = 0
         self.resume=False
+        self.fireworks_colors = []
 
     def set_show_data(self, audio_data, sr, segment_times, firework_firing):
         self.audio_data = audio_data
@@ -80,25 +82,21 @@ class FireworkPreviewWidget(QWidget):
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.fillRect(self.rect(), QColor(30, 30, 40))
-        if self.audio_data is None or self.sr is None:
-            painter.setPen(QColor(255, 255, 255))
-            painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "Load audio to preview show.")
-            return
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-
-        # Remove all padding: draw from edge to edge
         
+        # Remove all padding: draw from edge to edge
         w, h = self.width(), self.height()
         left_margin = 0
         right_margin = 0
         usable_w = w - left_margin - right_margin
         usable_h = 150
         timeline_y = usable_h // 2
-
-        painter.setPen(QColor(200, 200, 200),)
-        # Draw horizontal line for timeline
+        
+        painter.setPen(QColor(200, 200, 200))
         painter.drawLine(left_margin, timeline_y, w - right_margin, timeline_y)
         painter.setWindow(QRect(0, 0, w, usable_h))
+
+
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
         # Draw segments
         if self.segment_times is not None:
@@ -109,19 +107,27 @@ class FireworkPreviewWidget(QWidget):
 
         # Draw firework firings
         if self.firework_firing is not None:
-            for ft in self.firework_firing:
+            if not hasattr(self, 'firework_colors') or len(self.firework_colors) != len(self.firework_firing):
+                # Generate and store a random color for each firing
+                self.firework_colors = [
+                    QColor(random.randint(50, 255), random.randint(50, 255), random.randint(50, 255))
+                    for _ in self.firework_firing
+                ]
+            for idx, ft in enumerate(self.firework_firing):
                 x = left_margin + usable_w * ft / self.duration
+                color = self.firework_colors[idx]
                 if abs(ft - self.current_time) < 0.1:
-                    painter.setBrush(QColor(255, 0, 0))
+                    painter.setBrush(color)
                     painter.setPen(QColor(255, 255, 0))
                     painter.drawEllipse(int(x) - 15, timeline_y - 35, 30, 30)
                 else:
-                    painter.setBrush(QColor(255, 0, 0))
-                    painter.setPen(QColor(255, 0, 0))
+                    painter.setBrush(color)
+                    painter.setPen(color)
                     painter.drawEllipse(int(x) - 5, timeline_y - 10, 10, 10)
 
         # Draw playhead
-        playhead_x = left_margin + usable_w * self.current_time / self.duration
-        painter.setPen(QColor(0, 255, 0))
-        painter.drawLine(int(playhead_x), timeline_y - 40, int(playhead_x), timeline_y + 40)
+        if self.duration and self.duration > 0:
+            playhead_x = left_margin + usable_w * self.current_time / self.duration
+            painter.setPen(QColor(0, 255, 0))
+            painter.drawLine(int(playhead_x), timeline_y - 40, int(playhead_x), timeline_y + 40)
         w = self.width()

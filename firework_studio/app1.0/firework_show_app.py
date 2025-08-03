@@ -148,7 +148,6 @@ class FireworkShowApp(QMainWindow):
             margin: 0 6px;
             min-width: 90px;
             min-height: 36px;
-            transition: background 0.2s;
             }
             QPushButton:hover {
             background-color: #1565c0;
@@ -232,26 +231,25 @@ class FireworkShowApp(QMainWindow):
             # Load audio in a way that allows UI to update
             QApplication.processEvents()
             self.audio_data, self.sr = librosa.load(path)
-            # Generate segments and firework firing info before displaying info
-            self.periods_info, self.segment_times = self.make_segments(path)
-            self.firework_firing = self.simple_beatsample(self.audio_data, self.sr, self.segment_times)
             self.plot_waveform()  # Draw waveform as soon as audio is loaded
 
             self.info_label.setText(
-                f"Loaded: {path}\nSegments: {len(self.periods_info)}\nFirework firings: {len(self.firework_firing)}"
+                f"Loaded: {path}\nSample Rate: {self.sr} Hz, Duration: {librosa.get_duration(y=self.audio_data, sr=self.sr):.2f} seconds"
             )
-            # Update waveform with segments and style
-            self.plot_waveform()
             self.waveform_canvas.figure.patch.set_facecolor('black')
             ax = self.waveform_canvas.figure.axes[0]
             ax.set_facecolor('black')
             ax.tick_params(axis='x', colors='white')
             ax.tick_params(axis='y', colors='white')
+            self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, self.firework_firing)
 
     def update_preview_widget(self):
-        self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, self.firework_firing)
         self.periods_info, self.segment_times = self.make_segments(self.audio_path)
         self.firework_firing = self.simple_beatsample(self.audio_data, self.sr, self.segment_times)
+        self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, self.firework_firing)
+        self.info_label.setText(
+            f"Show generated!\nSegments: {len(self.segment_times)-1}, Firework firings: {len(self.firework_firing)}"
+        )
 
     def plot_waveform(self):
         self.waveform_canvas.setFixedHeight(150)  # Increase height for better visibility
