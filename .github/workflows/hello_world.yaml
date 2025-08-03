@@ -1,10 +1,8 @@
-on: 
-push:
-branches:
-- master
-jobs:
-  say_hello:
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo "Hello, World!"
-      - run: echo "This is a GitHub Actions workflow example."
+on:
+  push:
+    jobs:
+      say_hello:
+        runs-on: ubuntu-latest
+        steps:
+          - run: echo "Hello, World!"
+          - run: echo "This is a GitHub Actions workflow example."
