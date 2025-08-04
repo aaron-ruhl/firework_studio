@@ -222,14 +222,9 @@ class FireworkPreviewWidget(QWidget):
             new_time = (x - left_margin) / usable_w * self.duration
             # Clamp to [0, duration]
             new_time = max(0, min(new_time, self.duration))
-            # Prevent overlap with neighbors (optional)
+            # Allow overlap with neighbors
             if self.firework_firing is not None:
                 idx = self.selected_firing
-                prev_time = self.firework_firing[idx - 1] if idx > 0 else 0
-                next_time = self.firework_firing[idx + 1] if idx < len(self.firework_firing) - 1 else self.duration
-                # Add a small margin to prevent overlap
-                margin = 0.01 * self.duration
-                new_time = max(prev_time + margin, min(new_time, next_time - margin))
                 self.firework_firing[idx] = new_time
             self.update()
         else:
