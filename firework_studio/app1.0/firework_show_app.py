@@ -382,12 +382,7 @@ class FireworkShowApp(QMainWindow):
                 self.play_pause_btn.setChecked(False)
                 self.play_pause_btn.setText("▶️")
                 self.play_pause_btn.blockSignals(False)
-                self.generating_toast = ToastDialog("Generating show...", parent=self)
-                geo = self.geometry()
-                x = geo.x() + geo.width() - self.generating_toast.width() - 40
-                y = geo.y() + geo.height() - self.generating_toast.height() - 40
-                self.generating_toast.move(x, y)
-                self.generating_toast.show()
+                self.info_label.setText("Generating fireworks show...")
                 QApplication.processEvents()
                 self.update_preview_widget()
                 btn.setText("Generate Fireworks Show")
@@ -520,6 +515,7 @@ class FireworkShowApp(QMainWindow):
                 self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, self.firework_firing, self.duration)
                 num_segments = len(self.segment_times) - 1 if self.segment_times is not None else 0
                 num_firings = len(self.firework_firing) if self.firework_firing is not None else 0
+                self.info_label.setText("")
                 toast = ToastDialog(
                     f"Show generated!\nSegments: {num_segments}, Firework firings: {num_firings}",
                     parent=self
