@@ -24,6 +24,7 @@ from beat_thread import SimpleBeatSampleThread
 from segment_thread import SegmenterThread
 from load_thread import AudioLoaderThread
 from toaster import ToastDialog
+from plot_wave import plot_waveform
             
 '''THIS IS THE MAIN WINDOW CLASS FOR THE FIREWORK STUDIO APPLICATION'''
 class FireworkShowApp(QMainWindow):
@@ -95,10 +96,17 @@ class FireworkShowApp(QMainWindow):
         fireworks_canvas_layout.addWidget(self.fireworks_canvas)
         layout.addWidget(fireworks_canvas_container, stretch=5)
 
-        # Define these here because it is used in the media playback controls
-        # but these are used in the FireworkPreviewWidget
+        ############################################################
+        #                                                          #
+        #        Fireworks Preview Widget                          #
+        #                                                          #
+        ############################################################
         self.preview_widget = FireworkPreviewWidget()
         self.preview_widget.setMinimumHeight(150)  # Make the preview widget taller
+        layout.addWidget(self.preview_widget, stretch=0, alignment=Qt.AlignmentFlag.AlignBottom)
+        # Enable mouse press tracking for the preview widget
+        self.preview_widget.setMouseTracking(True)
+        self.preview_widget.installEventFilter(self)
 
         ############################################################
         #                                                          #
@@ -107,6 +115,16 @@ class FireworkShowApp(QMainWindow):
         ############################################################
         media_controls_layout = QHBoxLayout()
         media_controls_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+        # Ensure all three buttons are aligned properly in the media_controls_layout
+        media_controls_layout.setSpacing(12)
+        media_controls_layout.setContentsMargins(0, 0, 0, 0)
+        media_controls_layout.addStretch()
+
+        #############################################################
+        #                                                          #
+        #        Style for all buttons in the media controls       #
+        #                                                          #
+        #############################################################
         button_style = """
             QPushButton {
             background-color: #2196f3;
@@ -126,21 +144,15 @@ class FireworkShowApp(QMainWindow):
             background-color: #1565c0;
             }
         """
-        # Ensure all three buttons are aligned properly in the media_controls_layout
-        media_controls_layout.setSpacing(12)
-        media_controls_layout.setContentsMargins(0, 0, 0, 0)
-        media_controls_layout.addStretch()
-        # Play/Pause button with icon toggle
-        self.play_pause_btn = QPushButton()
-        self.play_pause_btn.setFixedSize(40, 40)
-        self.play_pause_btn.setCheckable(True)
-        self.play_pause_btn.setText("▶️")
-
         ###############################################
         #                                             #
         #        Play/Pause button                    #
         #                                             #
         ###############################################
+        self.play_pause_btn = QPushButton()
+        self.play_pause_btn.setFixedSize(40, 40)
+        self.play_pause_btn.setCheckable(True)
+        self.play_pause_btn.setText("▶️")
         self.play_pause_btn.setStyleSheet(button_style)
         def toggle_icon(checked):
             # Use a more standard pause icon (two vertical bars)
@@ -238,22 +250,8 @@ class FireworkShowApp(QMainWindow):
                 qproperty-alignment: 'AlignVCenter | AlignLeft';
             }
         """)
-        self.current_time_label.setFixedWidth(70)
-
-        # Place the label at the left of the media controls
-
-        # Add info label to the right of the current_time_label, separated by a vertical line
-        vline = QFrame()
-        vline.setFrameShape(QFrame.Shape.VLine)
-        vline.setFrameShadow(QFrame.Shadow.Sunken)
-        vline.setStyleSheet("color: #444; background: #444; min-width: 2px;")
-        media_controls_layout.insertWidget(1, vline, alignment=Qt.AlignmentFlag.AlignVCenter)
-
-        self.info_label = QLabel("No audio loaded.")
-        self.info_label.setStyleSheet("color: #b0b0b0; font-size: 15px; padding-left: 12px;")
-        media_controls_layout.insertWidget(2, self.info_label, alignment=Qt.AlignmentFlag.AlignVCenter)
+        self.current_time_label.setFixedWidth(70)        
         media_controls_layout.insertWidget(0, self.current_time_label, alignment=Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        
 
         # Update current_time_label whenever playback time changes
         def update_time_label():
@@ -278,6 +276,22 @@ class FireworkShowApp(QMainWindow):
 
         self.play_pause_btn.toggled.connect(on_play_pause)
         self.stop_btn.clicked.connect(lambda: (self.current_time_label.setText("00:00"), self.time_update_timer.stop()))
+
+        ############################################################
+        #                                                         #
+        #              Add info label to the media controls       #
+        #                                                         #
+        ############################################################
+        # Add info label to the right of the current_time_label, separated by a vertical line
+        vline = QFrame()
+        vline.setFrameShape(QFrame.Shape.VLine)
+        vline.setFrameShadow(QFrame.Shadow.Sunken)
+        vline.setStyleSheet("color: #444; background: #444; min-width: 2px;")
+        media_controls_layout.insertWidget(1, vline, alignment=Qt.AlignmentFlag.AlignVCenter)
+
+        self.info_label = QLabel("No audio loaded.")
+        self.info_label.setStyleSheet("color: #b0b0b0; font-size: 15px; padding-left: 12px;")
+        media_controls_layout.insertWidget(2, self.info_label, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         ###########################################################
         #                                                         #
@@ -333,8 +347,6 @@ class FireworkShowApp(QMainWindow):
         self.waveform_canvas.setFixedHeight(150)
         self.waveform_canvas.figure.subplots_adjust(left=0, right=1, top=1, bottom=0)
         layout.addWidget(self.waveform_canvas)
-
-        layout.addWidget(self.preview_widget)
         
     ###############################################################
     #                                                             #
@@ -361,7 +373,7 @@ class FireworkShowApp(QMainWindow):
         self.audio_data = np.concatenate(self.audio_datas)
         self.sr = sr
         self.audio_path = None if len(self.audio_datas) > 1 else None
-        self.plot_waveform()
+        plot_waveform(self)
         duration = librosa.get_duration(y=self.audio_data, sr=self.sr)
         self.info_label.setText("")
         filenames = [os.path.basename(p) for p in getattr(self.audio_loader_thread, 'paths', [])]
@@ -432,76 +444,6 @@ class FireworkShowApp(QMainWindow):
         self.segmenter_thread = SegmenterThread(self.audio_datas, self.sr)
         self.segmenter_thread.segments_ready.connect(on_segments_ready)
         self.segmenter_thread.start()
-
-    def plot_waveform(self):
-        # Enable interactive zooming/panning for the waveform canvas
-        self.waveform_canvas.figure.clear()
-        self.waveform_canvas.figure.subplots()
-        self.waveform_canvas.figure.tight_layout()
-        self.waveform_canvas.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
-        self.waveform_canvas.setFocus()
-
-        # Enable matplotlib's built-in navigation toolbar for zoom/pan
-        # Add a compact, dark-themed navigation toolbar above the waveform
-        if not hasattr(self, 'waveform_toolbar'):
-            self.waveform_toolbar = NavigationToolbar2QT(self.waveform_canvas, self)
-            self.waveform_toolbar.setStyleSheet("""
-            QToolBar {
-                background: #181818;
-                border: none;
-                spacing: 2px;
-                padding: 2px 4px;
-                min-height: 28px;
-                max-height: 28px;
-            }
-            QToolButton {
-                background: transparent;
-                color: #e0e0e0;
-                border: none;
-                margin: 0 2px;
-                padding: 2px;
-                min-width: 22px;
-                min-height: 22px;
-            }
-            QToolButton:checked, QToolButton:pressed {
-                background: #222;
-            }
-            """)
-            self.waveform_toolbar.setIconSize(self.waveform_toolbar.iconSize().scaled(18, 18, Qt.AspectRatioMode.KeepAspectRatio))
-            central_widget = self.centralWidget()
-            if central_widget is not None:
-                parent_layout = central_widget.layout()
-                if parent_layout is not None:
-                    idx = parent_layout.indexOf(self.waveform_canvas)
-                    parent_layout.insertWidget(idx, self.waveform_toolbar) # type: ignore
-                    ax = self.waveform_canvas.figure.axes[0]
-                    ax.set_xticks([])
-                    ax.set_yticks([])
-        self.waveform_canvas.setFixedHeight(150)  # Increase height for better visibility
-        ax = self.waveform_canvas.figure.subplots()
-        ax.clear()
-        ax.set_frame_on(False)
-        # Make axes occupy the full canvas area, removing all padding/margins
-        ax.set_position((0.0, 0.0, 1.0, 1.0))
-        if self.audio_data is not None:
-            sr = self.sr if self.sr is not None else 22050  # Default librosa sample rate
-            librosa.display.waveshow(self.audio_data, sr=sr, ax=ax, alpha=0.5)
-            ax.set_facecolor('black')
-            ax.set_xticks([])
-            ax.set_yticks([])
-        # Ensure all spines are invisible (removes white edge)
-        for spine in ax.spines.values():
-            spine.set_visible(False)
-        # Plot segments
-        if self.segment_times is not None:
-            for i, t in enumerate(self.segment_times):
-                ax.axvline(t, color='orange', linestyle='--', alpha=0.7)
-        ax.set_title("Waveform with Segments")
-        # Fit x-axis to audio duration
-        sr = float(self.sr) if self.sr is not None else 22050.0  # Default librosa sample rate as float
-        duration = librosa.get_duration(y=self.audio_data, sr=sr)
-        ax.set_xlim((0, duration))
-        self.waveform_canvas.draw()
 
     def preview_show(self):
         if self.audio_data is not None and self.firework_firing is not None:

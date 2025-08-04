@@ -27,6 +27,9 @@ class FireworkPreviewWidget(QWidget):
     def __init__(self):
         super().__init__()
         self.setMinimumHeight(200)
+        self.setMouseTracking(True)  # Enable mouse tracking for interactivity
+        self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)  # Enable hover events
+        self.setFocusPolicy(Qt.FocusPolicy.ClickFocus)  # Ensure widget receives mouse events
         self.audio_data = None
         self.sr = None
         self.segment_times = None
@@ -35,7 +38,7 @@ class FireworkPreviewWidget(QWidget):
         self.current_time = 0
         self.duration = 0
         self.resume=False
-        self.fireworks_colors = []
+        self.firework_colors = []
         self.audio_thread = None
 
     def set_show_data(self, audio_data, sr, segment_times, firework_firing):
@@ -145,20 +148,16 @@ class FireworkPreviewWidget(QWidget):
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.fillRect(self.rect(), QColor(30, 30, 40))
-        
-        # Remove all padding: draw from edge to edge
+
         w, h = self.width(), self.height()
         left_margin = 0
         right_margin = 0
         usable_w = w - left_margin - right_margin
         usable_h = 150
         timeline_y = usable_h // 2
-        
         painter.setPen(QColor(200, 200, 200))
         painter.drawLine(left_margin, timeline_y, w - right_margin, timeline_y)
         painter.setWindow(QRect(0, 0, w, usable_h))
-
-
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
         # Draw segments
@@ -168,10 +167,11 @@ class FireworkPreviewWidget(QWidget):
                 painter.setPen(QColor(255, 165, 0))
                 painter.drawLine(int(x), timeline_y - 100, int(x), timeline_y + 100)
 
-        # Draw firework firings
+        # Draw firework firings as handles (highlight one if selected)
+        self.firing_handles = []  # Store handle rects for hit-testing
+        handle_radius = 10
         if self.firework_firing is not None and self.duration:
             if not hasattr(self, 'firework_colors') or len(self.firework_colors) != len(self.firework_firing):
-                # Generate and store a random color for each firing
                 self.firework_colors = [
                     QColor(random.randint(50, 255), random.randint(50, 255), random.randint(50, 255))
                     for _ in self.firework_firing
@@ -179,17 +179,81 @@ class FireworkPreviewWidget(QWidget):
             for idx, ft in enumerate(self.firework_firing):
                 x = left_margin + usable_w * ft / self.duration
                 color = self.firework_colors[idx]
-                if abs(ft - self.current_time) < 0.1:
-                    painter.setBrush(color)
-                    painter.setPen(QColor(255, 255, 0))
-                    painter.drawEllipse(int(x) - 15, timeline_y - 35, 30, 30)
-                else:
-                    painter.setBrush(color)
-                    painter.setPen(color)
-                    painter.drawEllipse(int(x) - 5, timeline_y - 10, 10, 10)
+                is_selected = hasattr(self, 'selected_firing') and self.selected_firing == idx
+                painter.setBrush(color)
+                painter.setPen(QColor(255, 255, 0) if is_selected else color)
+                r = int(handle_radius * (1.5 if is_selected else 1))
+                painter.drawEllipse(int(x) - r, timeline_y - r, 2 * r, 2 * r)
+                self.firing_handles.append((QRect(int(x) - r, timeline_y - r, 2 * r, 2 * r), idx))
 
         # Draw playhead
         if self.duration and self.duration > 0:
             playhead_x = left_margin + usable_w * self.current_time / self.duration
             painter.setPen(QColor(0, 255, 0))
             painter.drawLine(int(playhead_x), timeline_y - 40, int(playhead_x), timeline_y + 40)
+
+    def mousePressEvent(self, event):
+        # Only highlight the firing handle if clicked
+        if not hasattr(self, 'firing_handles'):
+            return
+        self.selected_firing = None
+        self.dragging_firing = False
+        for rect, idx in self.firing_handles:
+            if rect.contains(event.position().toPoint()):
+                self.selected_firing = idx
+                self.dragging_firing = True
+                self.drag_offset = event.position().x() - rect.center().x()
+                self.setCursor(Qt.CursorShape.ClosedHandCursor)
+                self.update()
+                return
+        self.update()
+
+    def mouseMoveEvent(self, event):
+        if hasattr(self, 'dragging_firing') and self.dragging_firing and self.selected_firing is not None:
+            # Move the selected firing handle
+            w = self.width()
+            left_margin = 0
+            right_margin = 0
+            usable_w = w - left_margin - right_margin
+            x = event.position().x() - getattr(self, 'drag_offset', 0)
+            # Clamp x to timeline
+            x = max(left_margin, min(x, w - right_margin))
+            # Convert x back to time
+            new_time = (x - left_margin) / usable_w * self.duration
+            # Clamp to [0, duration]
+            new_time = max(0, min(new_time, self.duration))
+            # Prevent overlap with neighbors (optional)
+            if self.firework_firing is not None:
+                idx = self.selected_firing
+                prev_time = self.firework_firing[idx - 1] if idx > 0 else 0
+                next_time = self.firework_firing[idx + 1] if idx < len(self.firework_firing) - 1 else self.duration
+                # Add a small margin to prevent overlap
+                margin = 0.01 * self.duration
+                new_time = max(prev_time + margin, min(new_time, next_time - margin))
+                self.firework_firing[idx] = new_time
+            self.update()
+        else:
+            # Change cursor if hovering over a handle
+            if hasattr(self, 'firing_handles'):
+                for rect, idx in self.firing_handles:
+                    if rect.contains(event.position().toPoint()):
+                        self.setCursor(Qt.CursorShape.OpenHandCursor)
+                        return
+            self.setCursor(Qt.CursorShape.ArrowCursor)
+
+    def mouseReleaseEvent(self, event):
+        if hasattr(self, 'dragging_firing') and self.dragging_firing:
+            self.dragging_firing = False
+            self.setCursor(Qt.CursorShape.ArrowCursor)
+            self.update()
+
+    
+    def remove_selected_firing(self):
+        if hasattr(self, 'selected_firing') and self.selected_firing is not None:
+            idx = self.selected_firing
+            if self.firework_firing is not None and 0 <= idx < len(self.firework_firing):
+                del self.firework_firing[idx]
+                if hasattr(self, 'firework_colors') and len(self.firework_colors) > idx:
+                    del self.firework_colors[idx]
+            self.selected_firing = None
+            self.update()
