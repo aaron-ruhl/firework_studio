@@ -54,7 +54,8 @@ class FireworkPreviewWidget(QWidget):
             # Start playback from current_time, not from 0
             import threading
             def play_audio():
-                sd.play(self.audio_data[int(self.current_time * self.sr):], self.sr, blocking=False)
+                if self.audio_data is not None and self.current_time is not None and self.sr is not None:
+                    sd.play(self.audio_data[int(self.current_time * self.sr):], self.sr, blocking=False)
             if self.audio_thread is not None and self.audio_thread.is_alive():
                 # Wait for previous thread to finish
                 self.audio_thread.join(timeout=1)

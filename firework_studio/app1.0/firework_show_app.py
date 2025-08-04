@@ -19,6 +19,7 @@ from fireworks_preview import FireworkPreviewWidget
 from PyQt6.QtWidgets import QFrame
 import os
 from PyQt6.QtCore import QPropertyAnimation
+
 class SimpleBeatSampleThread(QThread):
         finished = pyqtSignal(object)
 
@@ -305,6 +306,7 @@ class FireworkShowApp(QMainWindow):
         ###############################################
         self.play_pause_btn.setStyleSheet(button_style)
         def toggle_icon(checked):
+            # Use a more standard pause icon (two vertical bars)
             self.play_pause_btn.setText("⏸️" if checked else "▶️")
             self.preview_widget.toggle_play_pause()
         self.play_pause_btn.toggled.connect(toggle_icon)
@@ -464,12 +466,12 @@ class FireworkShowApp(QMainWindow):
             self.play_pause_btn.setText("▶️")
             self.play_pause_btn.blockSignals(False)
             # Show "Generating show..." toast persistently until generation is done
-            self.generating_toast = ToastDialog("Generating show...", parent=self)
+            self.generating_toast = ToastDialog("Generating show...", parent=self) # type: ignore
             geo = self.geometry()
-            x = geo.x() + geo.width() - self.generating_toast.width() - 40
-            y = geo.y() + geo.height() - self.generating_toast.height() - 40
-            self.generating_toast.move(x, y)
-            self.generating_toast.show()
+            x = geo.x() + geo.width() - self.generating_toast.width() - 40 # type: ignore
+            y = geo.y() + geo.height() - self.generating_toast.height() - 40 # type: ignore
+            self.generating_toast.move(x, y) # type: ignore
+            self.generating_toast.show() # type: ignore
             QApplication.processEvents()
             self.update_preview_widget()
             self.generate_btn.setText("Generate Fireworks Show")
@@ -565,8 +567,10 @@ class FireworkShowApp(QMainWindow):
             def on_beats_ready(firework_firing):
                 self.firework_firing = firework_firing
                 self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, self.firework_firing)
+                num_segments = len(self.segment_times) - 1 if self.segment_times is not None else 0
+                num_firings = len(self.firework_firing) if self.firework_firing is not None else 0
                 toast = ToastDialog(
-                    f"Show generated!\nSegments: {len(self.segment_times)-1}, Firework firings: {len(self.firework_firing)}",
+                    f"Show generated!\nSegments: {num_segments}, Firework firings: {num_firings}",
                     parent=self
                 )
                 geo = self.geometry()
@@ -577,14 +581,14 @@ class FireworkShowApp(QMainWindow):
                 QTimer.singleShot(7500, toast.close)
                 # Remove reference to thread after finished
                 if hasattr(self, "_running_threads"):
-                    self._running_threads.remove(thread)
+                    self._running_threads.remove(thread) # type: ignore
 
             # Start beat sampling in background
             if not hasattr(self, "_running_threads"):
-                self._running_threads = []
+                self._running_threads = [] # type: ignore
             thread = SimpleBeatSampleThread(self.audio_data, self.sr, self.segment_times)
             thread.finished.connect(on_beats_ready)
-            self._running_threads.append(thread)
+            self._running_threads.append(thread) # type: ignore
             thread.start()
 
         # Start segmentation in background
@@ -627,12 +631,15 @@ class FireworkShowApp(QMainWindow):
             }
             """)
             self.waveform_toolbar.setIconSize(self.waveform_toolbar.iconSize().scaled(18, 18, Qt.AspectRatioMode.KeepAspectRatio))
-            parent_layout = self.centralWidget().layout()
-            idx = parent_layout.indexOf(self.waveform_canvas)
-            parent_layout.insertWidget(idx, self.waveform_toolbar)
-            ax = self.waveform_canvas.figure.axes[0]
-            ax.set_xticks([])
-            ax.set_yticks([])
+            central_widget = self.centralWidget()
+            if central_widget is not None:
+                parent_layout = central_widget.layout()
+                if parent_layout is not None:
+                    idx = parent_layout.indexOf(self.waveform_canvas)
+                    parent_layout.insertWidget(idx, self.waveform_toolbar) # type: ignore
+                    ax = self.waveform_canvas.figure.axes[0]
+                    ax.set_xticks([])
+                    ax.set_yticks([])
         self.waveform_canvas.setFixedHeight(150)  # Increase height for better visibility
         ax = self.waveform_canvas.figure.subplots()
         ax.clear()
