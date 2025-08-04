@@ -191,6 +191,34 @@ class FireworkShowApp(QMainWindow):
         self.add_firing_btn.clicked.connect(lambda: self.preview_widget.add_time(1))
         media_controls_layout.addWidget(self.add_firing_btn)
 
+        ###############################################################
+        #                                                             #
+        #        Delete Firing button                                 #
+        #                                                             #
+        ###############################################################
+        self.delete_firing_btn = QPushButton("Delete Firing")
+        self.delete_firing_btn.setStyleSheet("""
+            QPushButton {
+            background-color: #e53935;
+            color: #fff;
+            border: none;
+            border-radius: 7px;
+            font-size: 14px;
+            font-weight: bold;
+            min-width: 60px;
+            min-height: 28px;
+            padding: 4px 8px;
+            }
+            QPushButton:hover {
+            background-color: #c62828;
+            }
+            QPushButton:pressed {
+            background-color: #8e2420;
+            }
+        """)
+        self.delete_firing_btn.clicked.connect(self.preview_widget.remove_selected_firing)
+        media_controls_layout.addWidget(self.delete_firing_btn)
+
         ###########################################################
         #                                                         #
         #    Clear show button (styled to match Add Firing)       #
@@ -207,7 +235,25 @@ class FireworkShowApp(QMainWindow):
             self.play_pause_btn.setText("▶️")
             self.play_pause_btn.blockSignals(False)
         self.clear_btn = QPushButton("Clear Show")
-        self.clear_btn.setStyleSheet(button_style)
+        self.clear_btn.setStyleSheet("""
+            QPushButton {
+            background-color: #43a047;
+            color: #fff;
+            border: none;
+            border-radius: 7px;
+            font-size: 14px;
+            font-weight: bold;
+            min-width: 60px;
+            min-height: 28px;
+            padding: 4px 8px;
+            }
+            QPushButton:hover {
+            background-color: #388e3c;
+            }
+            QPushButton:pressed {
+            background-color: #2e7031;
+            }
+        """)
         self.clear_btn.clicked.connect(clear_show)
         def show_cleared_toast():
             toast = ToastDialog("Show cleared!", parent=self)

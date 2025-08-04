@@ -252,6 +252,9 @@ class FireworkPreviewWidget(QWidget):
         if hasattr(self, 'selected_firing') and self.selected_firing is not None:
             idx = self.selected_firing
             if self.firework_firing is not None and 0 <= idx < len(self.firework_firing):
+                # Ensure firework_firing is a list before deletion
+                if not isinstance(self.firework_firing, list):
+                    self.firework_firing = list(self.firework_firing)
                 del self.firework_firing[idx]
                 if hasattr(self, 'firework_colors') and len(self.firework_colors) > idx:
                     del self.firework_colors[idx]
