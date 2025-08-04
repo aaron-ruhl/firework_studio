@@ -4,7 +4,7 @@ import librosa
 
 import librosa.display
 
-def plot_waveform(self):
+def plot_waveform(self,audio,sr=None, segment_times=None):
     # Enable interactive zooming/panning for the waveform canvas
     self.waveform_canvas.figure.clear()
     self.waveform_canvas.figure.subplots()
@@ -49,14 +49,13 @@ def plot_waveform(self):
                 ax.set_xticks([])
                 ax.set_yticks([])
     self.waveform_canvas.setFixedHeight(150)  # Increase height for better visibility
-    ax = self.waveform_canvas.figure.subplots()
     ax.clear()
     ax.set_frame_on(False)
     # Make axes occupy the full canvas area, removing all padding/margins
     ax.set_position((0.0, 0.0, 1.0, 1.0))
-    if self.audio_data is not None:
-        sr = self.sr if self.sr is not None else 22050  # Default librosa sample rate
-        librosa.display.waveshow(self.audio_data, sr=sr, ax=ax, alpha=0.5)
+    if audio is not None:
+        sr = sr if sr is not None else 22050  # Default librosa sample rate
+        librosa.display.waveshow(audio, sr=sr, ax=ax, alpha=0.5)
         ax.set_facecolor('black')
         ax.set_xticks([])
         ax.set_yticks([])
@@ -64,13 +63,13 @@ def plot_waveform(self):
     for spine in ax.spines.values():
         spine.set_visible(False)
     # Plot segments
-    if self.segment_times is not None:
-        for i, t in enumerate(self.segment_times):
+    if segment_times is not None:
+        for i, t in enumerate(segment_times):
             ax.axvline(t, color='orange', linestyle='--', alpha=0.7)
     ax.set_title("Waveform with Segments")
     # Fit x-axis to audio duration
-    sr = float(self.sr) if self.sr is not None else 22050.0  # Default librosa sample rate as float
-    duration = librosa.get_duration(y=self.audio_data, sr=sr)
+    sr = float(sr) if sr is not None else 22050.0  # Default librosa sample rate as float
+    duration = librosa.get_duration(y=audio, sr=sr)
     ax.set_xlim((0, duration))
     self.waveform_canvas.draw()
 
