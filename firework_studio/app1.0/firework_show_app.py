@@ -18,6 +18,7 @@ from fireworks_canvas import FireworksCanvas
 from fireworks_preview import FireworkPreviewWidget
 from PyQt6.QtWidgets import QFrame
 import os
+from PyQt6.QtCore import QPropertyAnimation
 class SimpleBeatSampleThread(QThread):
         finished = pyqtSignal(object)
 
@@ -54,15 +55,31 @@ class SimpleBeatSampleThread(QThread):
             self.finished.emit(firework_firing)
             
 class ToastDialog(QDialog):
+    # ToastDialog: A frameless, styled dialog for displaying temporary toast notifications.
+    """
+    ToastDialog is a custom QDialog subclass that displays a temporary, styled notification ("toast") 
+    in a PyQt application. Toasts are stacked vertically in the bottom-right corner of the parent window 
+    and automatically manage their position to avoid overlap.
+    Attributes:
+        _active_toasts (list): Class-level list tracking currently active ToastDialog instances.
+    Args:
+        message (str): The message to display in the toast.
+        parent (QWidget, optional): The parent widget for the dialog.
+    Methods:
+        show():
+            Displays the toast dialog, stacking it with other visible toasts in the bottom-right 
+            corner of the parent window.
+        closeEvent(event):
+            Handles the dialog close event and removes the toast from the active toasts list.
+    """
     _active_toasts = []
 
     def __init__(self, message, parent=None):
         super().__init__(parent)
         self.setWindowFlags(self.windowFlags() | Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool)
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setStyleSheet("""
             QDialog {
-            background-color: rgba(40, 40, 40, 220);
+            background-color: rgb(40, 40, 40);
             border-radius: 14px;
             min-width: 320px;
             min-height: 80px;
@@ -94,6 +111,23 @@ class ToastDialog(QDialog):
             x = geo.x() + geo.width() - width - margin
             y = geo.y() + geo.height() - height - margin - (idx * (height + spacing))
             self.move(x, y)
+            # Fade out the previous toast if any
+            if visible_toasts:
+                prev_toast = visible_toasts[-1]
+                if prev_toast is not self:
+                    # Use QPropertyAnimation for fade out
+                    prev_toast.setWindowOpacity(1.0)
+                    anim = QPropertyAnimation(prev_toast, b"windowOpacity")
+                    anim.setDuration(350)
+                    anim.setStartValue(1.0)
+                    anim.setEndValue(0.0)
+                    # Ensure the toast closes after fade
+                    def close_prev():
+                        prev_toast.close()
+                        anim.deleteLater()
+                    anim.finished.connect(close_prev)
+                    anim.start()
+                    prev_toast._fade_anim = anim  # Prevent garbage collection
         super().show()
 
     def closeEvent(self, event):
