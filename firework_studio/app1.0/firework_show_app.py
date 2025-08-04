@@ -154,7 +154,7 @@ class FireworkShowApp(QMainWindow):
                 self.preview_widget.toggle_play_pause()
             btn.toggled.connect(toggle_icon)
             return btn
-
+        
         self.play_pause_btn = create_play_pause_btn()
         media_controls_layout.addWidget(self.play_pause_btn)
 
@@ -170,7 +170,7 @@ class FireworkShowApp(QMainWindow):
             btn.setFixedSize(40, 40)
             btn.setStyleSheet(button_style)
             btn.clicked.connect(self.preview_widget.stop_preview)
-            btn.clicked.connect(self.fireworks_canvas.reset_fireworks)
+            btn.clicked.connect(self.fireworks_canvas.reset_fireworks) # type: ignore
             def reset_play_pause():
                 btn_parent = self.play_pause_btn
                 btn_parent.blockSignals(True)
