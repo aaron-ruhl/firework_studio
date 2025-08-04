@@ -45,9 +45,8 @@ def plot_waveform(self,audio,sr=None, segment_times=None):
             if parent_layout is not None:
                 idx = parent_layout.indexOf(self.waveform_canvas)
                 parent_layout.insertWidget(idx, self.waveform_toolbar) # type: ignore
-                ax = self.waveform_canvas.figure.axes[0]
-                ax.set_xticks([])
-                ax.set_yticks([])
+    # Always get the axes after subplots() is called
+    ax = self.waveform_canvas.figure.axes[0]
     self.waveform_canvas.setFixedHeight(150)  # Increase height for better visibility
     ax.clear()
     ax.set_frame_on(False)

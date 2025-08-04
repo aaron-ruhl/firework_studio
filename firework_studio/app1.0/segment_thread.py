@@ -17,9 +17,12 @@ class SegmenterThread(QThread):
         all_segment_times = []
         offset = 0.0
         for idx, y in enumerate(self.audio_datas):
+            duration = librosa.get_duration(y=y, sr=self.sr)
+            # Set number of segments: 1 per 10 seconds, min 2, max 20
+            k = max(2, min(20, int(duration // 10) + 1))
             chroma = librosa.feature.chroma_cqt(y=y, sr=self.sr)
             recurrence = librosa.segment.recurrence_matrix(chroma, mode='affinity', sym=True)
-            segments = librosa.segment.agglomerative(recurrence, k=8)
+            segments = librosa.segment.agglomerative(recurrence, k=k)
             segment_times = librosa.frames_to_time(segments, sr=self.sr)
             segment_times_offset = segment_times + offset
             for i in range(len(segment_times_offset) - 1):
@@ -34,5 +37,5 @@ class SegmenterThread(QThread):
                 all_segment_times.extend(segment_times_offset)
             else:
                 all_segment_times.extend(segment_times_offset[1:])
-            offset += librosa.get_duration(y=y, sr=self.sr)
+            offset += duration
         self.segments_ready.emit(all_periods_info, np.array(all_segment_times))

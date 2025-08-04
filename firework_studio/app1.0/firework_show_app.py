@@ -194,7 +194,10 @@ class FireworkShowApp(QMainWindow):
         def create_add_firing_btn():
             btn = QPushButton("Add Firing")
             btn.setStyleSheet(button_style)
-            btn.clicked.connect(lambda: self.preview_widget.add_time(1))
+            def add_firing_and_update_info():
+                self.preview_widget.add_time(1)
+                self.info_label.setText(f"Firework firings: {len(self.preview_widget.firework_firing)}")
+            btn.clicked.connect(add_firing_and_update_info)
             return btn
 
         self.add_firing_btn = create_add_firing_btn()
@@ -228,7 +231,10 @@ class FireworkShowApp(QMainWindow):
                 background-color: #8e2420;
                 }
             """)
-            btn.clicked.connect(self.preview_widget.remove_selected_firing)
+            def remove_firing_and_update_info():
+                self.preview_widget.remove_selected_firing()
+                self.info_label.setText(f"Firework firings: {len(self.preview_widget.firework_firing)}")
+            btn.clicked.connect(remove_firing_and_update_info)
             return btn
 
         self.delete_firing_btn = create_delete_firing_btn()
@@ -265,13 +271,16 @@ class FireworkShowApp(QMainWindow):
             # Also pause the show if playing
             def clear_show():
                 self.fireworks_canvas.reset_fireworks()
-                self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, None)
+                self.segment_times = None
+                self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, None, self.duration)
                 self.preview_widget.stop_preview()
                 # Always reset play/pause button state and icon so playback can start again
                 self.play_pause_btn.blockSignals(True)
                 self.play_pause_btn.setChecked(False)
                 self.play_pause_btn.setText("▶️")
                 self.play_pause_btn.blockSignals(False)
+                self.info_label.setText("Show cleared. Load audio to generate a new show.")
+                
             btn.clicked.connect(clear_show)
             def show_cleared_toast():
                 toast = ToastDialog("Show cleared!", parent=self)
@@ -515,7 +524,7 @@ class FireworkShowApp(QMainWindow):
                 self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, self.firework_firing, self.duration)
                 num_segments = len(self.segment_times) - 1 if self.segment_times is not None else 0
                 num_firings = len(self.firework_firing) if self.firework_firing is not None else 0
-                self.info_label.setText("")
+                self.info_label.setText(f"Firework firings: {num_firings}")
                 toast = ToastDialog(
                     f"Show generated!\nSegments: {num_segments}, Firework firings: {num_firings}",
                     parent=self
