@@ -20,11 +20,9 @@ from PyQt6.QtWidgets import QFrame
 import os
 from PyQt6.QtCore import QPropertyAnimation
 
-from beat_thread import SimpleBeatSampleThread
-from segment_thread import SegmenterThread
-from load_thread import AudioLoaderThread
+from analysis import AudioAnalyzer
+from loader import AudioLoader
 from toaster import ToastDialog
-from plot_wave import plot_waveform
 
 
             
@@ -40,18 +38,16 @@ class FireworkShowApp(QMainWindow):
         ############################################################
         self.setWindowTitle("Firework Studio")
         self.setGeometry(100, 100, 1800, 1000)
-        self.audio_path = None
-        self.audio_data = None
-        self.sr = None
-        self.segment_times = None
-        self.periods_info = None
-        self.firework_firing = None 
-        self.fireworks_canvas = None
-        self.audio_datas = []
-        self._running_threads = []
         self.generating_toast = None
         self.clear_btn = None
+        self.audio_data = None
+        self.audio_datas = []
+        self.sr = None
         self.duration = None
+        self.segment_times = None
+        self.firework_firing = []
+        self.fireworks_canvas = None  # Declare attribute before assignment
+
 
         #############################################################
         #                                                          #
@@ -371,7 +367,40 @@ class FireworkShowApp(QMainWindow):
 
         # Create a button to load audio files
         self.load_btn = QPushButton("Load Audio")
-        self.load_btn.clicked.connect(self.load_audio)
+        self.audio_loader = AudioLoader()
+        self.load_btn.setStyleSheet(button_style)
+        self.load_btn.setFixedHeight(40)
+
+        def handle_audio_loaded():
+            # Load audio data
+            self.audio_data, self.sr, self.audio_datas, self.duration = self.audio_loader.select_and_load()
+            # Plot waveform
+            self.plot_waveform()
+            self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, None, self.duration)
+            # If audio data is loaded, enable the generate button
+            if self.audio_data is not None:
+                self.generate_btn.setEnabled(True)
+                self.generate_btn.setVisible(True)  
+                # Show when audio is loaded
+                self.info_label.setText("Generate fireworks show from scratch or use generate show button to get help.")
+
+                # Show a toast notification with loaded audio file names
+                basenames = [os.path.basename(p) for p in self.audio_loader.paths]
+                toast = ToastDialog(f"Loaded audio: {', '.join(basenames)}", parent=self)
+                geo = self.geometry()
+                x = geo.x() + geo.width() - toast.width() - 40
+                y = geo.y() + geo.height() - toast.height() - 40
+                toast.move(x, y)
+                toast.show()
+                QTimer.singleShot(2500, toast.close)
+            elif self.audio_data is None:
+                self.generate_btn.setVisible(False)  # Hide if no audio
+                self.info_label.setText("No audio loaded.")
+
+        # Connect the load_btn to open file dialog and load audio
+
+        self.load_btn.clicked.connect(lambda: handle_audio_loaded())
+
         media_controls_layout.addWidget(self.load_btn)
 
         ###########################################################
@@ -382,10 +411,34 @@ class FireworkShowApp(QMainWindow):
 
         # Create a button to generate fireworks show
         def create_generate_btn():
-            btn = QPushButton("Generate Fireworks Show")
-            self.info_label.setText("Load audio to generate fireworks show.")
+            btn = QPushButton("Generate Show")
+            btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)            
+            ai_button_style = """
+                    background: qlineargradient(
+                        x1:0, y1:0, x2:1, y2:0,
+                        stop:0 #ff5252, 
+                        stop:0.2 #ffeb3b, 
+                        stop:0.4 #4caf50, 
+                        stop:0.6 #2196f3, 
+                        stop:0.8 #8e24aa, 
+                        stop:1 #e040fb
+                    );
+                    border: 2px solid #8e24aa;
+                    box-shadow: 0 0 12px #e040fb;
+                    letter-spacing: 1px;
+                    min-width: 180px;
+                    min-height: 40px;
+                    max-width: 180px;
+                    max-height: 40px;
+                
+            """
+            btn.setStyleSheet(ai_button_style)
+            btn.setFixedHeight(40)
+            btn.setMinimumWidth(60)
+            btn.setCheckable(False)  # Prevent checked/pressed state
+            btn.setAutoDefault(False)
+
             def generate_and_reset():
-                self.fireworks_canvas.reset_fireworks()
                 self.preview_widget.stop_preview()
                 self.play_pause_btn.blockSignals(True)
                 self.play_pause_btn.setChecked(False)
@@ -393,13 +446,11 @@ class FireworkShowApp(QMainWindow):
                 self.play_pause_btn.blockSignals(False)
                 self.info_label.setText("Generating fireworks show...")
                 QApplication.processEvents()
-                self.update_preview_widget()
-                btn.setText("Generate Fireworks Show")
             btn.clicked.connect(generate_and_reset)
             return btn
-
         self.generate_btn = create_generate_btn()
         media_controls_layout.addWidget(self.generate_btn)
+        self.generate_btn.setVisible(False)  # Hide initially
         layout.addLayout(media_controls_layout)
 
         ###########################################################
@@ -407,8 +458,8 @@ class FireworkShowApp(QMainWindow):
         # Canvas for waveform display and firework firing display #
         #                                                         #
         ###########################################################
-
-        # Create a canvas for displaying the waveform
+        
+        # Create a canvas for displaying the waveform needed here for loading audio
         def create_waveform_canvas():
             canvas = FigureCanvas(Figure(figsize=(20, 1)))
             ax = canvas.figure.subplots()
@@ -450,6 +501,7 @@ class FireworkShowApp(QMainWindow):
             background: transparent;
             }
         """)
+        
 
     ###############################################################
     #                                                             #
@@ -457,115 +509,73 @@ class FireworkShowApp(QMainWindow):
     #                                                             #
     ###############################################################
     # Use a worker thread for loading audio and segmenting to keep UI responsive
-    def load_audio(self):
-        self.segment_times = None
-        self.firework_firing = None
-        self.fireworks_canvas.reset_fireworks()
-        file_dialog = QFileDialog()
-        paths, _ = file_dialog.getOpenFileNames(self, "Open Audio File(s)", "", "Audio Files (*.wav *.mp3 *.ogg)")
-        if paths:
-            filenames = [os.path.basename(p) for p in paths]
-            self.info_label.setText(f"Loading audio from: {', '.join(filenames)}")
-            QApplication.processEvents()
-            self.audio_loader_thread = AudioLoaderThread(paths)
-            self.audio_loader_thread.audio_loaded.connect(self.on_audio_loaded)
-            self.audio_loader_thread.start()
+    def plot_waveform(self):
+        # Enable interactive zooming/panning for the waveform canvas
+        self.waveform_canvas.figure.clear()
+        self.waveform_canvas.figure.set_facecolor('#181818')  # Set figure background to dark
+        self.waveform_canvas.figure.subplots()
+        self.waveform_canvas.figure.tight_layout()
+        self.waveform_canvas.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
+        self.waveform_canvas.setFocus()
+
+        # Enable matplotlib's built-in navigation toolbar for zoom/pan
+        # Add a compact, dark-themed navigation toolbar above the waveform
+        if not hasattr(self.waveform_canvas, 'waveform_toolbar'):
+            self.waveform_canvas.waveform_toolbar = NavigationToolbar2QT(self.waveform_canvas, self.waveform_canvas)
+            self.waveform_canvas.waveform_toolbar.setStyleSheet("""
+            QToolBar {
+                background: #181818;
+                border: none;
+                spacing: 2px;
+                padding: 2px 4px;
+                min-height: 28px;
+                max-height: 28px;
+            }
+            QToolButton {
+                background: transparent;
+                color: #e0e0e0;
+                border: none;
+                margin: 0 2px;
+                padding: 2px;
+                min-width: 22px;
+                min-height: 22px;
+            }
+            QToolButton:checked, QToolButton:pressed {
+                background: #222;
+            }
+            """)
+            self.waveform_canvas.waveform_toolbar.setIconSize(self.waveform_canvas.waveform_toolbar.iconSize().scaled(18, 18, Qt.AspectRatioMode.KeepAspectRatio))
+            # Add the toolbar above the waveform_canvas in the parent layout
+            parent_layout = self.waveform_canvas.parentWidget().layout() if self.waveform_canvas.parentWidget() else None
+            if parent_layout is not None:
+                idx = parent_layout.indexOf(self.waveform_canvas)
+                parent_layout.insertWidget(idx, self.waveform_canvas.waveform_toolbar)
+        # Always get the axes after subplots() is called
+        ax = self.waveform_canvas.figure.axes[0]
+        ax.clear()
+        ax.set_facecolor('#181818')  # Set axes background to dark
+        ax.set_frame_on(False)
+        # Make axes occupy the full canvas area, removing all padding/margins
+        ax.set_position((0.0, 0.0, 1.0, 1.0))
+        if self.audio_data is not None:
+            sr = self.sr if self.sr is not None else 22050  # Default librosa sample rate
+            librosa.display.waveshow(self.audio_data, sr=sr, ax=ax, alpha=0.5, color='white')
+            ax.set_facecolor('#181818')
+            ax.set_xticks([])
+        # Ensure all spines are invisible (removes white edge)
+        for spine in ax.spines.values():
+            spine.set_visible(False)
+        # Plot segments
+        if self.segment_times is not None:
+            for i, t in enumerate(self.segment_times):
+                ax.axvline(t, color='orange', linestyle='--', alpha=0.7)
+        ax.set_title("Waveform with Segments", color='white')  # Set title color to white
+        ax.title.set_color('white')
+        # Fit x-axis to audio duration
+        if self.audio_data is not None and self.duration is not None:
+            ax.set_xlim((0, self.duration))
+        if self.audio_data is not None and self.duration is not None:
+            ax.set_xlim((0, self.duration))
+
+
     
-    def on_audio_loaded(self, audio_datas, sr):
-        self.audio_datas = audio_datas
-        self.audio_data = np.concatenate(self.audio_datas)
-        self.sr = sr
-        self.audio_path = None if len(self.audio_datas) > 1 else None
-        plot_waveform(self,self.audio_data, self.sr, self.segment_times)
-        self.duration = librosa.get_duration(y=self.audio_data, sr=self.sr)
-        self.info_label.setText("")
-        filenames = [os.path.basename(p) for p in getattr(self.audio_loader_thread, 'paths', [])]
-        toast = ToastDialog(
-            f"Loaded: {', '.join(filenames)}\nSample Rate: {self.sr} Hz, Duration: {self.duration:.2f} seconds",
-            parent=self
-        )
-        # Ensure the waveform plot has a dark background
-        if self.waveform_canvas is not None:
-            ax = self.waveform_canvas.figure.axes[0]
-            ax.set_facecolor('black')
-            self.waveform_canvas.figure.set_facecolor('black')
-            self.waveform_canvas.draw()
-        geo = self.geometry()
-        x = geo.x() + geo.width() - toast.width() - 40
-        y = geo.y() + geo.height() - toast.height() - 40
-        toast.move(x, y)
-        toast.show()
-        QTimer.singleShot(4000, toast.close)
-        self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, self.firework_firing, self.duration)
-
-    # Override make_segments to use the worker thread
-    def make_segments(self, sr):
-        # Start segmenter thread and return after segments_ready signal
-        self.segmenter_thread = SegmenterThread(self.audio_datas, sr)
-        result = {}
-
-        def on_segments_ready(periods_info, segment_times):
-            result['periods_info'] = periods_info
-            result['segment_times'] = segment_times
-
-        self.segmenter_thread.segments_ready.connect(on_segments_ready)
-        self.segmenter_thread.start()
-        self.segmenter_thread.wait()
-        return result.get('periods_info', []), result.get('segment_times', None)
-   
-    def update_preview_widget(self):
-        # Run segmentation and beat sampling in background threads to keep UI responsive
-        def on_segments_ready(periods_info, segment_times):
-            self.periods_info = periods_info
-            self.segment_times = segment_times
-
-            def on_beats_ready(firework_firing):
-                self.firework_firing = firework_firing
-                self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, self.firework_firing, self.duration)
-                num_segments = len(self.segment_times) - 1 if self.segment_times is not None else 0
-                num_firings = len(self.firework_firing) if self.firework_firing is not None else 0
-                self.info_label.setText(f"Firework firings: {num_firings}")
-                toast = ToastDialog(
-                    f"Show generated!\nSegments: {num_segments}, Firework firings: {num_firings}",
-                    parent=self
-                )
-                geo = self.geometry()
-                x = geo.x() + geo.width() - toast.width() - 40
-                y = geo.y() + geo.height() - toast.height() - 40
-                toast.move(x, y)
-                toast.show()
-                QTimer.singleShot(4000, toast.close)
-                # Remove reference to thread after finished
-                if hasattr(self, "_running_threads"):
-                    self._running_threads.remove(thread) # type: ignore
-
-            # Start beat sampling in background
-            if not hasattr(self, "_running_threads"):
-                self._running_threads = [] # type: ignore
-            thread = SimpleBeatSampleThread(self.audio_data, self.sr, self.segment_times)
-            thread.finished.connect(on_beats_ready)
-            self._running_threads.append(thread) # type: ignore
-            thread.start()
-
-        # Start segmentation in background
-        self.segmenter_thread = SegmenterThread(self.audio_datas, self.sr)
-        self.segmenter_thread.segments_ready.connect(on_segments_ready)
-        self.segmenter_thread.start()
-
-    def preview_show(self):
-        if self.audio_data is not None and self.firework_firing is not None:
-            self.preview_widget.start_preview()
-
-    def simple_beatsample(self, audio_data, sr, segment_times, callback=None):
-        # Run beat sampling in a worker thread to keep UI responsive
-        if audio_data is None or sr is None or segment_times is None:
-            return None
-        def on_finished(firework_firing):
-            self.firework_firing = firework_firing
-            if callback:
-                callback(firework_firing)
-        thread = SimpleBeatSampleThread(audio_data, sr, segment_times)
-        thread.finished.connect(on_finished)
-        thread.start()
-        # Do not call thread.wait() here; let it run asynchronously
-        return None

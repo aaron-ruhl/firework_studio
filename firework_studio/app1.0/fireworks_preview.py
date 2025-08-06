@@ -48,6 +48,7 @@ class FireworkPreviewWidget(QWidget):
         self.firework_firing = firework_firing
         self.duration = duration
         self.update()
+        
     def start_preview(self):
         if self.audio_data is not None and self.sr is not None:
             sd.stop()
