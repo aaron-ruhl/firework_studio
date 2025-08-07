@@ -24,6 +24,7 @@ from analysis import AudioAnalyzer
 from loader import AudioLoader
 from toaster import ToastDialog
 import json
+from PyQt6.QtWidgets import QGroupBox, QRadioButton, QButtonGroup
 
 
 class FireworkShowManager:
@@ -529,6 +530,42 @@ class FireworkShowApp(QMainWindow):
         media_controls_layout.addWidget(self.save_btn)
         media_controls_layout.addWidget(self.load_show_btn)
 
+        ###########################################################
+        #                                                         #
+        #              Background selection                       #
+        #                                                         #
+        ###########################################################
+        # Create a button to select background
+        def create_background_btn():
+            group_box = QGroupBox("Background")
+            group_box.setStyleSheet("QGroupBox { color: #e0e0e0; font-weight: bold; }")
+            bg_layout = QHBoxLayout()
+            group_box.setLayout(bg_layout)
+
+            backgrounds = [
+                ("Night Sky", "night"),
+                ("Sunset", "sunset"),
+                ("City", "city"),
+                ("Mountains", "mountains"),
+                ("Custom", "custom"),
+            ]
+            button_group = QButtonGroup(self)
+            for label, bg_name in backgrounds:
+                radio = QRadioButton(label)
+                radio.setStyleSheet("color: #e0e0e0;")
+                bg_layout.addWidget(radio)
+                button_group.addButton(radio)
+                def make_handler(bg=bg_name):
+                    return lambda: self.fireworks_canvas.set_background(bg)
+                radio.toggled.connect(make_handler(bg_name))
+            # Set default selection
+            button_group.buttons()[0].setChecked(True)
+            self.fireworks_canvas.set_background(backgrounds[0][1])
+
+            return group_box
+        self.background_btn = create_background_btn()
+        media_controls_layout.addWidget(self.background_btn)
+        
         ###########################################################
         #                                                         #
         #              Fireworks show generator button            #
