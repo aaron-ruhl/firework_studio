@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QWidget
-from PyQt6.QtCore import QTimer, QRect, Qt, QPoint 
+from PyQt6.QtCore import QTimer, QRect, Qt, QPoint, pyqtSignal 
 from PyQt6.QtGui import QPainter, QColor
 import librosa
 import sounddevice as sd
@@ -62,10 +62,6 @@ class FireworkPreviewWidget(QWidget):
                 self.audio_thread.join(timeout=1)
             self.audio_thread = threading.Thread(target=play_audio, daemon=True)
             self.audio_thread.start()
-        # Only reset current_time if starting from the beginning
-        if not self.resume:
-            self.current_time = 0
-        self.resume = False
         if self.preview_timer:
             self.preview_timer.stop()
         self.preview_timer = QTimer(self)
@@ -74,19 +70,14 @@ class FireworkPreviewWidget(QWidget):
 
     def toggle_play_pause(self):
         if self.preview_timer and self.preview_timer.isActive():
+            # Pause: stop timer and audio playback
             self.preview_timer.stop()
             try:
-                if sd.get_stream() is not None:
-                    sd.stop(ignore_errors=True)
-            except RuntimeError:
+                sd.stop(ignore_errors=True)
+            except Exception:
                 pass
-            self.resume = True
         else:
-            # Ensure playback starts from the current playhead position
-            if self.audio_data is not None and self.sr is not None:
-                # If current_time is out of bounds, reset to 0
-                if self.current_time < 0 or self.current_time > self.duration:
-                    self.current_time = 0
+            # Resume: start playback from current_time
             self.start_preview()
 
     def stop_preview(self):
@@ -306,6 +297,7 @@ class FireworkPreviewWidget(QWidget):
 
         # Handle dragging of playhead
         if hasattr(self, 'dragging_playhead') and self.dragging_playhead:
+            self.stop_preview()
             x = event.position().x()
             x = max(left_margin, min(x, w - right_margin))
             new_time = (x - left_margin) / usable_w * self.duration
