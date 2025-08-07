@@ -21,6 +21,7 @@ class FireworksCanvas(QWidget):
         self.background = None
         self.fired_times = set()  # Track fired times
         self._fireworks_enabled = True  # Initialize attribute
+        self.delay = 0.0  # Delay for fireworks to explode
 
     def add_firework(self, x=None, color=None):
         if x is None:
@@ -207,8 +208,16 @@ class Firework:
         self.color = color
         self.particles = []
         self.exploded = False
-        self.velocity_y = -random.uniform(7, 10)
+        self.velocity_y = -random.uniform(10, 10.5)  # Higher initial velocity for more energetic launch
         self.particle_count = particle_count
+        # Set a realistic delay for fireworks to explode (e.g., 1.8 to 2.3 seconds)
+        self.delay = random.uniform(1.8, 2.3)
+        self.timer = QTimer()
+        self.timer.setInterval(int(self.delay * 1000))  # Convert seconds to milliseconds
+        self.timer.setSingleShot(True)
+        self.timer.timeout.connect(self.explode)
+        self.timer.start()
+
 
     def explode(self):
         self.exploded = True
@@ -216,7 +225,7 @@ class Firework:
         base_color = self.color
         for _ in range(self.particle_count):
             angle = random.uniform(0, 2 * math.pi)
-            speed = random.uniform(4.5, 7)  # Faster, more energetic
+            speed = random.uniform(6.5, 7)  # Faster, more energetic
             # Vary color for brilliance
             hue_shift = random.randint(-30, 30)
             hsv = base_color.toHsv()
@@ -232,8 +241,8 @@ class Firework:
     def update(self):
         if not self.exploded:
             self.y += self.velocity_y
-            self.velocity_y += 0.1
-            if self.velocity_y >= 0:
+            self.velocity_y += 0.1  # Gravity effect
+            if self.timer.remainingTime() == 0:
                 self.explode()
         else:
             self.particles = [p for p in self.particles if p.update()]

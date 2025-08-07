@@ -88,7 +88,6 @@ class FireworkShowApp(QMainWindow):
         self.duration = None
         self.segment_times = None
         self.firework_firing = []
-        self.fireworks_canvas = None  # Declare attribute before assignment
         self.firework_show_info = "No audio loaded. Load audio to get started."
 
         #############################################################
@@ -136,10 +135,14 @@ class FireworkShowApp(QMainWindow):
         def create_fireworks_canvas_container():
             container = QWidget()
             layout = QVBoxLayout(container)
-            container.setMinimumHeight(435)
             layout.setContentsMargins(0, 0, 0, 0)
             layout.setSpacing(0)
             layout.addWidget(self.fireworks_canvas)
+            # Make the container expand to fill available space
+            # Ensure fireworks stay within the visible area by setting a minimum height
+            container.setMinimumHeight(600)
+            container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+            self.fireworks_canvas.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
             return container
 
         self.fireworks_canvas_container = create_fireworks_canvas_container()
@@ -333,29 +336,31 @@ class FireworkShowApp(QMainWindow):
 
         # Create a label to display the current playback time
         def create_current_time_label():
-            label = QLabel("00:00")
+            label = QLabel("00:00:000")
             label.setStyleSheet("""
-                QLabel {
-                    color: #e0e0e0;
-                    font-size: 18px;
-                    font-weight: bold;
-                    min-width: 60px;
-                    qproperty-alignment: 'AlignVCenter | AlignLeft';
-                }
+            QLabel {
+                color: #e0e0e0;
+                font-size: 18px;
+                font-weight: bold;
+                min-width: 90px;
+                qproperty-alignment: 'AlignVCenter | AlignLeft';
+            }
             """)
-            label.setFixedWidth(70)
+            label.setFixedWidth(90)
             # Update current_time_label whenever playback time changes
             def update_time_label():
                 if hasattr(self.preview_widget, "current_time"):
-                    t = int(self.preview_widget.current_time)
-                    mins, secs = divmod(t, 60)
-                    self.current_time_label.setText(f"{mins:02d}:{secs:02d}")
+                    t = self.preview_widget.current_time
+                    mins = int(t // 60)
+                    secs = int(t % 60)
+                    ms = int((t - int(t)) * 1000)
+                    self.current_time_label.setText(f"{mins:02d}:{secs:02d}:{ms:03d}")
                 else:
-                    self.current_time_label.setText("00:00")
+                    self.current_time_label.setText("00:00:000")
 
             # Timer to update the label during playback
             self.time_update_timer = QTimer(self)
-            self.time_update_timer.setInterval(200)  # update every 200 ms
+            self.time_update_timer.setInterval(50)  # update every 50 ms for better ms accuracy
             self.time_update_timer.timeout.connect(update_time_label)
 
             def on_play_pause(checked):
@@ -366,14 +371,14 @@ class FireworkShowApp(QMainWindow):
                     self.time_update_timer.stop()
 
             self.play_pause_btn.toggled.connect(on_play_pause)
-            self.stop_btn.clicked.connect(lambda: (self.current_time_label.setText("00:00"), self.time_update_timer.stop()))
+            self.stop_btn.clicked.connect(lambda: (self.current_time_label.setText("00:00:000"), self.time_update_timer.stop()))
             return label
         self.current_time_label = create_current_time_label()
         media_controls_layout.insertWidget(0, self.current_time_label, alignment=Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
 
         ############################################################
         #                                                         #
-        #              Add info label to the media controls       #
+        #              Add info status bar                        #
         #                                                         #
         ############################################################
 
@@ -425,85 +430,11 @@ class FireworkShowApp(QMainWindow):
 
         self.load_btn.clicked.connect(lambda: handle_audio())
         media_controls_layout.addWidget(self.load_btn)
-
-        ###########################################################
-        #                                                         #
-        #              Fireworks show generator button            #
-        #                                                         #
-        ###########################################################
-
-        # Create a button to generate fireworks show
-        def create_generate_btn():
-            btn = QPushButton("Generate Show")
-            btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)            
-            ai_button_style = """
-                    background: qlineargradient(
-                        x1:0, y1:0, x2:1, y2:0,
-                        stop:0 #ff5252, 
-                        stop:0.2 #ffeb3b, 
-                        stop:0.4 #4caf50, 
-                        stop:0.6 #2196f3, 
-                        stop:0.8 #8e24aa, 
-                        stop:1 #e040fb
-                    );
-                    border: 2px solid #8e24aa;
-                    letter-spacing: 1px;
-                    min-width: 180px;
-                    min-height: 40px;
-                    max-width: 180px;
-                    max-height: 40px;
-                
-            """
-            btn.setStyleSheet(ai_button_style)
-            btn.setFixedHeight(40)
-            btn.setMinimumWidth(60)
-            btn.setCheckable(False)  # Prevent checked/pressed state
-            btn.setAutoDefault(False)
-
-            def generate_and_reset():
-                self.preview_widget.stop_preview()
-                self.play_pause_btn.blockSignals(True)
-                self.play_pause_btn.setChecked(False)
-                self.play_pause_btn.setText("▶️")
-                self.play_pause_btn.blockSignals(False)
-                QApplication.processEvents()
-            btn.clicked.connect(generate_and_reset)
-            return btn
-        
-        self.generate_btn = create_generate_btn()
-        media_controls_layout.addWidget(self.generate_btn)
-        self.generate_btn.setVisible(False)  # Hide initially
-
-        ###########################################################
-        #                                                         #
-        # Canvas for waveform display and firework firing display #
-        #                                                         #
-        ###########################################################
-        
-        # Create a canvas for displaying the waveform needed here for loading audio
-        def create_waveform_canvas():
-            canvas = FigureCanvas(Figure(figsize=(20, 1)))
-            ax = canvas.figure.subplots()
-            ax.set_facecolor('black')
-            ax.tick_params(axis='x', colors='white')
-            ax.tick_params(axis='y', colors='white')
-            ax.set_title("Waveform with Segments", color='white')
-            canvas.setFixedHeight(150)
-            canvas.figure.subplots_adjust(left=0, right=1, top=1, bottom=0)
-            return canvas
-        self.waveform_canvas = create_waveform_canvas()
-        
-        #################################################################
+         #################################################################
         #                                                               # 
-        #        Set up the main layout for the application window      #
+        #        Save and Load show buttons (above waveform/canvas)    #
         #                                                               #
         #################################################################
-
-        layout = QVBoxLayout(central_widget)
-        # Add Save and Load buttons for firework show
-        save_load_layout = QHBoxLayout()
-        save_load_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        save_load_layout.setSpacing(10)
 
         def create_save_btn():
             btn = QPushButton("Save Show")
@@ -595,9 +526,84 @@ class FireworkShowApp(QMainWindow):
 
         self.save_btn = create_save_btn()
         self.load_show_btn = create_load_show_btn()
-        save_load_layout.addWidget(self.save_btn)
-        save_load_layout.addWidget(self.load_show_btn)
-        layout.addLayout(save_load_layout)
+        media_controls_layout.addWidget(self.save_btn)
+        media_controls_layout.addWidget(self.load_show_btn)
+
+        ###########################################################
+        #                                                         #
+        #              Fireworks show generator button            #
+        #                                                         #
+        ###########################################################
+
+        # Create a button to generate fireworks show
+        def create_generate_btn():
+            btn = QPushButton("Generate Show")
+            btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)            
+            ai_button_style = """
+                    background: qlineargradient(
+                        x1:0, y1:0, x2:1, y2:0,
+                        stop:0 #ff5252, 
+                        stop:0.2 #ffeb3b, 
+                        stop:0.4 #4caf50, 
+                        stop:0.6 #2196f3, 
+                        stop:0.8 #8e24aa, 
+                        stop:1 #e040fb
+                    );
+                    border: 2px solid #8e24aa;
+                    letter-spacing: 1px;
+                    min-width: 180px;
+                    min-height: 40px;
+                    max-width: 180px;
+                    max-height: 40px;
+                
+            """
+            btn.setStyleSheet(ai_button_style)
+            btn.setFixedHeight(40)
+            btn.setMinimumWidth(60)
+            btn.setCheckable(False)  # Prevent checked/pressed state
+            btn.setAutoDefault(False)
+
+            def generate_and_reset():
+                self.preview_widget.stop_preview()
+                self.play_pause_btn.blockSignals(True)
+                self.play_pause_btn.setChecked(False)
+                self.play_pause_btn.setText("▶️")
+                self.play_pause_btn.blockSignals(False)
+                QApplication.processEvents()
+            btn.clicked.connect(generate_and_reset)
+            return btn
+        
+        self.generate_btn = create_generate_btn()
+        media_controls_layout.addWidget(self.generate_btn)
+        self.generate_btn.setVisible(False)  # Hide initially
+
+        ###########################################################
+        #                                                         #
+        # Canvas for waveform display and firework firing display #
+        #                                                         #
+        ###########################################################
+        
+        # Create a canvas for displaying the waveform needed here for loading audio
+        def create_waveform_canvas():
+            canvas = FigureCanvas(Figure(figsize=(20, 1)))
+            ax = canvas.figure.subplots()
+            ax.set_facecolor('black')
+            ax.tick_params(axis='x', colors='white')
+            ax.tick_params(axis='y', colors='white')
+            ax.set_title("Waveform with Segments", color='white')
+            canvas.setFixedHeight(150)
+            canvas.figure.subplots_adjust(left=0, right=1, top=1, bottom=0)
+            return canvas
+        self.waveform_canvas = create_waveform_canvas()
+        
+       
+        #################################################################
+        #                                                               # 
+        #        Set up the main layout for the application window      #
+        #                                                               #
+        #################################################################
+
+        layout = QVBoxLayout(central_widget)
         layout.addWidget(self.fireworks_canvas_container, stretch=5)
         layout.addLayout(media_controls_layout)
         layout.addWidget(self.preview_widget, stretch=0, alignment=Qt.AlignmentFlag.AlignBottom)
@@ -648,39 +654,6 @@ class FireworkShowApp(QMainWindow):
         self.waveform_canvas.figure.tight_layout()
         self.waveform_canvas.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
         self.waveform_canvas.setFocus()
-
-        # Enable matplotlib's built-in navigation toolbar for zoom/pan
-        # Add a compact, dark-themed navigation toolbar above the waveform
-        if not hasattr(self.waveform_canvas, 'waveform_toolbar'):
-            self.waveform_canvas.waveform_toolbar = NavigationToolbar2QT(self.waveform_canvas, self.waveform_canvas)
-            self.waveform_canvas.waveform_toolbar.setStyleSheet("""
-            QToolBar {
-                background: #181818;
-                border: none;
-                spacing: 2px;
-                padding: 2px 4px;
-                min-height: 28px;
-                max-height: 28px;
-            }
-            QToolButton {
-                background: transparent;
-                color: #e0e0e0;
-                border: none;
-                margin: 0 2px;
-                padding: 2px;
-                min-width: 22px;
-                min-height: 22px;
-            }
-            QToolButton:checked, QToolButton:pressed {
-                background: #222;
-            }
-            """)
-            self.waveform_canvas.waveform_toolbar.setIconSize(self.waveform_canvas.waveform_toolbar.iconSize().scaled(18, 18, Qt.AspectRatioMode.KeepAspectRatio))
-            # Add the toolbar above the waveform_canvas in the parent layout
-            parent_layout = self.waveform_canvas.parentWidget().layout() if self.waveform_canvas.parentWidget() else None
-            if parent_layout is not None:
-                idx = parent_layout.indexOf(self.waveform_canvas)
-                parent_layout.insertWidget(idx, self.waveform_canvas.waveform_toolbar)
         # Always get the axes after subplots() is called
         ax = self.waveform_canvas.figure.axes[0]
         ax.clear()
