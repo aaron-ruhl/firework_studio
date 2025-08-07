@@ -82,3 +82,5 @@ class ToastDialog(QDialog):
         if self in ToastDialog._active_toasts:
             ToastDialog._active_toasts.remove(self)
         super().closeEvent(event)
+
+    

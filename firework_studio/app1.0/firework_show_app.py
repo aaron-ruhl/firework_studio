@@ -4,7 +4,7 @@ from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal
 from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QPushButton, QLabel, QFileDialog, QSizePolicy, QDialog
+    QPushButton, QLabel, QFileDialog, QSizePolicy, QDialog, QStatusBar
 )
 
 import numpy as np
@@ -38,6 +38,8 @@ class FireworkShowApp(QMainWindow):
         ############################################################
         self.setWindowTitle("Firework Studio")
         self.setGeometry(100, 100, 1800, 1000)
+        # Start maximized but not fullscreen (windowed)
+        self.showMaximized()
         self.generating_toast = None
         self.clear_btn = None
         self.audio_data = None
@@ -47,7 +49,7 @@ class FireworkShowApp(QMainWindow):
         self.segment_times = None
         self.firework_firing = []
         self.fireworks_canvas = None  # Declare attribute before assignment
-
+        self.firework_show_info = "No audio loaded. Load audio to get started."
 
         #############################################################
         #                                                          #
@@ -57,8 +59,8 @@ class FireworkShowApp(QMainWindow):
 
         button_style = """
             QPushButton {
-            background-color: #2196f3;
-            color: #fff;
+            background-color: #49505a;
+            color: #f0f0f0;
             border: none;
             border-radius: 7px;
             font-size: 14px;
@@ -66,12 +68,13 @@ class FireworkShowApp(QMainWindow):
             min-width: 60px;
             min-height: 28px;
             padding: 4px 8px;
+            transition: background 0.2s;
             }
             QPushButton:hover {
-            background-color: #1e88e5;
+            background-color: #606874;
             }
             QPushButton:pressed {
-            background-color: #1565c0;
+            background-color: #353a40;
             }
         """
         #############################################################
@@ -81,7 +84,6 @@ class FireworkShowApp(QMainWindow):
         #############################################################
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
-        layout = QVBoxLayout(central_widget)
 
         #############################################################
         #                                                          #
@@ -101,8 +103,7 @@ class FireworkShowApp(QMainWindow):
             return container
 
         self.fireworks_canvas_container = create_fireworks_canvas_container()
-        fireworks_canvas_container = self.fireworks_canvas_container
-        layout.addWidget(fireworks_canvas_container, stretch=5)
+        
 
         ############################################################
         #                                                          #
@@ -113,7 +114,6 @@ class FireworkShowApp(QMainWindow):
         # Fireworks preview widget
         self.preview_widget = FireworkPreviewWidget()
         self.preview_widget.setMinimumHeight(150)  # Make the preview widget taller
-        layout.addWidget(self.preview_widget, stretch=0, alignment=Qt.AlignmentFlag.AlignBottom)
         # Enable mouse press tracking for the preview widget
         self.preview_widget.setMouseTracking(True)
         self.preview_widget.installEventFilter(self)
@@ -191,8 +191,8 @@ class FireworkShowApp(QMainWindow):
             btn = QPushButton("Add Firing")
             btn.setStyleSheet(button_style)
             def add_firing_and_update_info():
-                self.preview_widget.add_time(1)
-                self.info_label.setText(f"Firework firings: {len(self.preview_widget.firework_firing)}")
+                self.firework_firing = self.preview_widget.add_time(1)
+                self.update_firework_show_info()
             btn.clicked.connect(add_firing_and_update_info)
             return btn
 
@@ -208,28 +208,10 @@ class FireworkShowApp(QMainWindow):
         # Create a button to delete the selected firing
         def create_delete_firing_btn():
             btn = QPushButton("Delete Firing")
-            btn.setStyleSheet("""
-                QPushButton {
-                background-color: #e53935;
-                color: #fff;
-                border: none;
-                border-radius: 7px;
-                font-size: 14px;
-                font-weight: bold;
-                min-width: 60px;
-                min-height: 28px;
-                padding: 4px 8px;
-                }
-                QPushButton:hover {
-                background-color: #c62828;
-                }
-                QPushButton:pressed {
-                background-color: #8e2420;
-                }
-            """)
+            btn.setStyleSheet(button_style)
             def remove_firing_and_update_info():
-                self.preview_widget.remove_selected_firing()
-                self.info_label.setText(f"Firework firings: {len(self.preview_widget.firework_firing)}")
+                self.firework_firing = self.preview_widget.remove_selected_firing()
+                self.update_firework_show_info()
             btn.clicked.connect(remove_firing_and_update_info)
             return btn
 
@@ -275,8 +257,7 @@ class FireworkShowApp(QMainWindow):
                 self.play_pause_btn.setChecked(False)
                 self.play_pause_btn.setText("▶️")
                 self.play_pause_btn.blockSignals(False)
-                self.info_label.setText("Show cleared. Load audio to generate a new show.")
-                
+
             btn.clicked.connect(clear_show)
             def show_cleared_toast():
                 toast = ToastDialog("Show cleared!", parent=self)
@@ -343,21 +324,11 @@ class FireworkShowApp(QMainWindow):
         #              Add info label to the media controls       #
         #                                                         #
         ############################################################
-        
-        # Add a vertical line to separate the time label from the buttons
-        def create_vline():
-            vline = QFrame()
-            vline.setFrameShape(QFrame.Shape.VLine)
-            vline.setFrameShadow(QFrame.Shadow.Sunken)
-            vline.setStyleSheet("color: #444; background: #444; min-width: 2px;")
-            return vline
-        self.vline = create_vline()
-        media_controls_layout.insertWidget(1, self.vline, alignment=Qt.AlignmentFlag.AlignVCenter)
 
         # Add info label to display audio loading status
-        self.info_label = QLabel("No audio loaded.")
-        self.info_label.setStyleSheet("color: #b0b0b0; font-size: 15px; padding-left: 12px;")
-        media_controls_layout.insertWidget(2, self.info_label, alignment=Qt.AlignmentFlag.AlignVCenter)
+        self.status_bar = QStatusBar()
+        self.setStatusBar(self.status_bar)
+        self.status_bar.showMessage(self.firework_show_info)
 
         ###########################################################
         #                                                         #
@@ -371,22 +342,24 @@ class FireworkShowApp(QMainWindow):
         self.load_btn.setStyleSheet(button_style)
         self.load_btn.setFixedHeight(40)
 
-        def handle_audio_loaded():
+        def handle_audio():
             # Load audio data
             self.audio_data, self.sr, self.audio_datas, self.duration = self.audio_loader.select_and_load()
             # Plot waveform
             self.plot_waveform()
+            # setup the preview widget with loaded audio data becuase play button works by playing preview_widget
+            # otherwise pressing play will not play anything because the show data is not set in preview_widget
             self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, None, self.duration)
             # If audio data is loaded, enable the generate button
             if self.audio_data is not None:
                 self.generate_btn.setEnabled(True)
                 self.generate_btn.setVisible(True)  
                 # Show when audio is loaded
-                self.info_label.setText("Generate fireworks show from scratch or use generate show button to get help.")
-
+                self.status_bar.showMessage("Generate fireworks show from scratch or use generate show button to get help.")
                 # Show a toast notification with loaded audio file names
                 basenames = [os.path.basename(p) for p in self.audio_loader.paths]
                 toast = ToastDialog(f"Loaded audio: {', '.join(basenames)}", parent=self)
+                self.update_firework_show_info()
                 geo = self.geometry()
                 x = geo.x() + geo.width() - toast.width() - 40
                 y = geo.y() + geo.height() - toast.height() - 40
@@ -395,12 +368,10 @@ class FireworkShowApp(QMainWindow):
                 QTimer.singleShot(2500, toast.close)
             elif self.audio_data is None:
                 self.generate_btn.setVisible(False)  # Hide if no audio
-                self.info_label.setText("No audio loaded.")
 
         # Connect the load_btn to open file dialog and load audio
 
-        self.load_btn.clicked.connect(lambda: handle_audio_loaded())
-
+        self.load_btn.clicked.connect(lambda: handle_audio())
         media_controls_layout.addWidget(self.load_btn)
 
         ###########################################################
@@ -424,7 +395,6 @@ class FireworkShowApp(QMainWindow):
                         stop:1 #e040fb
                     );
                     border: 2px solid #8e24aa;
-                    box-shadow: 0 0 12px #e040fb;
                     letter-spacing: 1px;
                     min-width: 180px;
                     min-height: 40px;
@@ -444,14 +414,13 @@ class FireworkShowApp(QMainWindow):
                 self.play_pause_btn.setChecked(False)
                 self.play_pause_btn.setText("▶️")
                 self.play_pause_btn.blockSignals(False)
-                self.info_label.setText("Generating fireworks show...")
                 QApplication.processEvents()
             btn.clicked.connect(generate_and_reset)
             return btn
+        
         self.generate_btn = create_generate_btn()
         media_controls_layout.addWidget(self.generate_btn)
         self.generate_btn.setVisible(False)  # Hide initially
-        layout.addLayout(media_controls_layout)
 
         ###########################################################
         #                                                         #
@@ -471,13 +440,25 @@ class FireworkShowApp(QMainWindow):
             canvas.figure.subplots_adjust(left=0, right=1, top=1, bottom=0)
             return canvas
         self.waveform_canvas = create_waveform_canvas()
+        
+        #################################################################
+        #                                                               # 
+        #        Set up the main layout for the application window      #
+        #                                                               #
+        #################################################################
+
+        layout = QVBoxLayout(central_widget)
+        layout.addWidget(self.fireworks_canvas_container, stretch=5)
+        layout.addLayout(media_controls_layout)
+        layout.addWidget(self.preview_widget, stretch=0, alignment=Qt.AlignmentFlag.AlignBottom)
         layout.addWidget(self.waveform_canvas)
 
         ###########################################################
-        #                                                          #
-        #        Set dark theme palette and styles for the app     #
-        #                                                          #
+        #                                                         #
+        #        Set dark theme palette and styles for the app    #
+        #                                                         #
         ###########################################################
+
         dark_palette = self.palette()
         dark_palette.setColor(self.backgroundRole(), QColor(30, 30, 30))
         dark_palette.setColor(self.foregroundRole(), QColor(220, 220, 220))
@@ -578,4 +559,18 @@ class FireworkShowApp(QMainWindow):
             ax.set_xlim((0, self.duration))
 
 
-    
+    def update_firework_show_info(self):
+        # Format duration as mm:ss if available
+        if self.duration is not None:
+            mins, secs = divmod(int(self.duration), 60)
+            duration_str = f"{mins:02d}:{secs:02d}"
+        else:
+            duration_str = "N/A"
+        self.firework_show_info = (
+            f"Sample Rate: {self.sr if self.sr is not None else 'N/A'} | "
+            f"Duration: {duration_str} | "
+            f"Segments: {len(self.segment_times) if self.segment_times is not None else 0} | "
+            f"Firework Firings: {len(self.firework_firing) if self.firework_firing is not None else 0}"
+        )
+        if hasattr(self, "status_bar"):
+            self.status_bar.showMessage(self.firework_show_info)

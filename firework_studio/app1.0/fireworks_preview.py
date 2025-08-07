@@ -128,6 +128,8 @@ class FireworkPreviewWidget(QWidget):
         self.firework_colors.append(
             QColor(random.randint(50, 255), random.randint(50, 255), random.randint(50, 255))
         )
+        return self.firework_firing
+    
     def advance_preview(self):
         if self.audio_data is None or self.sr is None or self.duration == 0:
             return
@@ -253,3 +255,4 @@ class FireworkPreviewWidget(QWidget):
                     del self.firework_colors[idx]
             self.selected_firing = None
             self.update()
+        return self.firework_firing

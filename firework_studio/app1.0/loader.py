@@ -4,6 +4,7 @@ from PyQt6.QtWidgets import QFileDialog
 from matplotlib.backends.backend_qt import NavigationToolbar2QT
 import numpy as np
 import librosa.display
+from toaster import ToastDialog
 
 class AudioLoader():
     
@@ -20,8 +21,6 @@ class AudioLoader():
             self.paths = files
 
     def load(self):
-        from firework_show_app import FireworkShowApp
-
         for path in self.paths:
             if self.sr is None:
                 self.sr = 16000  # Default sample rate if not specified
