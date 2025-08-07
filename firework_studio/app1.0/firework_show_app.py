@@ -23,6 +23,46 @@ from PyQt6.QtCore import QPropertyAnimation
 from analysis import AudioAnalyzer
 from loader import AudioLoader
 from toaster import ToastDialog
+import json
+
+
+class FireworkShowManager:
+    """
+    Handles saving and loading of firework show data (firings, segments, etc.)
+    """
+
+    @staticmethod
+    def save_show(filepath, audio_data, firings, segment_times=None, sr=None, duration=None):
+        """
+        Save the firework show data to a file (JSON format).
+        """
+        show_data = {
+            "firings": firings,
+            "segment_times": segment_times if segment_times is not None else [],
+            "sample_rate": sr,
+            "duration": duration,
+            "audio_data": audio_data  # Placeholder for audio data if needed
+        }
+        with open(filepath, "w", encoding="utf-8") as f:
+            json.dump(show_data, f, indent=2)
+
+    @staticmethod
+    def load_show(filepath):
+        """
+        Load the firework show data from a file (JSON format).
+        Returns: firings, segment_times, sr, duration
+        """
+        with open(filepath, "r", encoding="utf-8") as f:
+            show_data = json.load(f)
+        firings = show_data.get("firings", [])
+        segment_times = show_data.get("segment_times", [])
+        sr = show_data.get("sample_rate", None)
+        duration = show_data.get("duration", None)
+        audio_data = show_data.get("audio_data", None)
+        if audio_data is not None:
+            # Convert audio data from list to numpy array if needed
+            audio_data = np.array(audio_data)
+        return firings, segment_times, sr, duration, audio_data
 
 
             
@@ -68,7 +108,6 @@ class FireworkShowApp(QMainWindow):
             min-width: 60px;
             min-height: 28px;
             padding: 4px 8px;
-            transition: background 0.2s;
             }
             QPushButton:hover {
             background-color: #606874;
@@ -271,7 +310,7 @@ class FireworkShowApp(QMainWindow):
             btn.clicked.connect(lambda: self.fireworks_canvas.set_fireworks_enabled(True))  # Enable fireworks on stop to update screen
             btn.clicked.connect(self.fireworks_canvas.update_animation)  # Reset firings on stop
             btn.clicked.connect(lambda: self.fireworks_canvas.set_fireworks_enabled(False))  # Disable fireworks on stop
-            
+
             def show_cleared_toast():
                 toast = ToastDialog("Show cleared!", parent=self)
                 geo = self.geometry()
@@ -461,6 +500,104 @@ class FireworkShowApp(QMainWindow):
         #################################################################
 
         layout = QVBoxLayout(central_widget)
+        # Add Save and Load buttons for firework show
+        save_load_layout = QHBoxLayout()
+        save_load_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        save_load_layout.setSpacing(10)
+
+        def create_save_btn():
+            btn = QPushButton("Save Show")
+            btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #1976d2;
+                    color: #fff;
+                    border: none;
+                    border-radius: 7px;
+                    font-size: 14px;
+                    font-weight: bold;
+                    min-width: 80px;
+                    min-height: 28px;
+                    padding: 4px 12px;
+                }
+                QPushButton:hover {
+                    background-color: #1565c0;
+                }
+                QPushButton:pressed {
+                    background-color: #0d47a1;
+                }
+            """)
+            def save_show():
+                options = QFileDialog.Option(0)
+                file_path, _ = QFileDialog.getSaveFileName(self, "Save Firework Show", "", "Firework Show (*.json);;All Files (*)", options=options)
+                if file_path:
+                    FireworkShowManager.save_show(
+                        file_path,
+                        self.audio_data.tolist() if self.audio_data is not None else None,
+                        self.firework_firing,
+                        self.segment_times,
+                        self.sr,
+                        self.duration
+                    )
+                    toast = ToastDialog("Show saved!", parent=self)
+                    geo = self.geometry()
+                    x = geo.x() + geo.width() - toast.width() - 40
+                    y = geo.y() + geo.height() - toast.height() - 40
+                    toast.move(x, y)
+                    toast.show()
+                    QTimer.singleShot(2000, toast.close)
+            btn.clicked.connect(save_show)
+            return btn
+
+        def create_load_show_btn():
+            btn = QPushButton("Load Show")
+            btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #388e3c;
+                    color: #fff;
+                    border: none;
+                    border-radius: 7px;
+                    font-size: 14px;
+                    font-weight: bold;
+                    min-width: 80px;
+                    min-height: 28px;
+                    padding: 4px 12px;
+                }
+                QPushButton:hover {
+                    background-color: #2e7031;
+                }
+                QPushButton:pressed {
+                    background-color: #1b5e20;
+                }
+            """)
+            def load_show():
+                options = QFileDialog.Option(0)
+                file_path, _ = QFileDialog.getOpenFileName(self, "Load Firework Show", "", "Firework Show (*.json);;All Files (*)", options=options)
+                if file_path:
+                    firings, segment_times, sr, duration, audio_data = FireworkShowManager.load_show(file_path)
+                    self.firework_firing = firings
+                    self.segment_times = segment_times
+                    self.sr = sr
+                    self.duration = duration
+                    if audio_data is not None:
+                        self.audio_data = audio_data
+                    self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, self.firework_firing, self.duration)
+                    self.plot_waveform()
+                    self.update_firework_show_info()
+                    toast = ToastDialog("Show loaded!", parent=self)
+                    geo = self.geometry()
+                    x = geo.x() + geo.width() - toast.width() - 40
+                    y = geo.y() + geo.height() - toast.height() - 40
+                    toast.move(x, y)
+                    toast.show()
+                    QTimer.singleShot(2000, toast.close)
+            btn.clicked.connect(load_show)
+            return btn
+
+        self.save_btn = create_save_btn()
+        self.load_show_btn = create_load_show_btn()
+        save_load_layout.addWidget(self.save_btn)
+        save_load_layout.addWidget(self.load_show_btn)
+        layout.addLayout(save_load_layout)
         layout.addWidget(self.fireworks_canvas_container, stretch=5)
         layout.addLayout(media_controls_layout)
         layout.addWidget(self.preview_widget, stretch=0, alignment=Qt.AlignmentFlag.AlignBottom)
