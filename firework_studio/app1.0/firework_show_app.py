@@ -147,11 +147,14 @@ class FireworkShowApp(QMainWindow):
             btn.setStyleSheet(button_style)
             def toggle_icon(checked):
                 btn.setText("⏸️" if checked else "▶️")
+                if checked:
+                    self.fireworks_canvas.suppress_fireworks()
                 self.preview_widget.toggle_play_pause()
             btn.toggled.connect(toggle_icon)
             return btn
         
         self.play_pause_btn = create_play_pause_btn()
+        self.play_pause_btn.clicked.connect(self.fireworks_canvas.reset_firings) # type: ignore
         media_controls_layout.addWidget(self.play_pause_btn)
 
         ###########################################
@@ -191,7 +194,7 @@ class FireworkShowApp(QMainWindow):
             btn = QPushButton("Add Firing")
             btn.setStyleSheet(button_style)
             def add_firing_and_update_info():
-                self.firework_firing = self.preview_widget.add_time(1)
+                self.firework_firing = self.preview_widget.add_time()
                 self.update_firework_show_info()
             btn.clicked.connect(add_firing_and_update_info)
             return btn
