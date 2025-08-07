@@ -65,13 +65,10 @@ class FireworkShowManager:
             audio_data = np.array(audio_data)
         return firings, segment_times, sr, duration, audio_data
 
-
-            
 '''THIS IS THE MAIN WINDOW CLASS FOR THE FIREWORK STUDIO APPLICATION'''
 class FireworkShowApp(QMainWindow):
     def __init__(self):
         super().__init__()
-
         ############################################################
         #                                                          #
         #        Initialize the main window properties             #
@@ -79,8 +76,10 @@ class FireworkShowApp(QMainWindow):
         ############################################################
         self.setWindowTitle("Firework Studio")
         self.setGeometry(100, 100, 1800, 1000)
+        self.setMinimumSize(1600, 900)  # Ensure enough room for all widgets
         # Start maximized but not fullscreen (windowed)
         self.showMaximized()
+        self.show()  # Ensure the window is shown and maximized
         self.generating_toast = None
         self.clear_btn = None
         self.audio_data = None
@@ -549,23 +548,34 @@ class FireworkShowApp(QMainWindow):
                 ("Mountains", "mountains"),
                 ("Custom", "custom"),
             ]
+            # Create radio buttons for each background option
             button_group = QButtonGroup(self)
             for label, bg_name in backgrounds:
                 radio = QRadioButton(label)
                 radio.setStyleSheet("color: #e0e0e0;")
                 bg_layout.addWidget(radio)
                 button_group.addButton(radio)
-                def make_handler(bg=bg_name):
-                    return lambda: self.fireworks_canvas.set_background(bg)
-                radio.toggled.connect(make_handler(bg_name))
+                radio.toggled.connect(lambda checked, bg=bg_name: self.fireworks_canvas.set_background(bg) if checked and bg != "custom" else None)
+                if bg_name == "custom":
+                    def on_custom_bg_selected(checked, radio=radio):
+                        if checked:
+                            file_dialog = QFileDialog(self)
+                            file_dialog.setNameFilter("Images (*.png *.jpg *.jpeg *.bmp *.gif)")
+                            if file_dialog.exec():
+                                selected_files = file_dialog.selectedFiles()
+                                if selected_files:
+                                    image_path = selected_files[0]
+                                    self.fireworks_canvas.set_background("custom", image_path)
+                    radio.toggled.connect(lambda checked, r=radio: on_custom_bg_selected(checked, r))
             # Set default selection
             button_group.buttons()[0].setChecked(True)
             self.fireworks_canvas.set_background(backgrounds[0][1])
 
+
             return group_box
         self.background_btn = create_background_btn()
         media_controls_layout.addWidget(self.background_btn)
-        
+
         ###########################################################
         #                                                         #
         #              Fireworks show generator button            #
