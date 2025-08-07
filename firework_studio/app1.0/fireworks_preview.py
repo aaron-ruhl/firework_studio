@@ -172,7 +172,7 @@ class FireworkPreviewWidget(QWidget):
         painter.setBrush(QColor(50, 55, 70, 220))
         painter.drawRoundedRect(bar_rect, 8, 8)
 
-        # Draw ticks and time labels
+        # Draw ticks and time labels in mm:ss format
         painter.setPen(QColor(120, 120, 140))
         tick_count = 10
         for i in range(tick_count + 1):
@@ -180,7 +180,9 @@ class FireworkPreviewWidget(QWidget):
             painter.drawLine(x, timeline_y + 12, x, timeline_y + 22)
             if self.duration:
                 t = self.duration * i / tick_count
-                label = f"{t:.1f}s"
+                minutes = int(t // 60)
+                seconds = int(t % 60)
+                label = f"{minutes:02d}:{seconds:02d}"
                 painter.setPen(QColor(180, 180, 200))
                 painter.drawText(x - 15, timeline_y + 38, 30, 16, Qt.AlignmentFlag.AlignCenter, label)
                 painter.setPen(QColor(120, 120, 140))

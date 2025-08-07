@@ -20,6 +20,7 @@ class FireworksCanvas(QWidget):
         self.pattern = None
         self.background = None
         self.fired_times = set()  # Track fired times
+        self._fireworks_enabled = True  # Initialize attribute
 
     def add_firework(self, x=None, color=None):
         if x is None:
@@ -33,7 +34,18 @@ class FireworksCanvas(QWidget):
         self.fireworks.clear()
         self.fired_times.clear()
 
+    def reset_firings(self):
+        self.fired_times.clear()
+
+    def set_fireworks_enabled(self, enabled: bool):
+        self._fireworks_enabled = enabled
+
+    def are_fireworks_enabled(self):
+        return getattr(self, "_fireworks_enabled", True)
+
     def update_animation(self):
+        if not self._fireworks_enabled:
+            return
         self.fireworks = [fw for fw in self.fireworks if fw.update()]
         parent = self.parentWidget()
         preview_widget = None
@@ -148,15 +160,16 @@ class FireworksCanvas(QWidget):
         painter.fillRect(water_rect, water_gradient)
 
         # Draw fireworks
-        for firework in self.fireworks:
-            if not firework.exploded:
-                painter.setPen(QPen(firework.color, 4))
-                painter.drawPoint(int(firework.x), int(firework.y))
-            else:
-                for particle in firework.particles:
-                    color = particle.get_color()
-                    painter.setPen(QPen(color, 2))
-                    painter.drawPoint(int(particle.x), int(particle.y))
+        if self._fireworks_enabled:
+            for firework in self.fireworks:
+                if not firework.exploded:
+                    painter.setPen(QPen(firework.color, 4))
+                    painter.drawPoint(int(firework.x), int(firework.y))
+                else:
+                    for particle in firework.particles:
+                        color = particle.get_color()
+                        painter.setPen(QPen(color, 2))
+                        painter.drawPoint(int(particle.x), int(particle.y))
                     
 class Particle:
     def __init__(self, x, y, angle, speed, color, lifetime=100):

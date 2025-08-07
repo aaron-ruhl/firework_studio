@@ -91,6 +91,8 @@ class FireworkShowApp(QMainWindow):
         #                                                          #
         #############################################################
 
+        # Create the fireworks canvas
+        self.fireworks_canvas = FireworksCanvas()
         # Create a container for the fireworks canvas
         def create_fireworks_canvas_container():
             container = QWidget()
@@ -98,7 +100,6 @@ class FireworkShowApp(QMainWindow):
             container.setMinimumHeight(435)
             layout.setContentsMargins(0, 0, 0, 0)
             layout.setSpacing(0)
-            self.fireworks_canvas = FireworksCanvas()
             layout.addWidget(self.fireworks_canvas)
             return container
 
@@ -148,9 +149,12 @@ class FireworkShowApp(QMainWindow):
             def toggle_icon(checked):
                 btn.setText("⏸️" if checked else "▶️")
                 if checked:
-                    self.fireworks_canvas.suppress_fireworks()
+                    self.fireworks_canvas.set_fireworks_enabled(True)
+                else:
+                    self.fireworks_canvas.set_fireworks_enabled(False)
                 self.preview_widget.toggle_play_pause()
             btn.toggled.connect(toggle_icon)
+            # Remove unsupported 'transition' property from button_style
             return btn
         
         self.play_pause_btn = create_play_pause_btn()
@@ -170,6 +174,9 @@ class FireworkShowApp(QMainWindow):
             btn.setStyleSheet(button_style)
             btn.clicked.connect(self.preview_widget.stop_preview)
             btn.clicked.connect(self.fireworks_canvas.reset_fireworks) # type: ignore
+            btn.clicked.connect(lambda: self.fireworks_canvas.set_fireworks_enabled(True))  # Enable fireworks on stop to update screen
+            btn.clicked.connect(self.fireworks_canvas.update_animation)  # Reset firings on stop
+            btn.clicked.connect(lambda: self.fireworks_canvas.set_fireworks_enabled(False))  # Disable fireworks on stop
             def reset_play_pause():
                 btn_parent = self.play_pause_btn
                 btn_parent.blockSignals(True)
@@ -251,7 +258,6 @@ class FireworkShowApp(QMainWindow):
             """)
             # Also pause the show if playing
             def clear_show():
-                self.fireworks_canvas.reset_fireworks()
                 self.segment_times = None
                 self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, None, self.duration)
                 self.preview_widget.stop_preview()
@@ -262,6 +268,10 @@ class FireworkShowApp(QMainWindow):
                 self.play_pause_btn.blockSignals(False)
 
             btn.clicked.connect(clear_show)
+            btn.clicked.connect(lambda: self.fireworks_canvas.set_fireworks_enabled(True))  # Enable fireworks on stop to update screen
+            btn.clicked.connect(self.fireworks_canvas.update_animation)  # Reset firings on stop
+            btn.clicked.connect(lambda: self.fireworks_canvas.set_fireworks_enabled(False))  # Disable fireworks on stop
+            
             def show_cleared_toast():
                 toast = ToastDialog("Show cleared!", parent=self)
                 geo = self.geometry()
