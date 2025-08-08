@@ -597,7 +597,8 @@ class FireworkShowApp(QMainWindow):
         def create_generate_btn():
             btn = QPushButton("Generate Show")
             btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)            
-            ai_button_style = """
+            ai_button_style = button_style + """
+                QPushButton {
                     background: qlineargradient(
                         x1:0, y1:0, x2:1, y2:0,
                         stop:0 #ff5252, 
@@ -607,17 +608,9 @@ class FireworkShowApp(QMainWindow):
                         stop:0.8 #8e24aa, 
                         stop:1 #e040fb
                     );
-                    border: 2px solid #8e24aa;
-                    letter-spacing: 1px;
-                    min-width: 180px;
-                    min-height: 40px;
-                    max-width: 180px;
-                    max-height: 40px;
-                
+                }
             """
             btn.setStyleSheet(ai_button_style)
-            btn.setFixedHeight(40)
-            btn.setMinimumWidth(60)
             btn.setCheckable(False)  # Prevent checked/pressed state
             btn.setAutoDefault(False)
 
@@ -625,7 +618,7 @@ class FireworkShowApp(QMainWindow):
                 self.preview_widget.stop_preview()
                 self.play_pause_btn.blockSignals(True)
                 self.play_pause_btn.setChecked(False)
-                self.play_pause_btn.setText("▶️")
+                self.play_pause_btn.setText("Play")
                 self.play_pause_btn.blockSignals(False)
                 QApplication.processEvents()
             btn.clicked.connect(generate_and_reset)
