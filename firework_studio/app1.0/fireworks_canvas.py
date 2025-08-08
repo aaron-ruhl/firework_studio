@@ -82,19 +82,18 @@ class FireworksCanvas(QWidget):
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        match self.background:
-            case "night":
-                self.draw_background_night(painter)
-            case "sunset":
-                self.draw_background_sunset(painter)
-            case "city":
-                self.draw_background_city(painter)
-            case "mountains":
-                self.draw_background_mountains(painter)
-            case "custom":
-                self.load_custom_background(path=self.custom_background_image_path)
-                if hasattr(self, "_custom_bg_pixmap") and self._custom_bg_pixmap:
-                    painter.drawPixmap(self.rect(), self._custom_bg_pixmap)
+        if self.background == "night":
+            self.draw_background_night(painter)
+        elif self.background == "sunset":
+            self.draw_background_sunset(painter)
+        elif self.background == "city":
+            self.draw_background_city(painter)
+        elif self.background == "mountains":
+            self.draw_background_mountains(painter)
+        elif self.background == "custom":
+            self.load_custom_background(path=self.custom_background_image_path)
+            if hasattr(self, "_custom_bg_pixmap") and self._custom_bg_pixmap:
+                painter.drawPixmap(self.rect(), self._custom_bg_pixmap)
         # Draw fireworks particles after background
         self.draw_fireworks(painter)
 

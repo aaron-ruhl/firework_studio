@@ -26,7 +26,8 @@ from toaster import ToastDialog
 import json
 from PyQt6.QtWidgets import QGroupBox, QRadioButton, QButtonGroup
 from matplotlib.widgets import SpanSelector
-
+from fireworks_preview import WaveformSelectionTool
+import soundfile as sf
 
 class FireworkShowManager:
     """
@@ -315,6 +316,7 @@ class FireworkShowApp(QMainWindow):
 
         self.load_btn.clicked.connect(lambda: handle_audio())
         media_controls_layout.addWidget(self.load_btn)
+
         ###########################################################
         #                                                         #
         #    Clear show button (styled to match Add Firing)       #
@@ -337,6 +339,7 @@ class FireworkShowApp(QMainWindow):
                 self.play_pause_btn.blockSignals(False)
 
             btn.clicked.connect(clear_show)
+            btn.clicked.connect(self.preview_widget.reset_selected_region)  # Reset selected region in preview widget
             btn.clicked.connect(lambda: self.fireworks_canvas.set_fireworks_enabled(True))  # Enable fireworks on stop to update screen
             btn.clicked.connect(self.fireworks_canvas.update_animation)  # Reset firings on stop
             btn.clicked.connect(lambda: self.fireworks_canvas.set_fireworks_enabled(False))  # Disable fireworks on stop
@@ -355,6 +358,20 @@ class FireworkShowApp(QMainWindow):
         self.clear_btn = create_clear_btn()
         media_controls_layout.addStretch()
         media_controls_layout.addWidget(self.clear_btn)
+
+        ###########################################################
+        #                                                         #
+        #    Create a reset button to reset the selected region   #
+        #                                                         #
+        ###########################################################
+        def create_reset_btn():
+            btn = QPushButton("Reset")
+            btn.setStyleSheet(button_style)
+            btn.clicked.connect(self.preview_widget.reset_selected_region)
+            return btn
+
+        self.reset_btn = create_reset_btn()
+        media_controls_layout.addWidget(self.reset_btn)
 
         ###########################################################
         #                                                         #
@@ -430,9 +447,19 @@ class FireworkShowApp(QMainWindow):
                 options = QFileDialog.Option(0)
                 file_path, _ = QFileDialog.getSaveFileName(self, "Save Firework Show", "", "Firework Show (*.json);;All Files (*)", options=options)
                 if file_path:
+                    if self.audio_data is not None and self.sr is not None:
+                        # Try to get the path to the loaded audio file (if available)
+                        audio_path = self.audio_loader.paths[0] if self.audio_loader.paths else None
+                        if not os.path.isabs(audio_path):
+                            audio_path = os.path.join(os.getcwd(), audio_path)
+                        # Only save the path, do not write audio file here
+                        audio_data_to_save = audio_path  # Save path instead of raw data
+                    else:
+                        audio_data_to_save = None
+
                     FireworkShowManager.save_show(
                         file_path,
-                        self.audio_data.tolist() if self.audio_data is not None else None,
+                        audio_data_to_save,
                         self.firework_firing,
                         self.segment_times,
                         self.sr,
@@ -455,13 +482,16 @@ class FireworkShowApp(QMainWindow):
                 options = QFileDialog.Option(0)
                 file_path, _ = QFileDialog.getOpenFileName(self, "Load Firework Show", "", "Firework Show (*.json);;All Files (*)", options=options)
                 if file_path:
-                    firings, segment_times, sr, duration, audio_data = FireworkShowManager.load_show(file_path)
+                    firings, segment_times, sr, duration, audio_data_to_save = FireworkShowManager.load_show(file_path)
                     self.firework_firing = firings
                     self.segment_times = segment_times
                     self.sr = sr
                     self.duration = duration
-                    if audio_data is not None:
-                        self.audio_data = audio_data
+                    # If audio_data_to_save is a path, load audio using handle_audio
+                    if audio_data_to_save:
+                        # handle_audio expects to load audio from self.audio_loader.paths
+                        self.audio_loader.paths = [audio_data_to_save] if isinstance(audio_data_to_save, str) else audio_data_to_save
+                        handle_audio()
                     self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, self.firework_firing, self.duration)
                     self.plot_waveform()
                     self.update_firework_show_info()
@@ -582,19 +612,6 @@ class FireworkShowApp(QMainWindow):
         #                                                         #
         ###########################################################
 
-        # Add a waveform panning/selection tool using matplotlib's SpanSelector
-        def on_waveform_selected(xmin, xmax):
-            # Example: show selection in status bar
-            def format_time(t):
-                mins = int(t // 60)
-                secs = int(t % 60)
-                ms = int((t - int(t)) * 1000)
-                return f"{mins:02d}:{secs:02d}:{ms:03d}"
-            self.start = format_time(xmin)
-            self.end = format_time(xmax)
-            self.status_bar.showMessage(
-                f"Selected region: {self.start} - {self.end}"
-            )
         # Create a canvas for displaying the waveform needed here for loading audio
         def create_waveform_canvas():
             canvas = FigureCanvas(Figure(figsize=(20, 1)))
@@ -607,9 +624,10 @@ class FireworkShowApp(QMainWindow):
             canvas.figure.subplots_adjust(left=0, right=1, top=1, bottom=0)
             return canvas
         self.waveform_canvas = create_waveform_canvas()
-        self.waveform_selector = WaveformSelectionTool(self.waveform_canvas, on_waveform_selected, main_window=self)
-        if self.waveform_selector.selected_region is not None:
-            self.preview_widget.select_region(self.waveform_selector.selected_region[0], self.waveform_selector.selected_region[1])
+
+        # Add a waveform panning/selection tool using matplotlib's SpanSelector
+        self.waveform_selector = WaveformSelectionTool(self.waveform_canvas, main_window=self)
+
 
         #################################################################
         #                                                               # 
@@ -677,10 +695,10 @@ class FireworkShowApp(QMainWindow):
             if self.segment_times is not None and isinstance(self.segment_times, (list, tuple, np.ndarray)):
                 for t in self.segment_times:
                     ax.axvline(x=t, color="#bbbbbb", linestyle="--", linewidth=1.2, alpha=0.7)
-                # Plot firework firings in bright white
-                if self.firework_firing is not None:
-                    for t in self.firework_firing:
-                        ax.axvline(x=t, color="#ffffff", linestyle="-", linewidth=2, alpha=0.9)
+            # Plot firework firings in bright white (outside the segment_times loop)
+            if self.firework_firing is not None:
+                for t in self.firework_firing:
+                    ax.axvline(x=t, color="#ffffff", linestyle="-", linewidth=2, alpha=0.9)
             if self.duration is not None and self.sr is not None:
                 ax.set_xlim(0, self.duration)
             elif self.audio_data is not None and self.sr is not None:
@@ -698,6 +716,8 @@ class FireworkShowApp(QMainWindow):
         self.waveform_canvas.draw_idle()
 
     def update_firework_show_info(self):
+        #Updates the variable called firework_show_info, not the actual show.
+        # This is just for diplaying information as it changes
         # Format duration as mm:ss if available
         if self.duration is not None:
             mins, secs = divmod(int(self.duration), 60)
@@ -712,45 +732,3 @@ class FireworkShowApp(QMainWindow):
         )
         if hasattr(self, "status_bar"):
             self.status_bar.showMessage(self.firework_show_info)
-
-class WaveformSelectionTool:
-    def __init__(self, canvas, on_select_callback=None, main_window=None):
-        self.canvas = canvas
-        self.ax = self.canvas.figure.axes[0]
-        self.span = SpanSelector(
-            self.ax,
-            self.on_select,
-            "horizontal",
-            useblit=True,
-            props=dict(alpha=0.3, facecolor="cyan"),
-            interactive=True,
-            drag_from_anywhere=True
-        )
-        self.on_select_callback = on_select_callback
-        self.selected_region = None
-        self.main_window = main_window
-
-    def on_select(self, xmin, xmax):
-        self.selected_region = (xmin, xmax)
-        # If preview_widget exists, set zoom region (optional, comment out if not needed)
-        if hasattr(self, "preview_widget") and self.preview_widget:
-            self.preview_widget.set_zoom_region(xmin, xmax)
-        if self.on_select_callback:
-            self.on_select_callback(xmin, xmax)
-        # Update status bar directly if main_window is provided
-        if self.main_window and hasattr(self.main_window, "status_bar"):
-            def format_time(t):
-                mins = int(t // 60)
-                secs = int(t % 60)
-                ms = int((t - int(t)) * 1000)
-                return f"{mins:02d}:{secs:02d}:{ms:03d}"
-            start = format_time(xmin)
-            end = format_time(xmax)
-            self.main_window.status_bar.showMessage(
-                f"Selected region: {start} - {end}"
-            )
-
-    def clear_selection(self):
-        self.selected_region = None
-        self.span.visible = False
-        self.canvas.draw_idle()
