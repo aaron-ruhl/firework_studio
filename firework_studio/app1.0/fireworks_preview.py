@@ -76,8 +76,10 @@ class FireworkPreviewWidget(QWidget):
         self.firework_firing = firework_firing
         self.duration = duration
         self.update()
+
     def set_fireworks_colors(self, colors):
         self.firework_colors = colors
+        
     def reset_selected_region(self):
         """Reset the selected region to the whole duration."""
         if self.duration:

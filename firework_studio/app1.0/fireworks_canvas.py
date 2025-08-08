@@ -50,9 +50,6 @@ class FireworksCanvas(QWidget):
     def set_fireworks_enabled(self, enabled: bool):
         self._fireworks_enabled = enabled
     
-    def are_fireworks_enabled(self):
-        return getattr(self, "_fireworks_enabled", True)
-    
     def update_animation(self):
         if not self._fireworks_enabled:
             return

@@ -202,9 +202,12 @@ class FireworkShowApp(QMainWindow):
             btn.setStyleSheet(button_style)
             def toggle_icon(checked, btn=btn):
                 btn.setText("Pause" if checked else "Play")
+                if checked:
+                    self.fireworks_canvas.set_fireworks_enabled(True)  # Enable fireworks while playing
+                else:
+                    self.fireworks_canvas.set_fireworks_enabled(False)  # Disable fireworks while paused
                 self.preview_widget.toggle_play_pause()
             btn.toggled.connect(toggle_icon)
-            # Remove unsupported 'transition' property from button_style
             return btn
         
         self.play_pause_btn = create_play_pause_btn()
@@ -219,19 +222,17 @@ class FireworkShowApp(QMainWindow):
 
         # Create a stop button to stop the preview and reset fireworks
         def create_stop_btn():
-            btn = QPushButton("⏹️")
+            btn = QPushButton("Stop")
             btn.setFixedSize(40, 40)
             btn.setStyleSheet(button_style)
             btn.clicked.connect(self.preview_widget.stop_preview)
             btn.clicked.connect(self.fireworks_canvas.reset_fireworks) # type: ignore
-            btn.clicked.connect(lambda: self.fireworks_canvas.set_fireworks_enabled(True))  # Enable fireworks on stop to update screen
-            btn.clicked.connect(lambda: self.fireworks_canvas.set_fireworks_enabled(False))  # Disable fireworks on stop
             def reset_play_pause():
                 btn_parent = self.play_pause_btn
                 btn_parent.blockSignals(True)
                 if btn_parent.isChecked():
                     btn_parent.setChecked(False)
-                btn_parent.setText("▶️")
+                btn_parent.setText("Play")
                 btn_parent.blockSignals(False)
             btn.clicked.connect(reset_play_pause)
             return btn
@@ -341,7 +342,6 @@ class FireworkShowApp(QMainWindow):
                     self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, None, self.duration)
                     self.preview_widget.stop_preview()
                     self.preview_widget.reset_selected_region()  # Reset selected region in preview widget
-                    self.fireworks_canvas.set_fireworks_enabled(True)  # Enable fireworks to ensure they can be displayed
                     self.fireworks_canvas.update_animation()  # Reset firings displayed
                     setattr(self, "firework_firing", [])  # Clear firings
                     self.plot_waveform()  # Update waveform after clearing
