@@ -34,24 +34,25 @@ class FireworksCanvas(QWidget):
         self.fireworks.append(Firework(x, self.height(), 
                                      color,
                                      self.particle_count))
+    
     def reset_fireworks(self):
         self.fireworks.clear()
         self.fired_times.clear()
-
+    
     def set_background(self, background, path=None):
         self.background = background
         if background == "custom" and path:
             self.custom_background_image_path = path
-
+    
     def reset_firings(self):
         self.fired_times.clear()
-
+    
     def set_fireworks_enabled(self, enabled: bool):
         self._fireworks_enabled = enabled
-
+    
     def are_fireworks_enabled(self):
         return getattr(self, "_fireworks_enabled", True)
-
+    
     def update_animation(self):
         if not self._fireworks_enabled:
             return
@@ -78,7 +79,7 @@ class FireworksCanvas(QWidget):
                     self.add_firework()
                     self.fired_times.add(t)
         self.update()
-
+    
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)

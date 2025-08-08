@@ -62,7 +62,7 @@ class FireworkPreviewWidget(QWidget):
         self.current_time = 0
         self.duration = 0
         self.resume = False
-        self.firework_colors = []
+        self.firework_colors = []  # Always a list, never None
         self.audio_thread = None
         self.selected_firing = None
         self.selected_region = tuple()
@@ -75,7 +75,8 @@ class FireworkPreviewWidget(QWidget):
         self.firework_firing = firework_firing
         self.duration = duration
         self.update()
-
+    def set_fireworks_colors(self, colors):
+        self.firework_colors = colors
     def reset_selected_region(self):
         """Reset the selected region to the whole duration."""
         if self.duration:
@@ -238,6 +239,9 @@ class FireworkPreviewWidget(QWidget):
         self.firing_handles = []
         handle_radius = 12
         if self.firework_firing is not None and self.duration:
+            # Ensure firework_colors is always a list
+            if self.firework_colors is None:
+                self.firework_colors = []
             # Filter firings and colors to only those in the zoomed region
             filtered_firings = []
             filtered_colors = []
@@ -246,10 +250,10 @@ class FireworkPreviewWidget(QWidget):
                 if draw_start <= ft <= draw_end:
                     filtered_firings.append(ft)
                     # Make sure firework_colors is in sync
-                    if hasattr(self, 'firework_colors') and len(self.firework_colors) > idx:
+                    if self.firework_colors and len(self.firework_colors) > idx:
                         filtered_colors.append(self.firework_colors[idx])
                     else:
-                        filtered_colors.append(QColor(random.randint(50, 255), random.randint(50, 255), random.randint(50, 255)))
+                        filtered_colors.append(QColor(255, 255, 255))
                     filtered_indices.append(idx)
             # Draw only filtered firings
             for i, (ft, color, orig_idx) in enumerate(zip(filtered_firings, filtered_colors, filtered_indices)):

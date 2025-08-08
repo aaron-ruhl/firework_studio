@@ -35,7 +35,7 @@ class FireworkShowManager:
     """
 
     @staticmethod
-    def save_show(filepath, audio_data, firings, segment_times=None, sr=None, duration=None, background=None, background_path=None):
+    def save_show(filepath, audio_data, firings, segment_times=None, sr=None, duration=None, background=None, background_path=None, fireworks_colors=None):
         """
         Save the firework show data to a file (JSON format).
         """
@@ -48,7 +48,8 @@ class FireworkShowManager:
             "duration": duration,
             "audio_data": audio_data_serializable,  # Now serializable
             "background": background,
-            "background_path": background_path
+            "background_path": background_path,
+            "fireworks_colors": fireworks_colors
         }
         with open(filepath, "w", encoding="utf-8") as f:
             json.dump(show_data, f, ensure_ascii=False, indent=4)
@@ -57,7 +58,7 @@ class FireworkShowManager:
     def load_show(filepath):
         """
         Load the firework show data from a file (JSON format).
-        Returns: firings, segment_times, sr, duration, audio_data, background, background_path
+        Returns: firings, segment_times, sr, duration, audio_data, background, background_path, fireworks_colors
         """
         with open(filepath, "r", encoding="utf-8") as f:
             show_data = json.load(f)
@@ -68,10 +69,11 @@ class FireworkShowManager:
         audio_data = show_data.get("audio_data", None)
         background = show_data.get("background", None)
         background_path = show_data.get("background_path", None)
+        fireworks_colors = show_data.get("fireworks_colors", None)
         if audio_data is not None:
             # Convert audio data from list to numpy array if needed
             audio_data = np.array(audio_data)
-        return firings, segment_times, sr, duration, audio_data, background, background_path
+        return firings, segment_times, sr, duration, audio_data, background, background_path, fireworks_colors
 
 '''THIS IS THE MAIN WINDOW CLASS FOR THE FIREWORK STUDIO APPLICATION'''
 class FireworkShowApp(QMainWindow):
@@ -466,6 +468,7 @@ class FireworkShowApp(QMainWindow):
                     # Get current background and path
                     bg = getattr(self.fireworks_canvas, "current_background", None)
                     bg_path = getattr(self.fireworks_canvas, "custom_background_path", None)
+                    fireworks_colors=getattr(self, "fireworks_colors", None)
                     FireworkShowManager.save_show(
                         file_path,
                         self.audio_data,
@@ -474,7 +477,8 @@ class FireworkShowApp(QMainWindow):
                         self.sr,
                         self.duration,
                         background=bg,
-                        background_path=bg_path
+                        background_path=bg_path,
+                        fireworks_colors=fireworks_colors
                     )
                     toast = ToastDialog("Show saved!", parent=self)
                     geo = self.geometry()
@@ -492,7 +496,7 @@ class FireworkShowApp(QMainWindow):
                 options = QFileDialog.Option(0)
                 file_path, _ = QFileDialog.getOpenFileName(self, "Load Firework Show", "", "Firework Show (*.json);;All Files (*)", options=options)
                 if file_path:
-                    firings, segment_times, sr, duration, audio_data_to_save, background, background_path = FireworkShowManager.load_show(file_path)
+                    firings, segment_times, sr, duration, audio_data_to_save, background, background_path, fireworks_colors = FireworkShowManager.load_show(file_path)
                     self.firework_firing = firings
                     self.segment_times = segment_times
                     self.sr = sr
@@ -504,6 +508,7 @@ class FireworkShowApp(QMainWindow):
                     elif isinstance(audio_data_to_save, (list, np.ndarray)):
                         self.audio_data = np.array(audio_data_to_save)
                     self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, self.firework_firing, self.duration)
+                    self.preview_widget.set_fireworks_colors(fireworks_colors)
                     self.plot_waveform()
                     self.update_firework_show_info()
                     # Restore background selection
