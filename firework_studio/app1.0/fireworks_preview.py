@@ -7,23 +7,6 @@ import random
 
 '''THIS IS THE BAR CLASS FOR ALONG THE BOTTOM TWO PLOTS'''
 class FireworkPreviewWidget(QWidget):
-    def set_zoom_region(self, start_time, end_time):
-        """
-        Set the visible region (in seconds) for the timeline.
-        Only firework firings and segments within this region will be shown.
-        """
-        self.zoom_start = start_time
-        self.zoom_end = end_time
-        self.update()
-
-    def clear_zoom(self):
-        """
-        Reset to show the full duration.
-        """
-        self.zoom_start = None
-        self.zoom_end = None
-        self.update()
-    
     def __init__(self):
         super().__init__()
         self.setMinimumHeight(200)
@@ -40,6 +23,8 @@ class FireworkPreviewWidget(QWidget):
         self.resume=False
         self.firework_colors = []
         self.audio_thread = None
+        self.selected_firing = None
+        self.selected_region = tuple()
 
     def set_show_data(self, audio_data, sr, segment_times, firework_firing, duration):
         self.audio_data = audio_data
@@ -48,7 +33,7 @@ class FireworkPreviewWidget(QWidget):
         self.firework_firing = firework_firing
         self.duration = duration
         self.update()
-        
+
     def start_preview(self):
         if self.audio_data is not None and self.sr is not None:
             sd.stop()
@@ -94,7 +79,6 @@ class FireworkPreviewWidget(QWidget):
         if self.audio_thread is not None and self.audio_thread.is_alive():
             self.audio_thread.join(timeout=1)
             self.audio_thread = None
-        self.update()
         if self.audio_data is None or self.sr is None:
             return
         if self.preview_timer and self.preview_timer.isActive():
@@ -240,6 +224,9 @@ class FireworkPreviewWidget(QWidget):
         painter.setPen(QColor(80, 80, 100, 180))
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawRoundedRect(QRect(left_margin, top_margin, usable_w, usable_h), 12, 12)
+
+        # Clear clip after painting
+        painter.setClipping(False)
 
     def mousePressEvent(self, event):
         # Use the same margins and timeline_y as in paintEvent for consistency

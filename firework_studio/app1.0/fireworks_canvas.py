@@ -350,6 +350,7 @@ class FireworksCanvas(QWidget):
             painter.drawPoint(sx, sy)
 
     def draw_background_mountains(self, painter):
+        
         # Draw background - mountainous landscape at night with stars and a moon
 
         # 1. Draw sky gradient
@@ -379,11 +380,11 @@ class FireworksCanvas(QWidget):
         spl = make_interp_spline(mountain_x, mountain_y, k=3)
         ynew = spl(xnew)
 
-        # 3. Draw stars above the mountains
+        # 3. Draw stars above the mountains (dense star field)
         if not hasattr(self, "_mountain_stars"):
             # Precompute star positions above the mountains
             self._mountain_stars = []
-            star_count = 160
+            star_count = 350  # Increased for a denser star field
             for _ in range(star_count):
                 sx = random.randint(0, self.width())
                 # Find the y of the mountain at this x
@@ -417,6 +418,34 @@ class FireworksCanvas(QWidget):
         painter.setPen(QColor(230, 230, 210, 220))
 
         # 5. Draw the mountains (foreground silhouette)
+        # Add jagged peaks and valleys for a more dramatic silhouette
+        # We'll perturb the y-coordinates with some random noise for ruggedness
+        rng = np.random.default_rng(seed=42)  # Fixed seed for consistent look
+        rugged_ynew = ynew.copy()
+        for i in range(1, len(rugged_ynew) - 1):
+            # Add more jaggedness at peaks/valleys
+            if i % 25 == 0:
+                rugged_ynew[i] -= rng.integers(18, 38)
+            elif i % 17 == 0:
+                rugged_ynew[i] += rng.integers(10, 22)
+            elif i % 7 == 0:
+                rugged_ynew[i] += rng.integers(-8, 8)
+            else:
+                rugged_ynew[i] += rng.integers(-3, 3)
+        # Optionally, add a few sharp spires
+        for idx in [60, 120, 180, 240]:
+            if idx < len(rugged_ynew):
+                rugged_ynew[idx] -= rng.integers(30, 55)
+        mountain_path = QPainterPath()
+        mountain_path.moveTo(0, self.height())
+        for xi, yi in zip(xnew, rugged_ynew):
+            mountain_path.lineTo(xi, yi)
+        mountain_path.lineTo(self.width(), self.height())
+        mountain_path.closeSubpath()
+        mountain_color = QColor(25, 25, 35)
+        painter.setBrush(mountain_color)
+        painter.setPen(QColor(20, 20, 30))
+        painter.drawPath(mountain_path)
         mountain_path = QPainterPath()
         mountain_path.moveTo(0, self.height())
         for xi, yi in zip(xnew, ynew):
@@ -454,6 +483,7 @@ class FireworksCanvas(QWidget):
         painter.setBrush(back_color)
         painter.setPen(QColor(35, 35, 50, 180))
         painter.drawPath(back_path)
+
 class Particle:
     def __init__(self, x, y, angle, speed, color, lifetime=100):
         self.x = x

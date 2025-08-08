@@ -25,6 +25,7 @@ from loader import AudioLoader
 from toaster import ToastDialog
 import json
 from PyQt6.QtWidgets import QGroupBox, QRadioButton, QButtonGroup
+from matplotlib.widgets import SpanSelector
 
 
 class FireworkShowManager:
@@ -89,6 +90,8 @@ class FireworkShowApp(QMainWindow):
         self.segment_times = None
         self.firework_firing = []
         self.firework_show_info = "No audio loaded. Load audio to get started."
+        self.start = None
+        self.end = None
 
         #############################################################
         #                                                          #
@@ -201,7 +204,7 @@ class FireworkShowApp(QMainWindow):
         
         self.play_pause_btn = create_play_pause_btn()
         self.play_pause_btn.clicked.connect(self.fireworks_canvas.reset_firings) # type: ignore
-        media_controls_layout.addWidget(self.play_pause_btn)
+        media_controls_layout.insertWidget(0, self.play_pause_btn, alignment=Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
 
         ###########################################
         #                                         #
@@ -230,7 +233,7 @@ class FireworkShowApp(QMainWindow):
             return btn
 
         self.stop_btn = create_stop_btn()
-        media_controls_layout.addWidget(self.stop_btn)
+        media_controls_layout.insertWidget(1, self.stop_btn, alignment=Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
 
         ###############################################
         #                                             #
@@ -272,6 +275,48 @@ class FireworkShowApp(QMainWindow):
 
         ###########################################################
         #                                                         #
+        #              Load Audio Button                          #
+        #                                                         #
+        ###########################################################
+
+        # Create a button to load audio files
+        self.load_btn = QPushButton("Load Audio")
+        self.audio_loader = AudioLoader()
+        self.load_btn.setStyleSheet(button_style)
+
+        def handle_audio():
+            # Load audio data
+            self.audio_data, self.sr, self.audio_datas, self.duration = self.audio_loader.select_and_load()
+            # setup the preview widget with loaded audio data becuase play button works by playing preview_widget
+            # otherwise pressing play will not play anything because the show data is not set in preview_widget
+            self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, None, self.duration)
+            # Plot the waveform
+            self.plot_waveform()
+            # If audio data is loaded, enable the generate button
+            if self.audio_data is not None:
+                self.generate_btn.setEnabled(True)
+                self.generate_btn.setVisible(True)  
+                # Show when audio is loaded
+                self.status_bar.showMessage("Generate fireworks show from scratch or use generate show button to get help.")
+                # Show a toast notification with loaded audio file names
+                basenames = [os.path.basename(p) for p in self.audio_loader.paths]
+                toast = ToastDialog(f"Loaded audio: {', '.join(basenames)}", parent=self)
+                self.update_firework_show_info()
+                geo = self.geometry()
+                x = geo.x() + geo.width() - toast.width() - 40
+                y = geo.y() + geo.height() - toast.height() - 40
+                toast.move(x, y)
+                toast.show()
+                QTimer.singleShot(2500, toast.close)
+            elif self.audio_data is None:
+                self.generate_btn.setVisible(False)  # Hide if no audio
+
+        # Connect the load_btn to open file dialog and load audio
+
+        self.load_btn.clicked.connect(lambda: handle_audio())
+        media_controls_layout.addWidget(self.load_btn)
+        ###########################################################
+        #                                                         #
         #    Clear show button (styled to match Add Firing)       #
         #                                                         #
         ###########################################################
@@ -279,25 +324,7 @@ class FireworkShowApp(QMainWindow):
         # Create a button to clear the show
         def create_clear_btn():
             btn = QPushButton("Clear Show")
-            btn.setStyleSheet("""
-                QPushButton {
-                background-color: #43a047;
-                color: #fff;
-                border: none;
-                border-radius: 7px;
-                font-size: 14px;
-                font-weight: bold;
-                min-width: 60px;
-                min-height: 28px;
-                padding: 4px 8px;
-                }
-                QPushButton:hover {
-                background-color: #388e3c;
-                }
-                QPushButton:pressed {
-                background-color: #2e7031;
-                }
-            """)
+            btn.setStyleSheet(button_style)
             # Also pause the show if playing
             def clear_show():
                 self.segment_times = None
@@ -326,6 +353,7 @@ class FireworkShowApp(QMainWindow):
             return btn
 
         self.clear_btn = create_clear_btn()
+        media_controls_layout.addStretch()
         media_controls_layout.addWidget(self.clear_btn)
 
         ###########################################################
@@ -334,19 +362,21 @@ class FireworkShowApp(QMainWindow):
         #                                                         #
         ###########################################################
 
-        # Create a label to display the current playback time
         def create_current_time_label():
             label = QLabel("00:00:000")
-            label.setStyleSheet("""
+            label.setStyleSheet(
+            button_style +
+            """
             QLabel {
-                color: #e0e0e0;
-                font-size: 18px;
+                font-size: 22px;
                 font-weight: bold;
-                min-width: 90px;
-                qproperty-alignment: 'AlignVCenter | AlignLeft';
+                color: #ffeb3b;
+                background: #23232b;
+                border: none;
             }
-            """)
-            label.setFixedWidth(90)
+            """
+            )
+            label.setFixedWidth(120)
             # Update current_time_label whenever playback time changes
             def update_time_label():
                 if hasattr(self.preview_widget, "current_time"):
@@ -374,7 +404,7 @@ class FireworkShowApp(QMainWindow):
             self.stop_btn.clicked.connect(lambda: (self.current_time_label.setText("00:00:000"), self.time_update_timer.stop()))
             return label
         self.current_time_label = create_current_time_label()
-        media_controls_layout.insertWidget(0, self.current_time_label, alignment=Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        media_controls_layout.insertWidget(2, self.current_time_label, alignment=Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
 
         ############################################################
         #                                                         #
@@ -387,49 +417,6 @@ class FireworkShowApp(QMainWindow):
         self.setStatusBar(self.status_bar)
         self.status_bar.showMessage(self.firework_show_info)
 
-        ###########################################################
-        #                                                         #
-        #              Load Audio Button                          #
-        #                                                         #
-        ###########################################################
-
-        # Create a button to load audio files
-        self.load_btn = QPushButton("Load Audio")
-        self.audio_loader = AudioLoader()
-        self.load_btn.setStyleSheet(button_style)
-        self.load_btn.setFixedHeight(40)
-
-        def handle_audio():
-            # Load audio data
-            self.audio_data, self.sr, self.audio_datas, self.duration = self.audio_loader.select_and_load()
-            # Plot waveform
-            self.plot_waveform()
-            # setup the preview widget with loaded audio data becuase play button works by playing preview_widget
-            # otherwise pressing play will not play anything because the show data is not set in preview_widget
-            self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, None, self.duration)
-            # If audio data is loaded, enable the generate button
-            if self.audio_data is not None:
-                self.generate_btn.setEnabled(True)
-                self.generate_btn.setVisible(True)  
-                # Show when audio is loaded
-                self.status_bar.showMessage("Generate fireworks show from scratch or use generate show button to get help.")
-                # Show a toast notification with loaded audio file names
-                basenames = [os.path.basename(p) for p in self.audio_loader.paths]
-                toast = ToastDialog(f"Loaded audio: {', '.join(basenames)}", parent=self)
-                self.update_firework_show_info()
-                geo = self.geometry()
-                x = geo.x() + geo.width() - toast.width() - 40
-                y = geo.y() + geo.height() - toast.height() - 40
-                toast.move(x, y)
-                toast.show()
-                QTimer.singleShot(2500, toast.close)
-            elif self.audio_data is None:
-                self.generate_btn.setVisible(False)  # Hide if no audio
-
-        # Connect the load_btn to open file dialog and load audio
-
-        self.load_btn.clicked.connect(lambda: handle_audio())
-        media_controls_layout.addWidget(self.load_btn)
          #################################################################
         #                                                               # 
         #        Save and Load show buttons (above waveform/canvas)    #
@@ -438,25 +425,7 @@ class FireworkShowApp(QMainWindow):
 
         def create_save_btn():
             btn = QPushButton("Save Show")
-            btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #1976d2;
-                    color: #fff;
-                    border: none;
-                    border-radius: 7px;
-                    font-size: 14px;
-                    font-weight: bold;
-                    min-width: 80px;
-                    min-height: 28px;
-                    padding: 4px 12px;
-                }
-                QPushButton:hover {
-                    background-color: #1565c0;
-                }
-                QPushButton:pressed {
-                    background-color: #0d47a1;
-                }
-            """)
+            btn.setStyleSheet(button_style)
             def save_show():
                 options = QFileDialog.Option(0)
                 file_path, _ = QFileDialog.getSaveFileName(self, "Save Firework Show", "", "Firework Show (*.json);;All Files (*)", options=options)
@@ -481,25 +450,7 @@ class FireworkShowApp(QMainWindow):
 
         def create_load_show_btn():
             btn = QPushButton("Load Show")
-            btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #388e3c;
-                    color: #fff;
-                    border: none;
-                    border-radius: 7px;
-                    font-size: 14px;
-                    font-weight: bold;
-                    min-width: 80px;
-                    min-height: 28px;
-                    padding: 4px 12px;
-                }
-                QPushButton:hover {
-                    background-color: #2e7031;
-                }
-                QPushButton:pressed {
-                    background-color: #1b5e20;
-                }
-            """)
+            btn.setStyleSheet(button_style)
             def load_show():
                 options = QFileDialog.Option(0)
                 file_path, _ = QFileDialog.getOpenFileName(self, "Load Firework Show", "", "Firework Show (*.json);;All Files (*)", options=options)
@@ -526,6 +477,7 @@ class FireworkShowApp(QMainWindow):
 
         self.save_btn = create_save_btn()
         self.load_show_btn = create_load_show_btn()
+        # Add a spacer after save/load buttons for better layout
         media_controls_layout.addWidget(self.save_btn)
         media_controls_layout.addWidget(self.load_show_btn)
 
@@ -629,7 +581,20 @@ class FireworkShowApp(QMainWindow):
         # Canvas for waveform display and firework firing display #
         #                                                         #
         ###########################################################
-        
+
+        # Add a waveform panning/selection tool using matplotlib's SpanSelector
+        def on_waveform_selected(xmin, xmax):
+            # Example: show selection in status bar
+            def format_time(t):
+                mins = int(t // 60)
+                secs = int(t % 60)
+                ms = int((t - int(t)) * 1000)
+                return f"{mins:02d}:{secs:02d}:{ms:03d}"
+            self.start = format_time(xmin)
+            self.end = format_time(xmax)
+            self.status_bar.showMessage(
+                f"Selected region: {self.start} - {self.end}"
+            )
         # Create a canvas for displaying the waveform needed here for loading audio
         def create_waveform_canvas():
             canvas = FigureCanvas(Figure(figsize=(20, 1)))
@@ -642,8 +607,10 @@ class FireworkShowApp(QMainWindow):
             canvas.figure.subplots_adjust(left=0, right=1, top=1, bottom=0)
             return canvas
         self.waveform_canvas = create_waveform_canvas()
-        
-       
+        self.waveform_selector = WaveformSelectionTool(self.waveform_canvas, on_waveform_selected, main_window=self)
+        if self.waveform_selector.selected_region is not None:
+            self.preview_widget.select_region(self.waveform_selector.selected_region[0], self.waveform_selector.selected_region[1])
+
         #################################################################
         #                                                               # 
         #        Set up the main layout for the application window      #
@@ -692,42 +659,43 @@ class FireworkShowApp(QMainWindow):
     #  HELPER FUNCTIONS for loading audio and segmenting it       #
     #                                                             #
     ###############################################################
-    # Use a worker thread for loading audio and segmenting to keep UI responsive
     def plot_waveform(self):
-        # Enable interactive zooming/panning for the waveform canvas
-        self.waveform_canvas.figure.clear()
-        self.waveform_canvas.figure.set_facecolor('#181818')  # Set figure background to dark
-        self.waveform_canvas.figure.subplots()
-        self.waveform_canvas.figure.tight_layout()
-        self.waveform_canvas.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
-        self.waveform_canvas.setFocus()
-        # Always get the axes after subplots() is called
+        """
+        Plot the waveform and highlight segment times and firework firings.
+        Uses a black background and white waveform for a professional look, with grid lines.
+        """
         ax = self.waveform_canvas.figure.axes[0]
         ax.clear()
-        ax.set_facecolor('#181818')  # Set axes background to dark
-        ax.set_frame_on(False)
-        # Make axes occupy the full canvas area, removing all padding/margins
-        ax.set_position((0.0, 0.0, 1.0, 1.0))
         if self.audio_data is not None:
-            sr = self.sr if self.sr is not None else 22050  # Default librosa sample rate
-            librosa.display.waveshow(self.audio_data, sr=sr, ax=ax, alpha=0.5, color='white')
-            ax.set_facecolor('#181818')
+            # Draw waveform in white for a clean, professional look
+            librosa.display.waveshow(self.audio_data, sr=self.sr, ax=ax, color="#ffffff")
+            ax.set_facecolor('black')
+            ax.tick_params(axis='x', colors='white')
+            ax.tick_params(axis='y', colors='white')
+            ax.set_title("Waveform with Segments", color='white')
+            # Plot segment times in subtle gray
+            if self.segment_times is not None and isinstance(self.segment_times, (list, tuple, np.ndarray)):
+                for t in self.segment_times:
+                    ax.axvline(x=t, color="#bbbbbb", linestyle="--", linewidth=1.2, alpha=0.7)
+                # Plot firework firings in bright white
+                if self.firework_firing is not None:
+                    for t in self.firework_firing:
+                        ax.axvline(x=t, color="#ffffff", linestyle="-", linewidth=2, alpha=0.9)
+            if self.duration is not None and self.sr is not None:
+                ax.set_xlim(0, self.duration)
+            elif self.audio_data is not None and self.sr is not None:
+                ax.set_xlim(0, len(self.audio_data) / self.sr)
+            else:
+                ax.set_xlim(0, 1)
+            ax.set_xlabel("Time (s)", color='white')
+            ax.set_ylabel("Amplitude", color='white')
+            # Add grid lines in white, with some transparency for subtlety
+            ax.grid(True, color="#888888", alpha=0.3, linestyle="--", linewidth=0.8)
+        else:
+            ax.set_title("No audio loaded", color='white')
             ax.set_xticks([])
-        # Ensure all spines are invisible (removes white edge)
-        for spine in ax.spines.values():
-            spine.set_visible(False)
-        # Plot segments
-        if self.segment_times is not None:
-            for i, t in enumerate(self.segment_times):
-                ax.axvline(t, color='orange', linestyle='--', alpha=0.7)
-        ax.set_title("Waveform with Segments", color='white')  # Set title color to white
-        ax.title.set_color('white')
-        # Fit x-axis to audio duration
-        if self.audio_data is not None and self.duration is not None:
-            ax.set_xlim((0, self.duration))
-        if self.audio_data is not None and self.duration is not None:
-            ax.set_xlim((0, self.duration))
-
+            ax.set_yticks([])
+        self.waveform_canvas.draw_idle()
 
     def update_firework_show_info(self):
         # Format duration as mm:ss if available
@@ -744,3 +712,45 @@ class FireworkShowApp(QMainWindow):
         )
         if hasattr(self, "status_bar"):
             self.status_bar.showMessage(self.firework_show_info)
+
+class WaveformSelectionTool:
+    def __init__(self, canvas, on_select_callback=None, main_window=None):
+        self.canvas = canvas
+        self.ax = self.canvas.figure.axes[0]
+        self.span = SpanSelector(
+            self.ax,
+            self.on_select,
+            "horizontal",
+            useblit=True,
+            props=dict(alpha=0.3, facecolor="cyan"),
+            interactive=True,
+            drag_from_anywhere=True
+        )
+        self.on_select_callback = on_select_callback
+        self.selected_region = None
+        self.main_window = main_window
+
+    def on_select(self, xmin, xmax):
+        self.selected_region = (xmin, xmax)
+        # If preview_widget exists, set zoom region (optional, comment out if not needed)
+        if hasattr(self, "preview_widget") and self.preview_widget:
+            self.preview_widget.set_zoom_region(xmin, xmax)
+        if self.on_select_callback:
+            self.on_select_callback(xmin, xmax)
+        # Update status bar directly if main_window is provided
+        if self.main_window and hasattr(self.main_window, "status_bar"):
+            def format_time(t):
+                mins = int(t // 60)
+                secs = int(t % 60)
+                ms = int((t - int(t)) * 1000)
+                return f"{mins:02d}:{secs:02d}:{ms:03d}"
+            start = format_time(xmin)
+            end = format_time(xmax)
+            self.main_window.status_bar.showMessage(
+                f"Selected region: {start} - {end}"
+            )
+
+    def clear_selection(self):
+        self.selected_region = None
+        self.span.visible = False
+        self.canvas.draw_idle()
