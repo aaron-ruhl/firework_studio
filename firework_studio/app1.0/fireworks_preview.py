@@ -67,6 +67,7 @@ class FireworkPreviewWidget(QWidget):
         self.selected_firing = None
         self.selected_region = tuple()
         self.waveform_selection_tool = waveform_selection_tool
+        self.delay = 1.5  # 1.5 seconds (milliseconds)
 
     def set_show_data(self, audio_data, sr, segment_times, firework_firing, duration):
         self.audio_data = audio_data
@@ -149,15 +150,20 @@ class FireworkPreviewWidget(QWidget):
             self.firework_firing = []
         elif not isinstance(self.firework_firing, list):
             self.firework_firing = list(self.firework_firing)
-        self.firework_firing.append(self.current_time)
         if not hasattr(self, 'firework_colors') or len(self.firework_colors) != len(self.firework_firing) - 1:
             self.firework_colors = [
                 QColor(random.randint(50, 255), random.randint(50, 255), random.randint(50, 255))
                 for _ in self.firework_firing[:-1]
             ]
+        # Prevent adding a firing if it would be before the start of the show (after applying delay)
+        firing_time = self.current_time - self.delay
+        if firing_time < 0:
+            # Optionally, you could show a warning or just do nothing
+            return 
         self.firework_colors.append(
             QColor(random.randint(50, 255), random.randint(50, 255), random.randint(50, 255))
         )
+        self.firework_firing.append(self.current_time-self.delay)
         return self.firework_firing
 
     def advance_preview(self):

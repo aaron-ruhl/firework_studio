@@ -522,8 +522,8 @@ class Firework:
         self.exploded = False
         self.velocity_y = -random.uniform(10, 10.5)  # Higher initial velocity for more energetic launch
         self.particle_count = particle_count
-        # Set a realistic delay for fireworks to explode (e.g., 1.8 to 2.3 seconds)
-        self.delay = random.uniform(1.8, 2.3)
+        # Set a realistic delay for fireworks to explode (e.g., 1.8 to 2.0 seconds)
+        self.delay = random.uniform(1.8, 2.0)
         self.timer = QTimer()
         self.timer.setInterval(int(self.delay * 1000))  # Convert seconds to milliseconds
         self.timer.setSingleShot(True)
