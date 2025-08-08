@@ -79,7 +79,7 @@ class FireworkPreviewWidget(QWidget):
 
     def set_fireworks_colors(self, colors):
         self.firework_colors = colors
-        
+
     def reset_selected_region(self):
         """Reset the selected region to the whole duration."""
         if self.duration:
@@ -103,11 +103,15 @@ class FireworkPreviewWidget(QWidget):
                     # If a region is selected, play only that region
                     if self.selected_region and len(self.selected_region) == 2:
                         start, end = self.selected_region
-                        start_idx = int(start * self.sr)
+                        # Clamp current_time to region
+                        play_start = max(start, min(self.current_time, end))
+                        start_idx = int(play_start * self.sr)
                         end_idx = int(end * self.sr)
                         sd.play(self.audio_data[start_idx:end_idx], self.sr, blocking=False)
                     else:
-                        sd.play(self.audio_data[int(self.current_time * self.sr):], self.sr, blocking=False)
+                        play_start = max(0, min(self.current_time, self.duration if self.duration else 0))
+                        start_idx = int(play_start * self.sr)
+                        sd.play(self.audio_data[start_idx:], self.sr, blocking=False)
 
             if self.audio_thread is not None and self.audio_thread.is_alive():
                 self.audio_thread.join(timeout=1)
@@ -127,6 +131,7 @@ class FireworkPreviewWidget(QWidget):
             except Exception:
                 pass
         else:
+            # Do not reset current_time; just resume from where it left off
             self.start_preview()
 
     def stop_preview(self):
