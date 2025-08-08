@@ -198,14 +198,10 @@ class FireworkShowApp(QMainWindow):
             btn = QPushButton()
             btn.setFixedSize(40, 40)
             btn.setCheckable(True)
-            btn.setText("▶️")
+            btn.setText("Play")
             btn.setStyleSheet(button_style)
-            def toggle_icon(checked):
-                btn.setText("⏸️" if checked else "▶️")
-                if checked:
-                    self.fireworks_canvas.set_fireworks_enabled(True)
-                else:
-                    self.fireworks_canvas.set_fireworks_enabled(False)
+            def toggle_icon(checked, btn=btn):
+                btn.setText("Pause" if checked else "Play")
                 self.preview_widget.toggle_play_pause()
             btn.toggled.connect(toggle_icon)
             # Remove unsupported 'transition' property from button_style
