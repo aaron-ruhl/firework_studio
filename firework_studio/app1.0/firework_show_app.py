@@ -421,7 +421,7 @@ class FireworkShowApp(QMainWindow):
 
             # Timer to update the label during playback
             self.time_update_timer = QTimer(self)
-            self.time_update_timer.setInterval(50)  # update every 50 ms for better ms accuracy
+            self.time_update_timer.setInterval(1)  # update every 0.5 seconds for better ms accuracy
             self.time_update_timer.timeout.connect(update_time_label)
 
             def on_play_pause(checked):

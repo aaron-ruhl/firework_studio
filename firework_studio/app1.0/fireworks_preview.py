@@ -67,7 +67,7 @@ class FireworkPreviewWidget(QWidget):
         self.selected_firing = None
         self.selected_region = tuple()
         self.waveform_selection_tool = waveform_selection_tool
-        self.delay = 1.5  # 1.5 seconds (milliseconds)
+        self.delay = 1.8  # 1.8 seconds
 
     def set_show_data(self, audio_data, sr, segment_times, firework_firing, duration):
         self.audio_data = audio_data
@@ -98,19 +98,26 @@ class FireworkPreviewWidget(QWidget):
             sd.stop()
             import threading
 
+            # Clamp current_time to region start if outside when resuming playback
+            if self.selected_region and len(self.selected_region) == 2:
+                start, end = self.selected_region
+                if self.current_time < start or self.current_time > end:
+                    self.current_time = start
+
             def play_audio():
                 if self.audio_data is not None and self.current_time is not None and self.sr is not None:
-                    # If a region is selected, play only that region
+                    # If a region is selected, play only that region from the correct offset
                     if self.selected_region and len(self.selected_region) == 2:
                         start, end = self.selected_region
                         # Clamp current_time to region
                         play_start = max(start, min(self.current_time, end))
                         start_idx = int(play_start * self.sr)
                         end_idx = int(end * self.sr)
+                        # Only play from play_start to end, not from start of region
                         sd.play(self.audio_data[start_idx:end_idx], self.sr, blocking=False)
                     else:
                         play_start = max(0, min(self.current_time, self.duration if self.duration else 0))
-                        start_idx = int(play_start * self.sr)
+                        start_idx = int((play_start) * self.sr)
                         sd.play(self.audio_data[start_idx:], self.sr, blocking=False)
 
             if self.audio_thread is not None and self.audio_thread.is_alive():
@@ -121,17 +128,48 @@ class FireworkPreviewWidget(QWidget):
             self.preview_timer.stop()
         self.preview_timer = QTimer(self)
         self.preview_timer.timeout.connect(self.advance_preview)
-        self.preview_timer.start(50)
+        self.preview_timer.start(16)
+
+    def advance_preview(self):
+        """Advance the preview timer and update current_time accordingly."""
+        if self.audio_data is None or self.sr is None or self.duration is None:
+            return
+        # Advance by 16 ms (assuming timer interval is 16 ms)
+        self.current_time += 0.016
+        # If a region is selected, stop at the end of the region
+        if self.selected_region and len(self.selected_region) == 2:
+            _, region_end = self.selected_region
+            if self.current_time >= region_end:
+                self.current_time = region_end
+                if self.preview_timer:
+                    self.preview_timer.stop()
+                try:
+                    if sd.get_stream() is not None:
+                        sd.stop(ignore_errors=True)
+                except RuntimeError:
+                    pass
+        else:
+            if self.current_time >= self.duration:
+                self.current_time = self.duration
+                if self.preview_timer:
+                    self.preview_timer.stop()
+                try:
+                    if sd.get_stream() is not None:
+                        sd.stop(ignore_errors=True)
+                except RuntimeError:
+                    pass
+        self.update()
 
     def toggle_play_pause(self):
         if self.preview_timer and self.preview_timer.isActive():
-            self.preview_timer.stop()
             try:
+                # Just stop playback and timer, do not update current_time
                 sd.stop(ignore_errors=True)
+                self.preview_timer.stop()
             except Exception:
                 pass
         else:
-            # Do not reset current_time; just resume from where it left off
+            # Resume from current_time
             self.start_preview()
 
     def stop_preview(self):
@@ -171,15 +209,8 @@ class FireworkPreviewWidget(QWidget):
             QColor(random.randint(50, 255), random.randint(50, 255), random.randint(50, 255))
         )
         self.firework_firing.append(self.current_time-self.delay)
-        return self.firework_firing
-
-    def advance_preview(self):
-        if self.audio_data is None or self.sr is None or self.duration == 0:
-            return
-        # If a region is selected, only advance within that region
         if self.selected_region and len(self.selected_region) == 2:
-            region_start, region_end = self.selected_region
-            self.current_time += 0.05
+            _, region_end = self.selected_region
             if self.current_time > region_end:
                 self.current_time = region_end
                 if self.preview_timer:
@@ -190,7 +221,6 @@ class FireworkPreviewWidget(QWidget):
                 except RuntimeError:
                     pass
         else:
-            self.current_time += 0.05
             if self.current_time >= self.duration:
                 self.current_time = self.duration
                 if self.preview_timer:
@@ -389,7 +419,9 @@ class FireworkPreviewWidget(QWidget):
             x = max(left_margin, min(x, w - right_margin))
             new_time = (x - left_margin) / usable_w * zoom_duration + draw_start
             new_time = max(draw_start, min(new_time, draw_end))
-            self.current_time = new_time
+            # Only update current_time if the mouse is actually pressed (dragging playhead)
+            if event.buttons() & Qt.MouseButton.LeftButton:
+                self.current_time = new_time
             self.update()
             return
 
@@ -415,6 +447,30 @@ class FireworkPreviewWidget(QWidget):
             return
 
         if hasattr(self, 'dragging_playhead') and self.dragging_playhead:
+            # Update playhead position on mouse release for accuracy
+            w = self.width()
+            left_margin = 40
+            right_margin = 40
+            top_margin = 30
+            bottom_margin = 40
+            usable_w = w - left_margin - right_margin
+            h = self.height()
+            usable_h = h - top_margin - bottom_margin
+
+            if self.selected_region and len(self.selected_region) == 2 and self.duration:
+                draw_start, draw_end = self.selected_region
+                zoom_duration = max(draw_end - draw_start, 1e-6)
+            else:
+                draw_start = 0
+                draw_end = self.duration
+                zoom_duration = self.duration if self.duration else 1
+
+            x = event.position().x()
+            x = max(left_margin, min(x, w - right_margin))
+            new_time = (x - left_margin) / usable_w * zoom_duration + draw_start
+            new_time = max(draw_start, min(new_time, draw_end))
+            self.current_time = new_time
+
             self.dragging_playhead = False
             self.setCursor(Qt.CursorShape.ArrowCursor)
             self.update()
