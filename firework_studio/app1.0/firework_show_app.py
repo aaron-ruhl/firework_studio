@@ -419,6 +419,17 @@ class FireworkShowApp(QMainWindow):
             return btn
 
         self.clear_btn = create_clear_btn()
+    
+        ############################################################
+        #                                                         #
+        #              Add info status bar                        #
+        #                                                         #
+        ############################################################
+
+        # Add info label to display audio loading status
+        self.status_bar = QStatusBar()
+        self.setStatusBar(self.status_bar)
+        self.status_bar.showMessage(self.firework_show_info)
 
         ###########################################################
         #                                                         #
@@ -429,6 +440,8 @@ class FireworkShowApp(QMainWindow):
             btn = QPushButton("Reset")
             btn.setStyleSheet(button_style)
             btn.clicked.connect(self.preview_widget.reset_selected_region)
+            btn.setToolTip("Reset the selected region in the preview widget")
+            btn.clicked.connect(lambda: self.status_bar.showMessage(self.firework_show_info))
             return btn
 
         self.reset_btn = create_reset_btn()
@@ -481,17 +494,6 @@ class FireworkShowApp(QMainWindow):
             self.stop_btn.clicked.connect(lambda: (self.current_time_label.setText("00:00:000"), self.time_update_timer.stop()))
             return label
         self.current_time_label = create_current_time_label()
-
-        ############################################################
-        #                                                         #
-        #              Add info status bar                        #
-        #                                                         #
-        ############################################################
-
-        # Add info label to display audio loading status
-        self.status_bar = QStatusBar()
-        self.setStatusBar(self.status_bar)
-        self.status_bar.showMessage(self.firework_show_info)
 
          #################################################################
         #                                                               # 
