@@ -79,6 +79,7 @@ class FireworkPreviewWidget(QWidget):
 
     def set_fireworks_colors(self, colors):
         self.firework_colors = colors
+        self.update()
 
     def reset_selected_region(self):
         """Reset the selected region to the whole duration."""
@@ -87,11 +88,6 @@ class FireworkPreviewWidget(QWidget):
         else:
             self.selected_region = tuple()
         self.set_show_data(self.audio_data, self.sr, self.segment_times, self.firework_firing, self.duration)
-        self.update()
-
-    def set_selected_region(self, region):
-        """Called by WaveformSelectionTool when a region is selected."""
-        self.selected_region = region
         self.update()
 
     def start_preview(self):

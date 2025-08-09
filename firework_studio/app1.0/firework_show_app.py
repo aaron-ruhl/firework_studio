@@ -550,10 +550,9 @@ class FireworkShowApp(QMainWindow):
                         handle_audio()
                     elif isinstance(audio_data_to_save, (list, np.ndarray)):
                         self.audio_data = np.array(audio_data_to_save)
-                    self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, self.firework_firing, self.duration)
                     self.preview_widget.set_fireworks_colors(fireworks_colors)
-                    self.plot_waveform()
-                    self.update_firework_show_info()
+                    self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, self.firework_firing, self.duration)
+                    
                     # Restore background selection
                     if background:
                         if background == "custom" and background_path:
@@ -570,6 +569,8 @@ class FireworkShowApp(QMainWindow):
                                 if btn.text().replace(" ", "").lower() == background.replace(" ", "").lower():
                                     btn.setChecked(True)
                                     break
+
+                    # toast dialog
                     toast = ToastDialog("Show loaded!", parent=self)
                     geo = self.geometry()
                     x = geo.x() + geo.width() - toast.width() - 40
@@ -577,8 +578,10 @@ class FireworkShowApp(QMainWindow):
                     toast.move(x, y)
                     toast.show()
                     QTimer.singleShot(2000, toast.close)
+
             btn.clicked.connect(load_show)
             btn.clicked.connect(self.plot_waveform)  # Update waveform after loading
+            btn.clicked.connect(self.update_firework_show_info)  # Update info after loading
             return btn
 
         self.save_btn = create_save_btn()
