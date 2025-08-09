@@ -378,7 +378,6 @@ class FireworkPreviewWidget(QWidget):
                 self.setCursor(Qt.CursorShape.ClosedHandCursor)
                 self.update()
                 return
-        self.update()
 
     def mouseMoveEvent(self, event):
         w = self.width()
@@ -468,18 +467,12 @@ class FireworkPreviewWidget(QWidget):
             new_time = (x - left_margin) / usable_w * zoom_duration + draw_start
             new_time = max(draw_start, min(new_time, draw_end))
             self.current_time = new_time
-
             self.dragging_playhead = False
             self.setCursor(Qt.CursorShape.ArrowCursor)
             self.update()
             # Start preview at the new playhead position
             self.start_preview()
             return
-
-        # If using a waveform selection tool, update selected region on mouse release
-        if self.waveform_selection_tool and self.waveform_selection_tool.selected_region:
-            self.set_selected_region(self.waveform_selection_tool.selected_region)
-            self.update()
 
     def remove_selected_firing(self):
         if hasattr(self, 'selected_firing') and self.selected_firing is not None:
