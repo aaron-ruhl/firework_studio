@@ -247,7 +247,6 @@ class FireworkPreviewWidget(QWidget):
 
         grad = QColor(25, 28, 40)
         painter.fillRect(self.rect(), grad)
-
         # --- ZOOM LOGIC ---
         # If a region is selected, zoom in on that region
         if self.selected_region and len(self.selected_region) == 2 and self.duration:
@@ -318,8 +317,11 @@ class FireworkPreviewWidget(QWidget):
 
         # Draw playhead
         if self.duration and self.duration > 0:
-            playhead_time = min(max(self.current_time, draw_start), draw_end)
-            playhead_x = left_margin + ((playhead_time - draw_start) / zoom_duration) * usable_w
+            # Always use the real current_time for playhead, even if outside zoomed region
+            playhead_time = min(max(self.current_time, 0), self.duration)
+            # Clamp playhead_time to the zoomed region for drawing, but do not stop playback
+            draw_playhead_time = min(max(playhead_time, draw_start), draw_end)
+            playhead_x = left_margin + ((draw_playhead_time - draw_start) / zoom_duration) * usable_w
             painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(QColor(0, 0, 0, 100))
             painter.drawRect(int(round(playhead_x)) - 2, timeline_y - 44, 4, 88)
@@ -339,6 +341,7 @@ class FireworkPreviewWidget(QWidget):
         painter.setClipping(False)
         
     def mousePressEvent(self, event):
+        # Region selection never interferes with playback: only handle timeline/firework/playhead
         w = self.width()
         left_margin = 40
         right_margin = 40
@@ -359,8 +362,9 @@ class FireworkPreviewWidget(QWidget):
             zoom_duration = self.duration if self.duration else 1
 
         # Playhead
-        playhead_time = min(max(self.current_time, draw_start), draw_end)
-        playhead_x = left_margin + usable_w * (playhead_time - draw_start) / zoom_duration if self.duration else 0
+        playhead_time = min(max(self.current_time, 0), self.duration)
+        draw_playhead_time = min(max(playhead_time, draw_start), draw_end)
+        playhead_x = left_margin + usable_w * (draw_playhead_time - draw_start) / zoom_duration if self.duration else 0
         playhead_rect = QRect(int(playhead_x) - 8, timeline_y - 40, 16, 80)
         if playhead_rect.contains(event.position().toPoint()):
             self.dragging_playhead = True
@@ -380,6 +384,7 @@ class FireworkPreviewWidget(QWidget):
                 return
 
     def mouseMoveEvent(self, event):
+        # Region selection never interferes with playback: only handle timeline/firework/playhead
         w = self.width()
         left_margin = 40
         right_margin = 40
@@ -416,7 +421,6 @@ class FireworkPreviewWidget(QWidget):
             x = max(left_margin, min(x, w - right_margin))
             new_time = (x - left_margin) / usable_w * zoom_duration + draw_start
             new_time = max(draw_start, min(new_time, draw_end))
-            # Only update current_time if the mouse is actually pressed (dragging playhead)
             if event.buttons() & Qt.MouseButton.LeftButton:
                 self.current_time = new_time
             self.update()
@@ -427,8 +431,9 @@ class FireworkPreviewWidget(QWidget):
                 if rect.contains(event.position().toPoint()):
                     self.setCursor(Qt.CursorShape.OpenHandCursor)
                     return
-        playhead_time = min(max(self.current_time, draw_start), draw_end)
-        playhead_x = left_margin + usable_w * (playhead_time - draw_start) / zoom_duration if self.duration else 0
+        playhead_time = min(max(self.current_time, 0), self.duration)
+        draw_playhead_time = min(max(playhead_time, draw_start), draw_end)
+        playhead_x = left_margin + usable_w * (draw_playhead_time - draw_start) / zoom_duration if self.duration else 0
         playhead_rect = QRect(int(playhead_x) - 8, timeline_y - 40, 16, 80)
         if playhead_rect.contains(event.position().toPoint()):
             self.setCursor(Qt.CursorShape.SizeHorCursor)
@@ -437,6 +442,7 @@ class FireworkPreviewWidget(QWidget):
         self.setCursor(Qt.CursorShape.ArrowCursor)
 
     def mouseReleaseEvent(self, event):
+        # Region selection never interferes with playback: only handle timeline/firework/playhead
         if hasattr(self, 'dragging_firing') and self.dragging_firing:
             self.dragging_firing = False
             self.setCursor(Qt.CursorShape.ArrowCursor)
@@ -444,15 +450,10 @@ class FireworkPreviewWidget(QWidget):
             return
 
         if hasattr(self, 'dragging_playhead') and self.dragging_playhead:
-            # Update playhead position on mouse release for accuracy
             w = self.width()
             left_margin = 40
             right_margin = 40
-            top_margin = 30
-            bottom_margin = 40
             usable_w = w - left_margin - right_margin
-            h = self.height()
-            usable_h = h - top_margin - bottom_margin
 
             if self.selected_region and len(self.selected_region) == 2 and self.duration:
                 draw_start, draw_end = self.selected_region
@@ -470,9 +471,25 @@ class FireworkPreviewWidget(QWidget):
             self.dragging_playhead = False
             self.setCursor(Qt.CursorShape.ArrowCursor)
             self.update()
-            # Start preview at the new playhead position
-            self.start_preview()
             return
+
+    def advance_preview(self):
+        """Advance the preview timer and update current_time accordingly."""
+        if self.audio_data is None or self.sr is None or self.duration is None:
+            return
+        # Advance by 16 ms (assuming timer interval is 16 ms)
+        self.current_time += 0.016
+        # Only stop at the end of the full duration, not at the end of the zoomed region
+        if self.current_time >= self.duration:
+            self.current_time = self.duration
+            if self.preview_timer:
+                self.preview_timer.stop()
+            try:
+                if sd.get_stream() is not None:
+                    sd.stop(ignore_errors=True)
+            except RuntimeError:
+                pass
+        self.update()
 
     def remove_selected_firing(self):
         if hasattr(self, 'selected_firing') and self.selected_firing is not None:
