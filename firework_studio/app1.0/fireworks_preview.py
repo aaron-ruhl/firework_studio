@@ -496,13 +496,11 @@ class FireworkPreviewWidget(QWidget):
             self.dragging_playhead = False
             self.setCursor(Qt.CursorShape.ArrowCursor)
             self.update()
-            # Resume playback at the new playhead position
-            self.start_preview()
-            # Call reset_firings() on the fireworks_canvas attribute of the main window if available
-            main_window = getattr(self, "main_window", None)
-            if main_window and hasattr(main_window, "fireworks_canvas"):
-                if hasattr(main_window.fireworks_canvas, "reset_firings"):
-                    main_window.fireworks_canvas.reset_firings()
+            # If playback was active, resume it at the new playhead position
+            if self.preview_timer and self.preview_timer.isActive():
+                self.start_preview()
+                return
+            # Otherwise, just update current_time and state; playback will resume from here when play is pressed
             return
 
     # Ensure negative times are not allowed in selected_region

@@ -231,7 +231,6 @@ class FireworkShowApp(QMainWindow):
             return btn
         
         self.play_pause_btn = create_play_pause_btn()
-
         ###########################################
         #                                         #
         #        Stop button                      #
@@ -308,16 +307,16 @@ class FireworkShowApp(QMainWindow):
             layout = QHBoxLayout()
             group_box.setLayout(layout)
             patterns = [
-            ("Circle", "circle"),
-            ("Chrysanthemum", "chrysanthemum"),
-            ("Palm", "palm"),
-            ("Willow", "willow"),
-            ("Peony", "peony"),
-            ("Ring", "ring"),
+                ("Circle", "circle"),
+                ("Chrysanthemum", "chrysanthemum"),
+                ("Palm", "palm"),
+                ("Willow", "willow"),
+                ("Peony", "peony"),
+                ("Ring", "ring"),
             ]
             combo = QComboBox()
             combo.setStyleSheet(
-            button_style
+                button_style
             )
             for label, pattern in patterns:
                 combo.addItem(label, pattern)
@@ -386,7 +385,7 @@ class FireworkShowApp(QMainWindow):
             btn.setStyleSheet(button_style)
             # Also pause the show if playing
             def clear_show():
-            # Only clear if audio is loaded
+                # Only clear if audio is loaded
                 if self.audio_data is not None and self.sr is not None:
                     self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, None, self.duration)
                     self.preview_widget.stop_preview()
@@ -412,14 +411,14 @@ class FireworkShowApp(QMainWindow):
                 self.play_pause_btn.setChecked(False)
                 self.play_pause_btn.setText("Play")
                 self.play_pause_btn.blockSignals(False)
-                
+            
 
             btn.clicked.connect(clear_show)
 
             return btn
 
         self.clear_btn = create_clear_btn()
-    
+        
         ############################################################
         #                                                         #
         #              Add info status bar                        #
@@ -443,16 +442,17 @@ class FireworkShowApp(QMainWindow):
             button_style +
             """
             QLabel {
-                font-size: 22px;
-                font-weight: bold;
-                color: #e0e0e0;
-                background: #23232b;
-                border: none;
+            font-size: 22px;
+            font-weight: bold;
+            color: #e0e0e0;
+            background: #23232b;
+            border: none;
             }
             """
             )
             label.setFixedWidth(140)
-            # Update current_time_label whenever playback time changes
+
+            # Update current_time_label to always reflect the playhead position
             def update_time_label():
                 if hasattr(self.preview_widget, "current_time"):
                     t = self.preview_widget.current_time
@@ -463,21 +463,15 @@ class FireworkShowApp(QMainWindow):
                 else:
                     self.current_time_label.setText("00:00:000")
 
-            # Timer to update the label during playback
-            self.time_update_timer = QTimer(self) # type: ignore
-            self.time_update_timer.setInterval(1)  # type: ignore # update every 0.5 seconds for better ms accuracy
-            self.time_update_timer.timeout.connect(update_time_label) # type: ignore
+            # Timer to update the label regardless of play/pause state
+            self.time_update_timer = QTimer(self)  # type: ignore
+            self.time_update_timer.setInterval(30)  # type: ignore # update ~33 times per second for smoothness
+            self.time_update_timer.timeout.connect(update_time_label)  # type: ignore
+            self.time_update_timer.start()  # type: ignore
 
-            def on_play_pause(checked):
-                update_time_label()
-                if checked:
-                    self.time_update_timer.start() # type: ignore
-                else:
-                    self.time_update_timer.stop() # type: ignore
-
-            self.play_pause_btn.toggled.connect(on_play_pause)
-            self.stop_btn.clicked.connect(lambda: (self.current_time_label.setText("00:00:000"), self.time_update_timer.stop())) # type: ignore
+            self.stop_btn.clicked.connect(lambda: (self.current_time_label.setText("00:00:000")))
             return label
+
         self.current_time_label = create_current_time_label()
 
          #################################################################
