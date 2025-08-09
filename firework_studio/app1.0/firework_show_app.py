@@ -202,7 +202,6 @@ class FireworkShowApp(QMainWindow):
 
         # Fireworks preview widget
         self.preview_widget = FireworkPreviewWidget()
-        self.preview_widget.setMinimumHeight(125)  # Make the preview widget taller
         # Enable mouse press tracking for the preview widget
         self.preview_widget.setMouseTracking(True)
         self.preview_widget.installEventFilter(self)
@@ -684,7 +683,6 @@ class FireworkShowApp(QMainWindow):
             ax.tick_params(axis='x', colors='white')
             ax.tick_params(axis='y', colors='white')
             ax.set_title("Waveform with Segments", color='white')
-            canvas.setFixedHeight(125)
             canvas.figure.subplots_adjust(left=0, right=1, top=1, bottom=0)
             return canvas
         self.waveform_canvas = create_waveform_canvas()
@@ -720,6 +718,10 @@ class FireworkShowApp(QMainWindow):
         media_controls_layout.addWidget(self.pattern_selector)
         media_controls_layout.addWidget(self.background_btn)
         media_controls_layout.addWidget(self.generate_btn)
+
+        # Wrap the media_controls_layout in a QWidget so it can be added to the main layout
+        self.media_controls_widget = QWidget()
+        self.media_controls_widget.setLayout(media_controls_layout)
         
         #############################################################
         #                                                          #
@@ -730,11 +732,24 @@ class FireworkShowApp(QMainWindow):
         self.setCentralWidget(central_widget)
 
         layout = QVBoxLayout(central_widget)
-        layout.addWidget(self.fireworks_canvas_container, stretch=5)
-        layout.addLayout(media_controls_layout)
+        # Use a QStackedLayout-like approach to overlay media_controls_widget on top of the fireworks_canvas_container
+        # Create a container widget with a QVBoxLayout for stacking
+        overlay_container = QWidget()
+        overlay_layout = QVBoxLayout(overlay_container)
+        overlay_layout.setContentsMargins(0, 0, 0, 0)
+        overlay_layout.setSpacing(0)
+        # Add the fireworks canvas (main content)
+        overlay_layout.addWidget(self.fireworks_canvas_container)
+        # Place the media controls widget with negative top margin to overlap the bottom of the canvas
+        self.media_controls_widget.setParent(overlay_container)
+        overlay_layout.addWidget(self.media_controls_widget, alignment=Qt.AlignmentFlag.AlignBottom)
+        overlay_layout.setStretch(0, 1)
+        overlay_layout.setStretch(1, 0)
+        # Add the overlay container to the main layout
+        layout.addWidget(overlay_container)
+        layout.addWidget(self.media_controls_widget)  # Use the widget, not the layout
         layout.addWidget(self.preview_widget, stretch=0, alignment=Qt.AlignmentFlag.AlignBottom)
         layout.addWidget(self.waveform_canvas)
-
         ###########################################################
         #                                                         #
         #        Set dark theme palette and styles for the app    #
