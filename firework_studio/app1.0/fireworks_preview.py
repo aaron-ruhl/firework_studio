@@ -198,30 +198,20 @@ class FireworkPreviewWidget(QWidget):
             self.firework_firing = []
         elif not isinstance(self.firework_firing, list):
             self.firework_firing = list(self.firework_firing)
-        if not hasattr(self, 'firework_colors') or len(self.firework_colors) != len(self.firework_firing) - 1:
-            self.firework_colors = [
-                QColor(random.randint(50, 255), random.randint(50, 255), random.randint(50, 255))
-                for _ in self.firework_firing[:-1]
-            ]
         # Prevent adding a firing if it would be before the start of the show (after applying delay)
         firing_time = self.current_time - self.delay
         if firing_time < 0:
-            # Optionally, you could show a warning or just do nothing
-            return 
+            return
+        # Add a random color for the new firing
+        if not hasattr(self, 'firework_colors') or len(self.firework_colors) != len(self.firework_firing):
+            self.firework_colors = [
+                QColor(random.randint(50, 255), random.randint(50, 255), random.randint(50, 255))
+                for _ in self.firework_firing
+            ]
         self.firework_colors.append(
             QColor(random.randint(50, 255), random.randint(50, 255), random.randint(50, 255))
         )
-        self.firework_firing.append(self.current_time-self.delay)
-        # Do not clamp or stop at the end of the zoomed region
-        if self.current_time >= self.duration:
-            self.current_time = self.duration
-            if self.preview_timer:
-                self.preview_timer.stop()
-            try:
-                if sd.get_stream() is not None:
-                    sd.stop(ignore_errors=True)
-            except RuntimeError:
-                pass
+        self.firework_firing.append(firing_time)
         self.update()
 
     def paintEvent(self, event):
@@ -322,6 +312,21 @@ class FireworkPreviewWidget(QWidget):
                     QRect(int(round(x)) - handle_radius, timeline_y - handle_radius + 3, 2 * handle_radius, 2 * handle_radius),
                     orig_idx
                 ))
+                # Draw firing number on top of the handle
+                painter.setPen(QColor(255, 255, 255))
+                number_font = painter.font()
+                number_font.setBold(True)
+                number_font.setPointSizeF(label_font.pointSizeF() * 1.1)
+                painter.setFont(number_font)
+                painter.drawText(
+                    int(round(x)) - handle_radius,
+                    timeline_y - handle_radius + 3,
+                    2 * handle_radius,
+                    2 * handle_radius,
+                    Qt.AlignmentFlag.AlignCenter,
+                    str(orig_idx + 1)
+                )
+            painter.setFont(label_font)  # Restore font
 
         # --- PLAYHEAD DRAWING (always draw, even if outside zoom) ---
         playhead_time = min(max(self.current_time, 0), self.duration)

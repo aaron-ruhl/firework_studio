@@ -19,6 +19,7 @@ from fireworks_preview import FireworkPreviewWidget
 from PyQt6.QtWidgets import QFrame
 import os
 from PyQt6.QtCore import QPropertyAnimation
+import random
 
 from analysis import AudioAnalyzer
 from loader import AudioLoader
@@ -50,8 +51,7 @@ class FireworkShowManager:
             "duration": duration,
             "audio_data": audio_data_serializable,  # Now serializable
             "background": background,
-            "background_path": background_path,
-            "fireworks_colors": fireworks_colors
+            "background_path": background_path
         }
         with open(filepath, "w", encoding="utf-8") as f:
             json.dump(show_data, f, ensure_ascii=False, indent=4)
@@ -60,7 +60,7 @@ class FireworkShowManager:
     def load_show(filepath):
         """
         Load the firework show data from a file (JSON format).
-        Returns: firings, segment_times, sr, duration, audio_data, background, background_path, fireworks_colors
+        Returns: firings, segment_times, sr, duration, audio_data, background, background_path
         """
         with open(filepath, "r", encoding="utf-8") as f:
             show_data = json.load(f)
@@ -71,11 +71,10 @@ class FireworkShowManager:
         audio_data = show_data.get("audio_data", None)
         background = show_data.get("background", None)
         background_path = show_data.get("background_path", None)
-        fireworks_colors = show_data.get("fireworks_colors", None)
         if audio_data is not None:
             # Convert audio data from list to numpy array if needed
             audio_data = np.array(audio_data)
-        return firings, segment_times, sr, duration, audio_data, background, background_path, fireworks_colors
+        return firings, segment_times, sr, duration, audio_data, background, background_path
 
 '''THIS IS THE MAIN WINDOW CLASS FOR THE FIREWORK STUDIO APPLICATION'''
 class FireworkShowApp(QMainWindow):
@@ -103,6 +102,7 @@ class FireworkShowApp(QMainWindow):
         self.firework_show_info = "No audio loaded. Load audio to get started."
         self.start = None
         self.end = None
+        self.fireworks_colors = []
 
 
         #############################################################
@@ -498,7 +498,7 @@ class FireworkShowApp(QMainWindow):
                     # Get current background and path
                     bg = getattr(self.fireworks_canvas, "current_background", None)
                     bg_path = getattr(self.fireworks_canvas, "custom_background_path", None)
-                    fireworks_colors = getattr(self, "fireworks_colors", None)
+                    fireworks_colors = getattr(self.preview_widget, "fireworks_colors", None)
                     # Ensure all data is serializable and no extra artifacts are added
                     audio_data_to_save = (
                         self.audio_data.tolist() if isinstance(self.audio_data, np.ndarray) else self.audio_data
@@ -539,7 +539,7 @@ class FireworkShowApp(QMainWindow):
                     self, "Load Firework Show", "", "Firework Show (*.json);;All Files (*)", options=options
                 )
                 if file_path:
-                    firings, segment_times, sr, duration, audio_data_loaded, background, background_path, fireworks_colors = FireworkShowManager.load_show(file_path)
+                    firings, segment_times, sr, duration, audio_data_loaded, background, background_path = FireworkShowManager.load_show(file_path)
                     # Carefully restore all fields, converting types as needed
                     self.firework_firing = [float(t) for t in firings] if firings is not None else []
                     self.segment_times = [float(t) for t in segment_times] if segment_times is not None else []
@@ -552,10 +552,19 @@ class FireworkShowApp(QMainWindow):
                     else:
                         self.audio_data = None
                     self.plot_waveform()
-                    self.preview_widget.set_fireworks_colors(fireworks_colors)
+                    # Set fireworks colors in the preview_widget and also update the canvas
+                    self.fireworks_colors = [
+                        QColor(random.randint(50, 255), random.randint(50, 255), random.randint(50, 255))
+                        for _ in self.firework_firing
+                    ]
+                    self.preview_widget.set_fireworks_colors(self.fireworks_colors)
+                    # Set show data (this will update firings and colors)
                     self.preview_widget.set_show_data(
                         self.audio_data, self.sr, self.segment_times, self.firework_firing, self.duration
                     )
+                    # Ensure preview_widget's firing list is updated for immediate display
+                    if hasattr(self.preview_widget, "firework_firing"):
+                        self.preview_widget.firework_firing = list(self.firework_firing)
                     # Restore background selection
                     if background:
                         if background == "custom" and background_path:
@@ -570,12 +579,11 @@ class FireworkShowApp(QMainWindow):
                                 if btn_radio.text().replace(" ", "").lower() == background.replace(" ", "").lower():
                                     btn_radio.setChecked(True)
                                     break
-                    # Ensure firings are displayed after loading
-                    self.preview_widget.set_show_data(
-                        self.audio_data, self.sr, self.segment_times, self.firework_firing, self.duration
-                    )
                     self.fireworks_canvas.update_animation()
                     self.update_firework_show_info()
+                    self.preview_widget.update()
+                    # Force a redraw of the preview widget to show numbers/colors immediately
+                    self.preview_widget.repaint()
                     toast = ToastDialog("Show loaded!", parent=self)
                     geo = self.geometry()
                     x = geo.x() + geo.width() - toast.width() - 40
@@ -583,6 +591,7 @@ class FireworkShowApp(QMainWindow):
                     toast.move(x, y)
                     toast.show()
                     QTimer.singleShot(2000, toast.close)
+                # End of if file_path
             btn.clicked.connect(load_show)
             return btn
 
