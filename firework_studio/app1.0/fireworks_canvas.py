@@ -73,7 +73,7 @@ class FireworksCanvas(QWidget):
         if preview_widget and preview_widget.firework_firing is not None:
             time_list = preview_widget.firework_firing
             for idx, t in enumerate(time_list):
-                if abs(preview_widget.current_time - t) < 0.1 and t not in self.fired_times:
+                if abs(preview_widget.current_time - t) < 0.08 and t not in self.fired_times:
                     if hasattr(preview_widget, "firework_colors") and isinstance(preview_widget.firework_colors, list) and idx < len(preview_widget.firework_colors):
                         self.firework_color = preview_widget.firework_colors[idx]
                     else:
@@ -522,7 +522,7 @@ class Firework:
         self.color = color
         self.particles = []
         self.exploded = False
-        self.velocity_y = -random.uniform(10, 11)
+        self.velocity_y = -random.uniform(10.5, 11.8)
         self.particle_count = particle_count
         self.delay = random.uniform(1.8, 2.0)
         self.timer = QTimer()

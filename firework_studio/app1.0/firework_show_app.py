@@ -29,6 +29,7 @@ from matplotlib.widgets import SpanSelector
 from fireworks_preview import WaveformSelectionTool
 import soundfile as sf
 from PyQt6.QtWidgets import QComboBox
+from PyQt6.QtCore import QEvent
 
 class FireworkShowManager:
     """
@@ -136,7 +137,6 @@ class FireworkShowApp(QMainWindow):
                 border-radius: 6px;
                 padding: 6px 24px 6px 12px;
                 min-width: 120px;
-                transition: border 0.2s, color 0.2s;
             }
             QComboBox:hover, QComboBox:focus {
                 background: #31323a;
@@ -184,9 +184,8 @@ class FireworkShowApp(QMainWindow):
             layout.setContentsMargins(0, 0, 0, 0)
             layout.setSpacing(0)
             layout.addWidget(self.fireworks_canvas)
-            # Make the container expand to fill available space
             # Ensure fireworks stay within the visible area by setting a minimum height
-            container.setMinimumHeight(600)
+            container.setMinimumHeight(700)
             container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
             self.fireworks_canvas.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
             return container
@@ -202,9 +201,11 @@ class FireworkShowApp(QMainWindow):
 
         # Fireworks preview widget
         self.preview_widget = FireworkPreviewWidget()
+        self.preview_widget.setMinimumHeight(90)
         # Enable mouse press tracking for the preview widget
         self.preview_widget.setMouseTracking(True)
         self.preview_widget.installEventFilter(self)
+
 
         ###############################################
         #                                             #
@@ -230,7 +231,6 @@ class FireworkShowApp(QMainWindow):
             return btn
         
         self.play_pause_btn = create_play_pause_btn()
-        self.play_pause_btn.clicked.connect(self.fireworks_canvas.reset_firings) # type: ignore
 
         ###########################################
         #                                         #
@@ -479,19 +479,19 @@ class FireworkShowApp(QMainWindow):
                     self.current_time_label.setText("00:00:000")
 
             # Timer to update the label during playback
-            self.time_update_timer = QTimer(self)
-            self.time_update_timer.setInterval(1)  # update every 0.5 seconds for better ms accuracy
-            self.time_update_timer.timeout.connect(update_time_label)
+            self.time_update_timer = QTimer(self) # type: ignore
+            self.time_update_timer.setInterval(1)  # type: ignore # update every 0.5 seconds for better ms accuracy
+            self.time_update_timer.timeout.connect(update_time_label) # type: ignore
 
             def on_play_pause(checked):
                 update_time_label()
                 if checked:
-                    self.time_update_timer.start()
+                    self.time_update_timer.start() # type: ignore
                 else:
-                    self.time_update_timer.stop()
+                    self.time_update_timer.stop() # type: ignore
 
             self.play_pause_btn.toggled.connect(on_play_pause)
-            self.stop_btn.clicked.connect(lambda: (self.current_time_label.setText("00:00:000"), self.time_update_timer.stop()))
+            self.stop_btn.clicked.connect(lambda: (self.current_time_label.setText("00:00:000"), self.time_update_timer.stop())) # type: ignore
             return label
         self.current_time_label = create_current_time_label()
 
@@ -506,17 +506,29 @@ class FireworkShowApp(QMainWindow):
             btn.setStyleSheet(button_style)
             def save_show():
                 options = QFileDialog.Option(0)
-                file_path, _ = QFileDialog.getSaveFileName(self, "Save Firework Show", "", "Firework Show (*.json);;All Files (*)", options=options)
+                file_path, _ = QFileDialog.getSaveFileName(
+                    self, "Save Firework Show", "", "Firework Show (*.json);;All Files (*)", options=options
+                )
                 if file_path:
                     # Get current background and path
                     bg = getattr(self.fireworks_canvas, "current_background", None)
                     bg_path = getattr(self.fireworks_canvas, "custom_background_path", None)
-                    fireworks_colors=getattr(self, "fireworks_colors", None)
+                    fireworks_colors = getattr(self, "fireworks_colors", None)
+                    # Ensure all data is serializable and no extra artifacts are added
+                    audio_data_to_save = (
+                        self.audio_data.tolist() if isinstance(self.audio_data, np.ndarray) else self.audio_data
+                    )
+                    firings_to_save = (
+                        [float(t) for t in getattr(self.preview_widget, "firework_firing", [])] if hasattr(self.preview_widget, "firework_firing") else []
+                    )
+                    segment_times_to_save = (
+                        [float(t) for t in self.segment_times] if self.segment_times is not None else []
+                    )
                     FireworkShowManager.save_show(
                         file_path,
-                        self.audio_data,
-                        self.firework_firing,
-                        self.segment_times,
+                        audio_data_to_save,
+                        firings_to_save,
+                        segment_times_to_save,
                         self.sr,
                         self.duration,
                         background=bg,
@@ -532,45 +544,53 @@ class FireworkShowApp(QMainWindow):
                     QTimer.singleShot(2000, toast.close)
             btn.clicked.connect(save_show)
             return btn
+
         def create_load_show_btn():
             btn = QPushButton("Load Show")
             btn.setStyleSheet(button_style)
             def load_show():
                 options = QFileDialog.Option(0)
-                file_path, _ = QFileDialog.getOpenFileName(self, "Load Firework Show", "", "Firework Show (*.json);;All Files (*)", options=options)
+                file_path, _ = QFileDialog.getOpenFileName(
+                    self, "Load Firework Show", "", "Firework Show (*.json);;All Files (*)", options=options
+                )
                 if file_path:
-                    firings, segment_times, sr, duration, audio_data_to_save, background, background_path, fireworks_colors = FireworkShowManager.load_show(file_path)
-                    self.firework_firing = firings
-                    self.segment_times = segment_times
-                    self.sr = sr
-                    self.duration = duration
-                    # If audio_data_to_save is a path (string), load audio using handle_audio
-                    if isinstance(audio_data_to_save, str) and os.path.exists(audio_data_to_save):
-                        self.audio_loader.paths = [audio_data_to_save]
-                        handle_audio()
-                    elif isinstance(audio_data_to_save, (list, np.ndarray)):
-                        self.audio_data = np.array(audio_data_to_save)
+                    firings, segment_times, sr, duration, audio_data_loaded, background, background_path, fireworks_colors = FireworkShowManager.load_show(file_path)
+                    # Carefully restore all fields, converting types as needed
+                    self.firework_firing = [float(t) for t in firings] if firings is not None else []
+                    self.segment_times = [float(t) for t in segment_times] if segment_times is not None else []
+                    self.sr = int(sr) if sr is not None else None
+                    self.duration = float(duration) if duration is not None else None
+                    if isinstance(audio_data_loaded, list):
+                        self.audio_data = np.array(audio_data_loaded, dtype=np.float32)
+                    elif isinstance(audio_data_loaded, np.ndarray):
+                        self.audio_data = audio_data_loaded.astype(np.float32)
+                    else:
+                        self.audio_data = None
+                    self.plot_waveform()
                     self.preview_widget.set_fireworks_colors(fireworks_colors)
-                    self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, self.firework_firing, self.duration)
-                    
+                    self.preview_widget.set_show_data(
+                        self.audio_data, self.sr, self.segment_times, self.firework_firing, self.duration
+                    )
                     # Restore background selection
                     if background:
                         if background == "custom" and background_path:
                             self.fireworks_canvas.set_background("custom", background_path)
-                            # Set the custom radio button checked
-                            for btn in self.background_btn.findChildren(QRadioButton):
-                                if btn.text().lower() == "custom":
-                                    btn.setChecked(True)
+                            for btn_radio in self.background_btn.findChildren(QRadioButton):
+                                if btn_radio.text().lower() == "custom":
+                                    btn_radio.setChecked(True)
                                     break
                         else:
                             self.fireworks_canvas.set_background(background)
-                            # Set the correct radio button checked
-                            for btn in self.background_btn.findChildren(QRadioButton):
-                                if btn.text().replace(" ", "").lower() == background.replace(" ", "").lower():
-                                    btn.setChecked(True)
+                            for btn_radio in self.background_btn.findChildren(QRadioButton):
+                                if btn_radio.text().replace(" ", "").lower() == background.replace(" ", "").lower():
+                                    btn_radio.setChecked(True)
                                     break
-
-                    # toast dialog
+                    # Ensure firings are displayed after loading
+                    self.preview_widget.set_show_data(
+                        self.audio_data, self.sr, self.segment_times, self.firework_firing, self.duration
+                    )
+                    self.fireworks_canvas.update_animation()
+                    self.update_firework_show_info()
                     toast = ToastDialog("Show loaded!", parent=self)
                     geo = self.geometry()
                     x = geo.x() + geo.width() - toast.width() - 40
@@ -578,10 +598,7 @@ class FireworkShowApp(QMainWindow):
                     toast.move(x, y)
                     toast.show()
                     QTimer.singleShot(2000, toast.close)
-
             btn.clicked.connect(load_show)
-            btn.clicked.connect(self.plot_waveform)  # Update waveform after loading
-            btn.clicked.connect(self.update_firework_show_info)  # Update info after loading
             return btn
 
         self.save_btn = create_save_btn()
@@ -783,7 +800,7 @@ class FireworkShowApp(QMainWindow):
         """
         ax = self.waveform_canvas.figure.axes[0]
         ax.clear()
-        if self.audio_data is not None:
+        if self.audio_data is not None and self.sr is not None:
             # Draw waveform in white for a clean, professional look
             librosa.display.waveshow(self.audio_data, sr=self.sr, ax=ax, color="#ffffff")
             ax.set_facecolor('black')
@@ -793,11 +810,8 @@ class FireworkShowApp(QMainWindow):
             # Plot segment times in subtle gray
             if self.segment_times is not None and isinstance(self.segment_times, (list, tuple, np.ndarray)):
                 for t in self.segment_times:
-                    ax.axvline(x=t, color="#bbbbbb", linestyle="--", linewidth=1.2, alpha=0.7)
-            # Plot firework firings in bright white (outside the segment_times loop)
-            if self.firework_firing is not None:
-                for t in self.firework_firing:
-                    ax.axvline(x=t, color="#ffffff", linestyle="-", linewidth=2, alpha=0.9)
+                    if t is not None and np.isfinite(t):
+                        ax.axvline(x=t, color="#bbbbbb", linestyle="--", linewidth=1.2, alpha=0.7)
             if self.duration is not None and self.sr is not None:
                 ax.set_xlim(0, self.duration)
             elif self.audio_data is not None and self.sr is not None:
