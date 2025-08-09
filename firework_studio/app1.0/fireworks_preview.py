@@ -5,7 +5,6 @@ import librosa
 import sounddevice as sd
 import random
 from matplotlib.widgets import SpanSelector
-
 class WaveformSelectionTool:
     # Add a waveform panning/selection tool using matplotlib's SpanSelector
     def __init__(self, canvas, main_window=None):
@@ -24,6 +23,15 @@ class WaveformSelectionTool:
         self.main_window = main_window
 
     def on_select(self, xmin, xmax):
+        # If the region is too narrow (e.g., a click, not a drag), reset selection
+        if abs(xmax - xmin) < 1e-3:
+            self.selected_region = None
+            if self.main_window and hasattr(self.main_window, "preview_widget"):
+                self.main_window.preview_widget.reset_selected_region()
+                self.main_window.preview_widget.update()
+            if self.main_window and hasattr(self.main_window, "status_bar"):
+                self.main_window.status_bar.showMessage("Selection cleared")
+            return
         self.selected_region = (xmin, xmax)
         # Update status bar and filter segments/firings if main_window is provided
         if self.main_window and hasattr(self.main_window, "status_bar"):
@@ -105,8 +113,6 @@ class FireworkPreviewWidget(QWidget):
             # Always clamp current_time to [0, duration]
             if self.current_time < 0:
                 self.current_time = 0
-            if self.duration and self.current_time > self.duration:
-                self.current_time = self.duration
 
             def play_audio():
                 if self.audio_data is not None and self.current_time is not None and self.sr is not None:
@@ -116,8 +122,8 @@ class FireworkPreviewWidget(QWidget):
                         # Clamp current_time to region
                         play_start = max(start, min(self.current_time, end))
                         start_idx = int(play_start * self.sr)
-                        end_idx = int(end * self.sr)
-                        # Only play from play_start to end, not from start of region
+                        # MODIFIED: play to end of audio, not just to end of region
+                        end_idx = int(self.duration * self.sr)
                         sd.play(self.audio_data[start_idx:end_idx], self.sr, blocking=False)
                     else:
                         play_start = max(0, min(self.current_time, self.duration if self.duration else 0))
@@ -145,7 +151,7 @@ class FireworkPreviewWidget(QWidget):
             self.current_time = self.duration
         if self.current_time < 0:
             self.current_time = 0
-        # Only stop at the end of the full duration, not the zoomed region
+        # MODIFIED: Only stop at the end of the full duration, not the zoomed region
         if self.current_time >= self.duration:
             self.current_time = self.duration
             if self.preview_timer:
@@ -311,42 +317,42 @@ class FireworkPreviewWidget(QWidget):
                 painter.drawEllipse(int(round(x)) - r, timeline_y - r, 2 * r, 2 * r)
                 painter.setPen(QColor(40, 40, 40, 180))
                 painter.setBrush(Qt.BrushStyle.NoBrush)
-                painter.drawEllipse(int(round(x)) - r, timeline_y - r, 2 * r, 2 * r)
-                painter.setPen(QColor(30, 30, 30))
-                painter.setFont(painter.font())
-                painter.drawText(int(round(x)) - r, timeline_y - r, 2 * r, 2 * r, Qt.AlignmentFlag.AlignCenter, str(orig_idx + 1))
-                self.firing_handles.append((QRect(int(round(x)) - r, timeline_y - r, 2 * r, 2 * r), orig_idx))
+                # Store handle rect for hit-testing
+                self.firing_handles.append((
+                    QRect(int(round(x)) - handle_radius, timeline_y - handle_radius + 3, 2 * handle_radius, 2 * handle_radius),
+                    orig_idx
+                ))
 
-        # Draw playhead
-        if self.duration and self.duration > 0:
-            # Always use the real current_time for playhead, even if outside zoomed region
-            playhead_time = min(max(self.current_time, 0), self.duration)
-            playhead_x = left_margin + ((playhead_time - draw_start) / zoom_duration) * usable_w
-            # Allow playhead to be drawn outside the zoomed region (fade if out of bounds)
-            fade = False
-            if playhead_time < draw_start or playhead_time > draw_end:
-                fade = True
-            painter.setPen(Qt.PenStyle.NoPen)
-            if fade:
-                painter.setBrush(QColor(0, 0, 0, 40))
-            else:
-                painter.setBrush(QColor(0, 0, 0, 100))
-            painter.drawRect(int(round(playhead_x)) - 2, timeline_y - 44, 4, 88)
-            if fade:
-                painter.setPen(QColor(0, 255, 120, 80))
-            else:
-                painter.setPen(QColor(0, 255, 120))
-            painter.drawLine(int(round(playhead_x)), timeline_y - 40, int(round(playhead_x)), timeline_y + 40)
-            if fade:
-                painter.setBrush(QColor(0, 255, 120, 80))
-            else:
-                painter.setBrush(QColor(0, 255, 120))
-            points = [
-                (int(round(playhead_x)) - 8, timeline_y - 48),
-                (int(round(playhead_x)) + 8, timeline_y - 48),
-                (int(round(playhead_x)), timeline_y - 36)
-            ]
-            painter.drawPolygon(*[QPoint(*pt) for pt in points])
+        # --- PLAYHEAD DRAWING (always draw, even if outside zoom) ---
+        playhead_time = min(max(self.current_time, 0), self.duration)
+        playhead_x = left_margin + ((playhead_time - draw_start) / zoom_duration) * usable_w
+        # Clamp playhead_x to valid integer range to avoid OverflowError
+        playhead_x = max(-2_147_483_648, min(playhead_x, 2_147_483_647))
+        # Allow playhead to be drawn outside the zoomed region (fade if out of bounds)
+        fade = False
+        if playhead_time < draw_start or playhead_time > draw_end:
+            fade = True
+        painter.setPen(Qt.PenStyle.NoPen)
+        if fade:
+            painter.setBrush(QColor(0, 0, 0, 40))
+        else:
+            painter.setBrush(QColor(0, 0, 0, 100))
+        painter.drawRect(int(round(playhead_x)) - 2, timeline_y - 44, 4, 88)
+        if fade:
+            painter.setPen(QColor(0, 255, 120, 80))
+        else:
+            painter.setPen(QColor(0, 255, 120))
+        painter.drawLine(int(round(playhead_x)), timeline_y - 40, int(round(playhead_x)), timeline_y + 40)
+        if fade:
+            painter.setBrush(QColor(0, 255, 120, 80))
+        else:
+            painter.setBrush(QColor(0, 255, 120))
+        points = [
+            (int(round(playhead_x)) - 8, timeline_y - 48),
+            (int(round(playhead_x)) + 8, timeline_y - 48),
+            (int(round(playhead_x)), timeline_y - 36)
+        ]
+        painter.drawPolygon(*[QPoint(*pt) for pt in points])
 
         painter.setPen(QColor(80, 80, 100, 180))
         painter.setBrush(Qt.BrushStyle.NoBrush)

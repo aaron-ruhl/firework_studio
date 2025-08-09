@@ -433,21 +433,6 @@ class FireworkShowApp(QMainWindow):
 
         ###########################################################
         #                                                         #
-        #    Create a reset button to reset the selected region   #
-        #                                                         #
-        ###########################################################
-        def create_reset_btn():
-            btn = QPushButton("Reset")
-            btn.setStyleSheet(button_style)
-            btn.clicked.connect(self.preview_widget.reset_selected_region)
-            btn.setToolTip("Reset the selected region in the preview widget")
-            btn.clicked.connect(lambda: self.status_bar.showMessage(self.firework_show_info))
-            return btn
-
-        self.reset_btn = create_reset_btn()
-
-        ###########################################################
-        #                                                         #
         #              Current time display label                 #
         #                                                         #
         ###########################################################
@@ -733,7 +718,6 @@ class FireworkShowApp(QMainWindow):
         media_controls_layout.addWidget(self.load_btn)
         media_controls_layout.addStretch()
         media_controls_layout.addWidget(self.clear_btn)
-        media_controls_layout.addWidget(self.reset_btn)
         media_controls_layout.insertWidget(2, self.current_time_label, alignment=Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         media_controls_layout.addWidget(self.save_btn)
         media_controls_layout.addWidget(self.load_show_btn)
