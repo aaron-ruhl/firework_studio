@@ -18,23 +18,28 @@ class FireworksCanvas(QWidget):
         self.timer.start(16)  # ~60 FPS
         self.particle_count = 50
         self.firework_color = QColor(255, 0, 0)
-        self.pattern = None
         self.background = None
         self.fired_times = set()  # Track fired times
         self._fireworks_enabled = True  # Initialize attribute
         self.delay = 0.0  # Delay for fireworks to explode
         self.background = "night"  # Default background
         self.custom_background_image_path = None
+        self.pattern = "circle"
+
+    def choose_firework_pattern(self, pattern):
+        self.pattern = pattern
 
     def add_firework(self, x=None, color=None):
         if x is None:
             x = random.randint(0, self.width())
         if color is None:
             color = self.firework_color
-        self.fireworks.append(Firework(x, self.height(), 
-                                     color,
-                                     self.particle_count))
-    
+        firework = Firework(x, self.height(), 
+                             color,
+                             self.particle_count)
+        firework.choose_firework_pattern(self.pattern)
+        self.fireworks.append(firework)
+
     def reset_fireworks(self):
         self.fireworks.clear()
         self.fired_times.clear()
@@ -517,40 +522,104 @@ class Firework:
         self.color = color
         self.particles = []
         self.exploded = False
-        self.velocity_y = -random.uniform(10, 10.5)  # Higher initial velocity for more energetic launch
+        self.velocity_y = -random.uniform(10, 10.5)
         self.particle_count = particle_count
-        # Set a realistic delay for fireworks to explode (e.g., 1.8 to 2.0 seconds)
         self.delay = random.uniform(1.8, 2.0)
         self.timer = QTimer()
-        self.timer.setInterval(int(self.delay * 1000))  # Convert seconds to milliseconds
+        self.timer.setInterval(int(self.delay * 1000))
         self.timer.setSingleShot(True)
         self.timer.timeout.connect(self.explode)
         self.timer.start()
+        self.pattern = "circle"
 
+    def choose_firework_pattern(self, pattern=None):
+        if pattern is not None:
+            self.pattern = pattern
 
     def explode(self):
         self.exploded = True
-        # Use a brighter color palette for particles
         base_color = self.color
-        for _ in range(self.particle_count):
-            angle = random.uniform(0, 2 * math.pi)
-            speed = random.uniform(6.5, 7)  # Faster, more energetic
-            # Vary color for brilliance
-            hue_shift = random.randint(-30, 30)
-            hsv = base_color.toHsv()
-            new_hue = (hsv.hue() + hue_shift) % 360 if hsv.hue() is not None else 0
-            new_color = QColor.fromHsv(new_hue, 255, 255)
-            # Add a few "sparkle" particles with white/yellow
-            if random.random() < 0.15:
-                sparkle_color = QColor(255, 255, random.randint(180, 255))
-                self.particles.append(Particle(self.x, self.y, angle, speed * 1.2, sparkle_color, lifetime=120))
-            else:
-                self.particles.append(Particle(self.x, self.y, angle, speed, new_color, lifetime=random.randint(90, 120)))
+
+        if self.pattern == "chrysanthemum":
+            for i in range(self.particle_count):
+                angle = 2 * math.pi * i / self.particle_count
+                # Slightly vary speed for a more natural burst
+                speed = random.uniform(8.2, 9.5)
+                if i % 7 == 0:
+                    # More frequent white sparkles for a richer effect
+                    speed *= 1.28
+                    color = QColor(255, 255, 255)
+                else:
+                    hsv = base_color.toHsv()
+                    hue_shift = random.randint(-18, 18)
+                    new_hue = (hsv.hue() + hue_shift) % 360 if hsv.hue() is not None else 0
+                    sat = min(255, hsv.saturation() + random.randint(-10, 30))
+                    val = min(255, hsv.value() + random.randint(-10, 20))
+                    color = QColor.fromHsv(new_hue, sat, val)
+                # Longer, more persistent trails
+                self.particles.append(Particle(self.x, self.y, angle, speed, color, lifetime=random.randint(130, 155)))
+        elif self.pattern == "palm":
+            trunks = 8
+            for i in range(trunks):
+                angle = 2 * math.pi * i / trunks + random.uniform(-0.08, 0.08)
+                speed = random.uniform(9, 11)
+                trunk_color = QColor(60, 255, 120)
+                # Add a glowing core at the base of each trunk
+                self.particles.append(Particle(self.x, self.y, angle, speed * 0.7, QColor(255, 255, 180), lifetime=45))
+                self.particles.append(Particle(self.x, self.y, angle, speed, trunk_color, lifetime=100))
+                for j in range(4):
+                    burst_angle = angle + random.uniform(-0.18, 0.18)
+                    burst_speed = speed * random.uniform(0.65, 0.95)
+                    burst_color = QColor(255, 200, 80)
+                    self.particles.append(Particle(self.x, self.y, burst_angle, burst_speed, burst_color, lifetime=75))
+        elif self.pattern == "willow":
+            for i in range(self.particle_count):
+                angle = 2 * math.pi * i / self.particle_count + random.uniform(-0.04, 0.04)
+                speed = random.uniform(6.5, 7.5)
+                # Subtle gold-to-white gradient for willow
+                if i % 8 == 0:
+                    willow_color = QColor(255, 255, 200)
+                else:
+                    willow_color = QColor(255, 220, 120)
+                p = Particle(self.x, self.y, angle, speed, willow_color, lifetime=185)
+                p.gravity = 0.24  # Slightly heavier for trailing effect
+                self.particles.append(p)
+        elif self.pattern == "peony":
+            for i in range(self.particle_count):
+                angle = 2 * math.pi * i / self.particle_count + random.uniform(-0.025, 0.025)
+                speed = random.uniform(7.2, 8.2)
+                # Use a gradient from pink to purple for a richer peony
+                hue = int(320 + 40 * math.sin(i / self.particle_count * math.pi))
+                peony_color = QColor.fromHsv(hue % 360, 180 + int(75 * abs(math.cos(i))), 255)
+                self.particles.append(Particle(self.x, self.y, angle, speed, peony_color, lifetime=random.randint(95, 115)))
+        elif self.pattern == "ring":
+            for i in range(self.particle_count):
+                angle = 2 * math.pi * i / self.particle_count
+                # Add a subtle thickness to the ring
+                speed = 7.2 + 0.4 * math.sin(i * 3)
+                ring_color = QColor(80, 255, 255)
+                if i % 9 == 0:
+                    ring_color = QColor(255, 255, 255)
+                self.particles.append(Particle(self.x, self.y, angle, speed, ring_color, lifetime=random.randint(100, 120)))
+        else:
+            for i in range(self.particle_count):
+                angle = random.uniform(0, 2 * math.pi)
+                speed = random.uniform(7, 7.8)
+                hue = int(360 * i / self.particle_count)
+                rainbow_color = QColor.fromHsv(hue, 255, 255)
+                # More sparkles and some white for extra vibrance
+                if random.random() < 0.18:
+                    sparkle_color = QColor(255, 255, random.randint(200, 255))
+                    self.particles.append(Particle(self.x, self.y, angle, speed * 1.18, sparkle_color, lifetime=130))
+                elif random.random() < 0.08:
+                    self.particles.append(Particle(self.x, self.y, angle, speed, QColor(255, 255, 255), lifetime=110))
+                else:
+                    self.particles.append(Particle(self.x, self.y, angle, speed, rainbow_color, lifetime=random.randint(100, 130)))
 
     def update(self):
         if not self.exploded:
             self.y += self.velocity_y
-            self.velocity_y += 0.1  # Gravity effect
+            self.velocity_y += 0.1
             if self.timer.remainingTime() == 0:
                 self.explode()
         else:
