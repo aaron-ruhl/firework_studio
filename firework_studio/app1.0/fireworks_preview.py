@@ -473,22 +473,16 @@ class FireworkPreviewWidget(QWidget):
             self.update()
             return
 
-    def advance_preview(self):
-        """Advance the preview timer and update current_time accordingly."""
-        if self.audio_data is None or self.sr is None or self.duration is None:
-            return
-        # Advance by 16 ms (assuming timer interval is 16 ms)
-        self.current_time += 0.016
-        # Only stop at the end of the full duration, not at the end of the zoomed region
-        if self.current_time >= self.duration:
-            self.current_time = self.duration
-            if self.preview_timer:
-                self.preview_timer.stop()
-            try:
-                if sd.get_stream() is not None:
-                    sd.stop(ignore_errors=True)
-            except RuntimeError:
-                pass
+    # Ensure negative times are not allowed in selected_region
+    def set_selected_region(self, region):
+        """Called by WaveformSelectionTool when a region is selected."""
+        if region and len(region) == 2:
+            start, end = region
+            start = max(0, start)
+            end = max(0, end)
+            self.selected_region = (start, end)
+        else:
+            self.selected_region = region
         self.update()
 
     def remove_selected_firing(self):
