@@ -28,6 +28,7 @@ from PyQt6.QtWidgets import QGroupBox, QRadioButton, QButtonGroup
 from matplotlib.widgets import SpanSelector
 from fireworks_preview import WaveformSelectionTool
 import soundfile as sf
+from PyQt6.QtWidgets import QComboBox
 
 class FireworkShowManager:
     """
@@ -105,7 +106,7 @@ class FireworkShowApp(QMainWindow):
 
         #############################################################
         #                                                          #
-        #        Style for play and stop buttons                   #
+        #        Style buttons                                      #
         #                                                          #
         #############################################################
 
@@ -127,7 +128,46 @@ class FireworkShowApp(QMainWindow):
             QPushButton:pressed {
             background-color: #353a40;
             }
-        """
+            QComboBox {
+                color: #e0e0e0;
+                background: #23242b;
+                font-size: 15px;
+                border: 1px solid #444657;
+                border-radius: 6px;
+                padding: 6px 24px 6px 12px;
+                min-width: 120px;
+                transition: border 0.2s, color 0.2s;
+            }
+            QComboBox:hover, QComboBox:focus {
+                background: #31323a;
+                border: 1.5px solid #ffd700;
+                color: #ffd700;
+            }
+            QComboBox:!hover:!focus {
+                border: 1px solid #444657;
+                color: #e0e0e0;
+            }
+            QComboBox::drop-down {
+                subcontrol-origin: padding;
+                subcontrol-position: top right;
+                width: 28px;
+                border-left: 1px solid #444657;
+                background: #23242b;
+            }
+            QComboBox::down-arrow {
+                image: url(:/qt-project.org/styles/commonstyle/images/arrowdown-16.png);
+                width: 16px;
+                height: 16px;
+            }
+            QComboBox QAbstractItemView {
+                background: #23242b;
+                color: #e0e0e0;
+                selection-background-color: #31323a;
+                selection-color: #ffd700;
+                border: 1px solid #444657;
+                outline: none;
+            }
+            """
 
         #############################################################
         #                                                          #
@@ -162,7 +202,7 @@ class FireworkShowApp(QMainWindow):
 
         # Fireworks preview widget
         self.preview_widget = FireworkPreviewWidget()
-        self.preview_widget.setMinimumHeight(150)  # Make the preview widget taller
+        self.preview_widget.setMinimumHeight(125)  # Make the preview widget taller
         # Enable mouse press tracking for the preview widget
         self.preview_widget.setMouseTracking(True)
         self.preview_widget.installEventFilter(self)
@@ -268,7 +308,6 @@ class FireworkShowApp(QMainWindow):
             group_box.setStyleSheet("QGroupBox { color: #e0e0e0; font-weight: bold; }")
             layout = QHBoxLayout()
             group_box.setLayout(layout)
-
             patterns = [
             ("Circle", "circle"),
             ("Chrysanthemum", "chrysanthemum"),
@@ -277,16 +316,20 @@ class FireworkShowApp(QMainWindow):
             ("Peony", "peony"),
             ("Ring", "ring"),
             ]
-            button_group = QButtonGroup(self)
+            combo = QComboBox()
+            combo.setStyleSheet(
+            button_style
+            )
             for label, pattern in patterns:
-                radio = QRadioButton(label)
-                radio.setStyleSheet("color: #e0e0e0;")
-                layout.addWidget(radio)
-                button_group.addButton(radio)
-                radio.toggled.connect(lambda checked, p=pattern: self.fireworks_canvas.choose_firework_pattern(p) if checked else None)
+                combo.addItem(label, pattern)
             # Set default pattern
-            button_group.buttons()[0].setChecked(True)
+            combo.setCurrentIndex(0)
             self.fireworks_canvas.choose_firework_pattern(patterns[0][1])
+            def on_pattern_changed(index):
+                pattern = combo.itemData(index)
+                self.fireworks_canvas.choose_firework_pattern(pattern)
+            combo.currentIndexChanged.connect(on_pattern_changed)
+            layout.addWidget(combo)
             return group_box
 
         self.pattern_selector = create_pattern_selector()
@@ -641,7 +684,7 @@ class FireworkShowApp(QMainWindow):
             ax.tick_params(axis='x', colors='white')
             ax.tick_params(axis='y', colors='white')
             ax.set_title("Waveform with Segments", color='white')
-            canvas.setFixedHeight(150)
+            canvas.setFixedHeight(125)
             canvas.figure.subplots_adjust(left=0, right=1, top=1, bottom=0)
             return canvas
         self.waveform_canvas = create_waveform_canvas()
@@ -666,7 +709,6 @@ class FireworkShowApp(QMainWindow):
         media_controls_layout.insertWidget(0, self.play_pause_btn, alignment=Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
         media_controls_layout.insertWidget(1, self.stop_btn, alignment=Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
         media_controls_layout.addWidget(self.add_firing_btn)
-        media_controls_layout.addWidget(self.pattern_selector)
         media_controls_layout.addWidget(self.delete_firing_btn)
         media_controls_layout.addWidget(self.load_btn)
         media_controls_layout.addStretch()
@@ -675,6 +717,7 @@ class FireworkShowApp(QMainWindow):
         media_controls_layout.insertWidget(2, self.current_time_label, alignment=Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         media_controls_layout.addWidget(self.save_btn)
         media_controls_layout.addWidget(self.load_show_btn)
+        media_controls_layout.addWidget(self.pattern_selector)
         media_controls_layout.addWidget(self.background_btn)
         media_controls_layout.addWidget(self.generate_btn)
         
@@ -702,92 +745,10 @@ class FireworkShowApp(QMainWindow):
         dark_palette.setColor(self.backgroundRole(), QColor(30, 30, 30))
         dark_palette.setColor(self.foregroundRole(), QColor(220, 220, 220))
         self.setPalette(dark_palette)
-        # Professional dark theme stylesheet
-        self.setStyleSheet("""
-            QMainWindow, QWidget {
-            background: #181a20;
-            color: #e6e6e6;
-            font-family: 'Segoe UI', 'Arial', sans-serif;
-            font-size: 15px;
-            }
-            QStatusBar {
-            background: #1f2128;
-            color: #b0b0b0;
-            border-top: 1px solid #23242b;
-            }
-            QPushButton {
-            background: qlineargradient(
-                x1:0, y1:0, x2:1, y2:1,
-                stop:0 #23242b, stop:1 #31323a
-            );
-            color: #f5f5f5;
-            border: 1px solid #292a33;
-            border-radius: 8px;
-            padding: 9px 22px;
-            min-width: 70px;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-            transition: background 0.2s;
-            }
-            QPushButton:hover {
-            background: qlineargradient(
-                x1:0, y1:0, x2:1, y2:1,
-                stop:0 #31323a, stop:1 #3a3b45
-            );
-            color: #ffd700;
-            border: 1px solid #444657;
-            }
-            QPushButton:pressed {
-            background: #23242b;
-            color: #ff9800;
-            border: 1.5px solid #ffd700;
-            }
-            QPushButton:checked {
-            background: #23242b;
-            color: #00e676;
-            border: 1.5px solid #00e676;
-            QLabel {
-            color: #e6e6e6;
-            background: transparent;
-            font-size: 16px;
-            padding: 4px 16px;
-            min-width: 120px;
-            }
-            }
-            QGroupBox {
-            border: 1px solid #23242b;
-            border-radius: 6px;
-            margin-top: 10px;
-            color: #ffd700;
-            font-weight: bold;
-            font-size: 15px;
-            background: #20222a;
-            }
-            QGroupBox:title {
-            subcontrol-origin: margin;
-            left: 10px;
-            padding: 0 3px 0 3px;
-            }
-            QRadioButton {
-            color: #e6e6e6;
-            font-size: 15px;
-            padding: 2px 8px;
-            }
-            QRadioButton::indicator:checked {
-            background-color: #ffd700;
-            border: 1px solid #ffd700;
-            }
-            QRadioButton::indicator {
-            border: 1px solid #444657;
-            background: #23242b;
-            }
-            QToolTip {
-            background-color: #23242b;
-            color: #ffd700;
-            border: 1px solid #ffd700;
-            font-size: 14px;
-            }
-        """)
+        # Adjust current_time_label to fit time tightly (remove extra width)
+        self.current_time_label.setFixedWidth(self.current_time_label.fontMetrics().horizontalAdvance("00:00:000") + 18)
+        self.current_time_label.setContentsMargins(0, 0, 0, 0)
+       
         
 
     ###############################################################
