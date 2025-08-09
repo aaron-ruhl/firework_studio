@@ -361,7 +361,7 @@ class FireworkShowApp(QMainWindow):
                 # Always reset play/pause button state and icon so playback can start again
                 self.play_pause_btn.blockSignals(True)
                 self.play_pause_btn.setChecked(False)
-                self.play_pause_btn.setText("▶️")
+                self.play_pause_btn.setText("Play")
                 self.play_pause_btn.blockSignals(False)
                 
 

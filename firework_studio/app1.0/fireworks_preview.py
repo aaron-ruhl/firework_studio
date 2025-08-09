@@ -86,6 +86,7 @@ class FireworkPreviewWidget(QWidget):
             self.selected_region = (0, self.duration)
         else:
             self.selected_region = tuple()
+        self.set_show_data(self.audio_data, self.sr, self.segment_times, self.firework_firing, self.duration)
         self.update()
 
     def set_selected_region(self, region):
@@ -251,7 +252,7 @@ class FireworkPreviewWidget(QWidget):
         # If a region is selected, zoom in on that region
         if self.selected_region and len(self.selected_region) == 2 and self.duration:
             zoom_start, zoom_end = self.selected_region
-            zoom_duration = max(zoom_end - zoom_start, 1e-6)
+            zoom_duration = max(zoom_end - zoom_start, 1e-9)
             draw_start = zoom_start
             draw_end = zoom_end
         else:
@@ -264,10 +265,10 @@ class FireworkPreviewWidget(QWidget):
         painter.setBrush(QColor(50, 55, 70, 220))
         painter.drawRoundedRect(bar_rect, 8, 8)
 
+        # Draw ticks and labels
         painter.setPen(QColor(120, 120, 140))
         tick_count = 10
         for i in range(tick_count + 1):
-            # Map ticks to zoomed region
             t = draw_start + (draw_end - draw_start) * i / tick_count
             x = left_margin + int((t - draw_start) / zoom_duration * usable_w)
             painter.drawLine(x, timeline_y + 12, x, timeline_y + 22)
@@ -278,60 +279,57 @@ class FireworkPreviewWidget(QWidget):
                 painter.setPen(QColor(180, 180, 200))
                 painter.drawText(x - 15, timeline_y + 38, 30, 16, Qt.AlignmentFlag.AlignCenter, label)
                 painter.setPen(QColor(120, 120, 140))
-        # Only draw fireworks within zoomed region
+
+        # Draw fireworks (handles)
         self.firing_handles = []
         handle_radius = 12
         if self.firework_firing is not None and self.duration:
-            # Ensure firework_colors is always a list
             if self.firework_colors is None:
                 self.firework_colors = []
-            # Filter firings and colors to only those in the zoomed region
             filtered_firings = []
             filtered_colors = []
             filtered_indices = []
             for idx, ft in enumerate(self.firework_firing):
                 if draw_start <= ft <= draw_end:
                     filtered_firings.append(ft)
-                    # Make sure firework_colors is in sync
                     if self.firework_colors and len(self.firework_colors) > idx:
                         filtered_colors.append(self.firework_colors[idx])
                     else:
                         filtered_colors.append(QColor(255, 255, 255))
                     filtered_indices.append(idx)
-            # Draw only filtered firings
             for i, (ft, color, orig_idx) in enumerate(zip(filtered_firings, filtered_colors, filtered_indices)):
-                x = left_margin + usable_w * (ft - draw_start) / zoom_duration
+                # Accurate mapping: always use the same formula as playhead
+                x = left_margin + ((ft - draw_start) / zoom_duration) * usable_w
                 is_selected = hasattr(self, 'selected_firing') and self.selected_firing == orig_idx
                 painter.setBrush(QColor(0, 0, 0, 120))
                 painter.setPen(Qt.PenStyle.NoPen)
-                painter.drawEllipse(int(x) - handle_radius, timeline_y - handle_radius + 3, 2 * handle_radius, 2 * handle_radius)
+                painter.drawEllipse(int(round(x)) - handle_radius, timeline_y - handle_radius + 3, 2 * handle_radius, 2 * handle_radius)
                 painter.setBrush(color)
                 painter.setPen(QColor(255, 255, 0) if is_selected else QColor(220, 220, 220, 180))
                 r = int(handle_radius * (1.3 if is_selected else 1))
-                painter.drawEllipse(int(x) - r, timeline_y - r, 2 * r, 2 * r)
+                painter.drawEllipse(int(round(x)) - r, timeline_y - r, 2 * r, 2 * r)
                 painter.setPen(QColor(40, 40, 40, 180))
                 painter.setBrush(Qt.BrushStyle.NoBrush)
-                painter.drawEllipse(int(x) - r, timeline_y - r, 2 * r, 2 * r)
+                painter.drawEllipse(int(round(x)) - r, timeline_y - r, 2 * r, 2 * r)
                 painter.setPen(QColor(30, 30, 30))
                 painter.setFont(painter.font())
-                painter.drawText(int(x) - r, timeline_y - r, 2 * r, 2 * r, Qt.AlignmentFlag.AlignCenter, str(orig_idx + 1))
-                self.firing_handles.append((QRect(int(x) - r, timeline_y - r, 2 * r, 2 * r), orig_idx))
+                painter.drawText(int(round(x)) - r, timeline_y - r, 2 * r, 2 * r, Qt.AlignmentFlag.AlignCenter, str(orig_idx + 1))
+                self.firing_handles.append((QRect(int(round(x)) - r, timeline_y - r, 2 * r, 2 * r), orig_idx))
 
         # Draw playhead
         if self.duration and self.duration > 0:
-            # Clamp playhead to zoomed region
             playhead_time = min(max(self.current_time, draw_start), draw_end)
-            playhead_x = left_margin + usable_w * (playhead_time - draw_start) / zoom_duration
+            playhead_x = left_margin + ((playhead_time - draw_start) / zoom_duration) * usable_w
             painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(QColor(0, 0, 0, 100))
-            painter.drawRect(int(playhead_x) - 2, timeline_y - 44, 4, 88)
+            painter.drawRect(int(round(playhead_x)) - 2, timeline_y - 44, 4, 88)
             painter.setPen(QColor(0, 255, 120))
-            painter.drawLine(int(playhead_x), timeline_y - 40, int(playhead_x), timeline_y + 40)
+            painter.drawLine(int(round(playhead_x)), timeline_y - 40, int(round(playhead_x)), timeline_y + 40)
             painter.setBrush(QColor(0, 255, 120))
             points = [
-                (int(playhead_x) - 8, timeline_y - 48),
-                (int(playhead_x) + 8, timeline_y - 48),
-                (int(playhead_x), timeline_y - 36)
+                (int(round(playhead_x)) - 8, timeline_y - 48),
+                (int(round(playhead_x)) + 8, timeline_y - 48),
+                (int(round(playhead_x)), timeline_y - 36)
             ]
             painter.drawPolygon(*[QPoint(*pt) for pt in points])
 
@@ -339,7 +337,7 @@ class FireworkPreviewWidget(QWidget):
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawRoundedRect(QRect(left_margin, top_margin, usable_w, usable_h), 12, 12)
         painter.setClipping(False)
-
+        
     def mousePressEvent(self, event):
         w = self.width()
         left_margin = 40
@@ -414,7 +412,7 @@ class FireworkPreviewWidget(QWidget):
             return
 
         if hasattr(self, 'dragging_playhead') and self.dragging_playhead:
-            self.stop_preview()
+            # Do NOT stop preview when dragging playhead
             x = event.position().x()
             x = max(left_margin, min(x, w - right_margin))
             new_time = (x - left_margin) / usable_w * zoom_duration + draw_start
@@ -474,6 +472,8 @@ class FireworkPreviewWidget(QWidget):
             self.dragging_playhead = False
             self.setCursor(Qt.CursorShape.ArrowCursor)
             self.update()
+            # Start preview at the new playhead position
+            self.start_preview()
             return
 
         # If using a waveform selection tool, update selected region on mouse release
