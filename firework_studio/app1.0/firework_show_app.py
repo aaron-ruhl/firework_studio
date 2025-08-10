@@ -188,6 +188,7 @@ class FireworkShowApp(QMainWindow):
             container.setMinimumHeight(700)
             container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
             self.fireworks_canvas.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+            self.fireworks_canvas.set_fireworks_enabled(False)  # Disable fireworks initially since it is technically starting in a paused state
             return container
 
         self.fireworks_canvas_container = create_fireworks_canvas_container()
@@ -205,6 +206,21 @@ class FireworkShowApp(QMainWindow):
         # Enable mouse press tracking for the preview widget
         self.preview_widget.setMouseTracking(True)
         self.preview_widget.installEventFilter(self)
+
+        # If the user is dragging the playhead, set play_pause_btn to "Play"
+        def on_dragging_playhead(event_type):
+            if event_type == "dragging_playhead":
+                self.play_pause_btn.blockSignals(True)
+                self.play_pause_btn.setChecked(False)
+                self.play_pause_btn.setText("Play")
+                self.play_pause_btn.blockSignals(False)
+
+        # Override the preview_widget's mouseMoveEvent to call on_dragging_playhead
+        original_mouse_release_event = self.preview_widget.mouseReleaseEvent
+        def custom_mouse_release_event(event):
+            on_dragging_playhead("dragging_playhead")
+            original_mouse_release_event(event)
+        self.preview_widget.mouseReleaseEvent = custom_mouse_release_event
 
 
         ###############################################
@@ -224,8 +240,10 @@ class FireworkShowApp(QMainWindow):
                 btn.setText("Pause" if checked else "Play")
                 if checked:
                     self.fireworks_canvas.set_fireworks_enabled(True)  # Enable fireworks while playing
+                    self.fireworks_canvas.reset_firings()  # Reset fired times to always allow new firings
                 else:
                     self.fireworks_canvas.set_fireworks_enabled(False)  # Disable fireworks while paused
+                    self.fireworks_canvas.reset_firings()  # Reset fired times to always allow new firings
                 self.preview_widget.toggle_play_pause()
             btn.toggled.connect(toggle_icon)
             return btn

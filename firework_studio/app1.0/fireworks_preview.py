@@ -56,7 +56,7 @@ class WaveformSelectionTool:
 
 '''THIS IS THE BAR CLASS FOR ALONG THE BOTTOM TWO PLOTS'''
 class FireworkPreviewWidget(QWidget):
-    def __init__(self, waveform_selection_tool=None):
+    def __init__(self, waveform_selection_tool=None, main_window=None):
         super().__init__()
         self.setMinimumHeight(200)
         self.setMouseTracking(True)
@@ -77,6 +77,7 @@ class FireworkPreviewWidget(QWidget):
         self.waveform_selection_tool = waveform_selection_tool
         self.delay = 1.8  # 1.8 seconds
         self.fired_times = set()
+        self.main_window = main_window
 
     def set_show_data(self, audio_data, sr, segment_times, firework_firing, duration):
         self.audio_data = audio_data
@@ -496,9 +497,18 @@ class FireworkPreviewWidget(QWidget):
             self.dragging_playhead = False
             self.setCursor(Qt.CursorShape.ArrowCursor)
             self.update()
-            # If playback was active, resume it at the new playhead position
+            # If playback was active, pause it and update play/pause button state
             if self.preview_timer and self.preview_timer.isActive():
-                self.start_preview()
+                try:
+                    if sd.get_stream() is not None:
+                        sd.stop(ignore_errors=True)
+                except RuntimeError:
+                    pass
+                self.preview_timer.stop()
+                # Update play button state if main_window and play_pause_btn exist
+                if self.main_window and hasattr(self.main_window, "play_pause_btn"):
+                    self.main_window.play_pause_btn.setText("Play")
+                    self.main_window.play_pause_btn.setChecked(False)
                 return
             # Otherwise, just update current_time and state; playback will resume from here when play is pressed
             return
