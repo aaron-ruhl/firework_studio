@@ -37,6 +37,7 @@ class WaveformSelectionTool:
                 return f"{mins:02d}:{secs:02d}:{ms:03d}"
             start = format_time(xmin)
             end = format_time(xmax)
+            
             self.main_window.status_bar.showMessage(
                 f"Selected region: {start} - {end}"
             )

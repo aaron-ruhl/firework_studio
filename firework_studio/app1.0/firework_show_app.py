@@ -22,6 +22,7 @@ from show_file_handler import ShowFileHandler
 from waveform_selection import WaveformSelectionTool
 from PyQt6.QtWidgets import QToolBar, QWidgetAction
 from PyQt6.QtGui import QIcon
+from PyQt6.QtWidgets import QLabel
 
 '''THIS IS THE MAIN WINDOW CLASS FOR THE FIREWORK STUDIO APPLICATION'''
 class FireworkShowApp(QMainWindow):
@@ -72,66 +73,55 @@ class FireworkShowApp(QMainWindow):
             max-height: 34px;
             padding: 4px 10px;
             margin: 2px;
-            transition: background 0.2s, color 0.2s, border 0.2s;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.10);
             }
             QPushButton:hover {
             background-color: #606874;
             color: #ffd700;
             border: 1.5px solid #ffd700;
-            box-shadow: 0 4px 16px rgba(255,215,0,0.10);
             }
             QPushButton:pressed {
             background-color: #353a40;
             color: #ffd700;
             border: 1.5px solid #ffd700;
-            box-shadow: 0 2px 8px rgba(255,215,0,0.18);
             }
             QPushButton:checked {
             background-color: #23242b;
             color: #ffd700;
             border: 1.5px solid #ffd700;
-            box-shadow: 0 2px 8px rgba(255,215,0,0.18);
             }
             QComboBox {
-            color: #e0e0e0;
             background: #23242b;
-            font-size: 14px;
+            color: #e0e0e0;
             border: 1.2px solid #444657;
+            font-size: 14px;
             border-radius: 6px;
             padding: 5px 22px 5px 10px;
             min-width: 90px;
             max-width: 140px;
             margin: 2px;
-            transition: border 0.2s, color 0.2s;
             }
             QComboBox:hover, QComboBox:focus {
             background: #31323a;
-            border: 1.5px solid #ffd700;
             color: #ffd700;
-            }
-            QComboBox:!hover:!focus {
-            border: 1.2px solid #444657;
-            color: #e0e0e0;
+            border: 1.5px solid #ffd700;
             }
             QComboBox::drop-down {
+            background: #23242b;
+            border-left: 1.2px solid #444657;
             subcontrol-origin: padding;
             subcontrol-position: top right;
             width: 22px;
-            border-left: 1.2px solid #444657;
-            background: #23242b;
             }
             QComboBox::down-arrow {
-            image: url(:/qt-project.org/styles/commonstyle/images/arrowdown-16.png);
             width: 14px;
             height: 14px;
             }
             QComboBox QAbstractItemView {
             background: #23242b;
+            border: 1.2px solid #444657;
             color: #e0e0e0;
             selection-background-color: #31323a;
             selection-color: #ffd700;
-            border: 1.2px solid #444657;
             outline: none;
             }
             QToolBar {
@@ -139,14 +129,6 @@ class FireworkShowApp(QMainWindow):
             border: none;
             spacing: 6px;
             padding: 6px;
-            }
-            QToolBar:horizontal > * {
-            margin-right: 6px;
-            margin-bottom: 0px;
-            }
-            QToolBar:vertical > * {
-            margin-bottom: 6px;
-            margin-right: 0px;
             }
         """
 
@@ -194,6 +176,7 @@ class FireworkShowApp(QMainWindow):
                 self.play_pause_btn.blockSignals(True)
                 self.play_pause_btn.setChecked(False)
                 self.play_pause_btn.setText("Play")
+                self.play_pause_btn.setIcon(QIcon(os.path.join("icons", "play.png")))
                 self.play_pause_btn.blockSignals(False)
 
         # Override the preview_widget's mouseMoveEvent to call on_dragging_playhead
@@ -211,6 +194,7 @@ class FireworkShowApp(QMainWindow):
         ###############################################
 
         # Create a play/pause button to control the preview playback
+
         def create_play_pause_btn():
             btn = QPushButton()
             btn.setFixedSize(40, 40)
@@ -218,22 +202,24 @@ class FireworkShowApp(QMainWindow):
             btn.setText("Play")
             btn.setIcon(QIcon(os.path.join("icons", "play.png")))
             btn.setStyleSheet(button_style)
-            def toggle_icon(checked, btn=btn):
-                if checked:
-                    btn.setText("Pause")
-                    btn.setIcon(QIcon(os.path.join("icons", "pause.png")))
-                    self.fireworks_canvas.set_fireworks_enabled(True)  # Enable fireworks while playing
-                    self.fireworks_canvas.reset_firings()  # Reset fired times to always allow new firings
-                else:
-                    btn.setText("Play")
-                    btn.setIcon(QIcon(os.path.join("icons", "play.png")))
-                    self.fireworks_canvas.set_fireworks_enabled(False)  # Disable fireworks while paused
-                    self.fireworks_canvas.reset_firings()  # Reset fired times to always allow new firings
-                self.preview_widget.toggle_play_pause()
-            btn.toggled.connect(toggle_icon)
-            return btn
-        
+            return btn    
+
+        def toggle_icon(checked):
+            if checked:
+                self.play_pause_btn.setText("Pause")
+                self.play_pause_btn.setIcon(QIcon(os.path.join("icons", "pause.png")))
+                self.fireworks_canvas.set_fireworks_enabled(True)
+                self.fireworks_canvas.reset_firings()
+            else:
+                self.play_pause_btn.setText("Play")
+                self.play_pause_btn.setIcon(QIcon(os.path.join("icons", "play.png")))
+                self.fireworks_canvas.set_fireworks_enabled(False)
+                self.fireworks_canvas.reset_firings()
+            self.preview_widget.toggle_play_pause()
+
         self.play_pause_btn = create_play_pause_btn()
+        self.play_pause_btn.toggled.connect(toggle_icon)
+
         ###########################################
         #                                         #
         #        Stop button                      #
@@ -421,6 +407,7 @@ class FireworkShowApp(QMainWindow):
                 self.play_pause_btn.blockSignals(True)
                 self.play_pause_btn.setChecked(False)
                 self.play_pause_btn.setText("Play")
+                self.play_pause_btn.setIcon(QIcon(os.path.join("icons", "play.png")))
                 self.play_pause_btn.blockSignals(False)
             
 
@@ -551,7 +538,6 @@ class FireworkShowApp(QMainWindow):
         # Canvas for waveform display and firework firing display #
         #                                                         #
         ###########################################################
-
         # Create a canvas for displaying the waveform needed here for loading audio
         def create_waveform_canvas():
             canvas = FigureCanvas(Figure(figsize=(20, 1)))
@@ -559,13 +545,59 @@ class FireworkShowApp(QMainWindow):
             ax.set_facecolor('black')
             ax.tick_params(axis='x', colors='white')
             ax.tick_params(axis='y', colors='white')
-            ax.set_title("Waveform with Segments", color='white')
             canvas.figure.subplots_adjust(left=0, right=1, top=1, bottom=0)
             return canvas
         self.waveform_canvas = create_waveform_canvas()
 
         # Add a waveform panning/selection tool using matplotlib's SpanSelector
         self.waveform_selector = WaveformSelectionTool(self.waveform_canvas, main_window=self)
+
+        # --- Add mouse hover event to show time label at cursor ---
+
+        self.waveform_time_label = QLabel(self.waveform_canvas)
+        self.waveform_time_label.setStyleSheet(
+            "background: #23242b; color: #ffd700; border: 1px solid #ffd700; border-radius: 4px; padding: 2px 6px; font-size: 13px;"
+        )
+        self.waveform_time_label.setVisible(False)
+
+        def on_waveform_motion(event):
+            if event.inaxes and self.audio_data is not None and self.sr is not None:
+                x = event.xdata
+                if x is not None and 0 <= x <= (self.duration if self.duration else len(self.audio_data)/self.sr):
+                    mins = int(x // 60)
+                    secs = int(x % 60)
+                    ms = int((x - int(x)) * 1000)
+                    self.waveform_time_label.setText(f"{mins:02d}:{secs:02d}:{ms:03d}")
+                    # Convert axes coords to widget coords
+                    canvas = self.waveform_canvas
+                    ax = event.inaxes
+                    # Get pixel position of mouse in widget
+                    x_disp, y_disp = canvas.figure.transFigure.inverted().transform(
+                        canvas.figure.transFigure.transform((event.x, event.y))
+                    )
+                    # Use event.x, event.y (pixels) relative to canvas widget
+                    label_width = self.waveform_time_label.sizeHint().width()
+                    label_height = self.waveform_time_label.sizeHint().height()
+                    # Offset label above cursor, keep inside widget
+                    x_widget = int(event.x) - label_width // 2
+                    y_widget = int(event.y) - label_height - 8
+                    x_widget = max(0, min(x_widget, canvas.width() - label_width))
+                    y_widget = max(0, y_widget)
+                    self.waveform_time_label.move(x_widget, y_widget)
+                    self.waveform_time_label.setVisible(True)
+                else:
+                    self.waveform_time_label.setVisible(False)
+            else:
+                self.waveform_time_label.setVisible(False)
+
+        self.waveform_canvas.mpl_connect("motion_notify_event", on_waveform_motion)
+
+        # Hide the label when the mouse leaves the waveform_canvas widget
+        def on_waveform_leave(event):
+            self.waveform_time_label.setVisible(False)
+
+        self.waveform_canvas.mpl_connect("figure_leave_event", on_waveform_leave)
+        self.waveform_canvas.leaveEvent = lambda event: self.waveform_time_label.setVisible(False)
 
         ############################################################
         #                                                          #
@@ -584,7 +616,14 @@ class FireworkShowApp(QMainWindow):
             Qt.ToolBarArea.LeftToolBarArea |
             Qt.ToolBarArea.RightToolBarArea
         )
-        self.media_toolbar.setStyleSheet("QToolBar { background: #23242b; border: none; }")
+        self.media_toolbar.setStyleSheet("""
+            QToolBar {
+            background: #23242b;
+            border: 2px solid #444657;
+            border-radius: 8px;
+            padding: 4px;
+            }
+        """)
         self.media_toolbar.setIconSize(self.play_pause_btn.size())
 
         # Helper to add widgets to toolbar using QWidgetAction

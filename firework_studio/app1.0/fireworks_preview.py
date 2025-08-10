@@ -1,9 +1,10 @@
-from PyQt6.QtWidgets import QWidget
+from PyQt6.QtWidgets import QWidget, QApplication
 from PyQt6.QtCore import QTimer, QRect, Qt, QPoint
 from PyQt6.QtGui import QPainter, QColor
 
 import sounddevice as sd
 import random
+import os
 
 '''THIS IS THE BAR CLASS FOR ALONG THE BOTTOM TWO PLOTS'''
 class FireworkPreviewWidget(QWidget):
@@ -19,6 +20,7 @@ class FireworkPreviewWidget(QWidget):
         self.firework_firing = None
         self.preview_timer = None
         self.current_time = 0
+        self.playhead_time = 0
         self.duration = 0
         self.resume = False
         self.firework_colors = []  # Always a list, never None
@@ -93,7 +95,7 @@ class FireworkPreviewWidget(QWidget):
         self.preview_timer.start(16)
 
     def advance_preview(self):
-        """Advance the preview timer and update current_time accordingly."""
+        """Advance the preview timer with certain checks to keep things in bounds."""
         if self.audio_data is None or self.sr is None or self.duration is None:
             return
         # Advance by 16 ms (assuming timer interval is 16 ms)
@@ -187,6 +189,61 @@ class FireworkPreviewWidget(QWidget):
             zoom_duration = max(zoom_end - zoom_start, 1e-9)
             draw_start = zoom_start
             draw_end = zoom_end
+            def format_time(t):
+                mins = int(t // 60)
+                secs = int(t % 60)
+                ms = int((t - int(t)) * 1000)
+                return f"{mins:02d}:{secs:02d}:{ms:03d}"
+            # Draw arrow and time if playhead is outside region
+            gap = 1.35  # add a small gap to improve functionality
+            if self.playhead_time < draw_start - gap or self.playhead_time > draw_end + gap:
+                # Lower the arrow so it's not blocked by the preview timeline
+                label = format_time(self.playhead_time)
+                # Save current font
+                orig_font = painter.font()
+                label_font = painter.font()
+                label_font.setBold(True)
+                label_font.setPointSizeF(label_font.pointSizeF() * 1.1)
+                painter.setFont(label_font)
+                label_width = painter.fontMetrics().horizontalAdvance(label) + 12
+                label_height = painter.fontMetrics().height() + 6
+                # Place arrow at the same vertical position as the playhead timer label
+                arrow_y = timeline_y - 48 + 12 + label_height // 2
+
+                if self.playhead_time < draw_start:
+                    # Draw left arrow
+                    arrow_x = 10
+                    points = [
+                        QPoint(arrow_x + 8, arrow_y - 18),
+                        QPoint(arrow_x + 8, arrow_y + 18),
+                        QPoint(arrow_x, arrow_y)
+                    ]
+                    painter.setBrush(QColor(0, 255, 120, 180))
+                    painter.setPen(Qt.PenStyle.NoPen)
+                    painter.drawPolygon(*points)
+                    # Draw label to right of arrow
+                    painter.setBrush(QColor(25, 28, 40, 230))
+                    painter.drawRoundedRect(arrow_x + 16, arrow_y - label_height // 2, label_width, label_height, 7, 7)
+                    painter.setPen(QColor(0, 255, 120))
+                    painter.drawText(arrow_x + 16, arrow_y - label_height // 2, label_width, label_height, Qt.AlignmentFlag.AlignCenter, label)
+                else:
+                    # Draw right arrow
+                    arrow_x = self.width() - 10
+                    points = [
+                        QPoint(arrow_x - 8, arrow_y - 18),
+                        QPoint(arrow_x - 8, arrow_y + 18),
+                        QPoint(arrow_x, arrow_y)
+                    ]
+                    painter.setBrush(QColor(0, 255, 120, 180))
+                    painter.setPen(Qt.PenStyle.NoPen)
+                    painter.drawPolygon(*points)
+                    # Draw label to left of arrow
+                    painter.setBrush(QColor(25, 28, 40, 230))
+                    painter.drawRoundedRect(arrow_x - 16 - label_width, arrow_y - label_height // 2, label_width, label_height, 7, 7)
+                    painter.setPen(QColor(0, 255, 120))
+                    painter.drawText(arrow_x - 16 - label_width, arrow_y - label_height // 2, label_width, label_height, Qt.AlignmentFlag.AlignCenter, label)
+                # Restore original font so tick labels are not affected
+                painter.setFont(orig_font)
         else:
             draw_start = 0
             draw_end = self.duration
@@ -281,13 +338,13 @@ class FireworkPreviewWidget(QWidget):
             painter.setFont(label_font)  # Restore font
 
         # --- PLAYHEAD DRAWING (always draw, even if outside zoom) ---
-        playhead_time = min(max(self.current_time, 0), self.duration)
-        playhead_x = left_margin + ((playhead_time - draw_start) / zoom_duration) * usable_w
+        self.playhead_time = min(max(self.current_time, 0), self.duration)
+        playhead_x = left_margin + ((self.playhead_time - draw_start) / zoom_duration) * usable_w
         # Clamp playhead_x to valid integer range to avoid OverflowError
         playhead_x = max(-2_147_483_648, min(playhead_x, 2_147_483_647))
         # Allow playhead to be drawn outside the zoomed region (fade if out of bounds)
         fade = False
-        if playhead_time < draw_start or playhead_time > draw_end:
+        if self.playhead_time < draw_start or self.playhead_time > draw_end:
             fade = True
         painter.setPen(Qt.PenStyle.NoPen)
         if fade:
@@ -312,9 +369,9 @@ class FireworkPreviewWidget(QWidget):
         painter.drawPolygon(*[QPoint(*pt) for pt in points])
 
         # --- PROFESSIONAL TIME LABEL (mm:ss:ms) ---
-        minutes = int(playhead_time // 60)
-        seconds = int(playhead_time % 60)
-        milliseconds = int((playhead_time - int(playhead_time)) * 1000)
+        minutes = int(self.playhead_time // 60)
+        seconds = int(self.playhead_time % 60)
+        milliseconds = int((self.playhead_time - int(self.playhead_time)) * 1000)
         time_label = f"{minutes:02d}:{seconds:02d}:{milliseconds:03d}"
 
         label_font = painter.font()
@@ -480,10 +537,6 @@ class FireworkPreviewWidget(QWidget):
                 except RuntimeError:
                     pass
                 self.preview_timer.stop()
-                # Update play button state if main_window and play_pause_btn exist
-                if self.main_window and hasattr(self.main_window, "play_pause_btn"):
-                    self.main_window.play_pause_btn.setText("Play")
-                    self.main_window.play_pause_btn.setChecked(False)
                 return
             # Otherwise, just update current_time and state; playback will resume from here when play is pressed
             return
