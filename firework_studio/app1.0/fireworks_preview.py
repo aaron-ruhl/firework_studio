@@ -7,7 +7,7 @@ import random
 import sounddevice as sd
 
 from playhead import Playhead
-from firing_handles import FiringHandles
+from handles import FiringHandles
 from timeline import Timeline
 
 class FireworkPreviewWidget(QWidget):

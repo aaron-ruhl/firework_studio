@@ -636,13 +636,28 @@ class FireworkShowApp(QMainWindow):
             self.current_time_label.setText(f"{mins:02d}:{secs:02d}:{ms:03d}")
         else:
             self.current_time_label.setText("00:00:000")
+            
     def plot_waveform(self):
         ax = self.waveform_canvas.figure.axes[0]
         ax.clear()
         if self.audio_data is not None:
             # Create time axis in seconds
             times = np.linspace(0, len(self.audio_data) / self.sr, num=len(self.audio_data))
-            ax.plot(times, self.audio_data, color='#00eaff', linewidth=1.2, alpha=0.95, antialiased=True)
+            # Downsample for dense signals to avoid smudging
+            max_points = 4000  # Adjust for performance/detail
+            if len(self.audio_data) > max_points:
+                factor = len(self.audio_data) // max_points
+                # Use min/max envelope for better visibility
+                audio_data_reshaped = self.audio_data[:factor * max_points].reshape(-1, factor)
+                envelope_min = audio_data_reshaped.min(axis=1)
+                envelope_max = audio_data_reshaped.max(axis=1)
+                times_ds = times[:factor * max_points].reshape(-1, factor)
+                times_ds = times_ds.mean(axis=1)
+                ax.fill_between(times_ds, envelope_min, envelope_max, color="#8fb9bd", alpha=0.7, linewidth=0)
+                ax.plot(times_ds, envelope_max, color="#5fd7e6", linewidth=0.7, alpha=0.9)
+                ax.plot(times_ds, envelope_min, color="#5fd7e6", linewidth=0.7, alpha=0.9)
+            else:
+                ax.plot(times, self.audio_data, color="#8fb9bd", linewidth=1.2, alpha=0.95, antialiased=True)
             ax.set_facecolor('#181a20')
             ax.tick_params(axis='y', colors='white')
             ax.set_title("Waveform with Segments", color='white')
