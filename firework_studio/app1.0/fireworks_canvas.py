@@ -19,7 +19,7 @@ class FireworksCanvas(QWidget):
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_animation)
         self.timer.start(16)  # ~60 FPS
-        self.particle_count = 50
+        self.particle_count = 100
         self.firework_color = QColor(255, 0, 0)
         self.background = None
         self.fired_times = set()  # Track fired times
@@ -66,7 +66,6 @@ class FireworksCanvas(QWidget):
         preview_widget = None
         # Import here to avoid circular import
         from firework_show_app import FireworkShowApp
-        from timeline import Timeline
 
         # Find the parent FireworkShowApp to access firework_firing
         while parent:
@@ -74,24 +73,15 @@ class FireworksCanvas(QWidget):
                 preview_widget = parent.preview_widget
                 break
             parent = parent.parentWidget()
-        # Import PreviewTimeline from the new module structure
-        preview_timeline = None
-        if parent:
-            # Try to find the Timeline instance in the parent widget tree
-            for child in parent.findChildren(QWidget):
-                if isinstance(child, Timeline):
-                    preview_timeline = child
-                    break
-        if preview_timeline and hasattr(preview_timeline, "firework_firing") and preview_timeline.firework_firing is not None:
-            time_list = preview_timeline.firework_firing
+        if preview_widget and preview_widget.firework_firing is not None:
+            time_list = preview_widget.firework_firing
             for idx, t in enumerate(time_list):
-                if abs(preview_timeline.current_time - t) < 0.08 and t not in self.fired_times:
-                    if hasattr(preview_timeline, "firework_colors") and isinstance(preview_timeline.firework_colors, list) and idx < len(preview_timeline.firework_colors):
-                        self.firework_color = preview_timeline.firework_colors[idx]
+                if abs(preview_widget.current_time - t) < 0.08 and t not in self.fired_times:
+                    if hasattr(preview_widget, "firework_colors") and isinstance(preview_widget.firework_colors, list) and idx < len(preview_widget.firework_colors):
+                        self.firework_color = preview_widget.firework_colors[idx]
                     else:
                         self.firework_color = QColor(255, 0, 0)
                     self.add_firework()
-                    self.fired_times.add(t)
                     self.fired_times.add(t)
         self.update()
     

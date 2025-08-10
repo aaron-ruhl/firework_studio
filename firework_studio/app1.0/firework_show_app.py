@@ -394,38 +394,7 @@ class FireworkShowApp(QMainWindow):
         self.setStatusBar(self.status_bar)
         self.status_bar.showMessage(self.firework_show_info)
 
-        ###########################################################
-        #                                                         #
-        #              Current time display label                 #
-        #                                                         #
-        ###########################################################
-
-        def create_current_time_label():
-            label = QLabel("00:00:000")
-            label.setStyleSheet(
-            button_style +
-            """
-            QLabel {
-            font-size: 22px;
-            font-weight: bold;
-            color: #e0e0e0;
-            background: #23232b;
-            border: none;
-            }
-            """
-            )
-            label.setFixedWidth(140)
-
-            # Timer to update the label regardless of play/pause state
-            self.time_update_timer = QTimer(self)  # type: ignore
-            self.time_update_timer.setInterval(30)  # type: ignore # update ~33 times per second for smoothness
-            self.time_update_timer.timeout.connect(self.update_time_label)  # type: ignore
-            self.time_update_timer.start()  # type: ignore
-
-            self.stop_btn.clicked.connect(lambda: (self.current_time_label.setText("00:00:000")))
-            return label
-
-        self.current_time_label = create_current_time_label()
+   
 
         #################################################################
         #                                                               # 
@@ -452,21 +421,26 @@ class FireworkShowApp(QMainWindow):
             group_box.setLayout(bg_layout)
 
             backgrounds = [
-                ("Night Sky", "night"),
-                ("Sunset", "sunset"),
-                ("City", "city"),
-                ("Mountains", "mountains"),
-                ("Custom", "custom"),
+            ("Night Sky", "night"),
+            ("Sunset", "sunset"),
+            ("City", "city"),
+            ("Mountains", "mountains"),
+            ("Custom", "custom"),
             ]
             # Create radio buttons for each background option
             button_group = QButtonGroup(self)
+            radio_buttons = []
             for label, bg_name in backgrounds:
                 radio = QRadioButton(label)
                 radio.setStyleSheet("color: #e0e0e0;")
                 bg_layout.addWidget(radio)
                 button_group.addButton(radio)
-                radio.toggled.connect(lambda checked, bg=bg_name: self.fireworks_canvas.set_background(bg) if checked and bg != "custom" else None)
-                if bg_name == "custom":
+                radio_buttons.append((radio, bg_name))
+                if bg_name != "custom":
+                    def make_handler(bg=bg_name):
+                        return lambda checked: self.fireworks_canvas.set_background(bg) if checked else None
+                    radio.toggled.connect(make_handler())
+                else:
                     def on_custom_bg_selected(checked, radio=radio):
                         if checked:
                             file_dialog = QFileDialog(self)
@@ -476,11 +450,10 @@ class FireworkShowApp(QMainWindow):
                                 if selected_files:
                                     image_path = selected_files[0]
                                     self.fireworks_canvas.set_background("custom", image_path)
-                    radio.toggled.connect(lambda checked, r=radio: on_custom_bg_selected(checked, r))
+                    radio.toggled.connect(on_custom_bg_selected)
             # Set default selection
-            button_group.buttons()[0].setChecked(True)
+            radio_buttons[0][0].setChecked(True)
             self.fireworks_canvas.set_background(backgrounds[0][1])
-
 
             return group_box
         self.background_btn = create_background_btn()
@@ -567,7 +540,6 @@ class FireworkShowApp(QMainWindow):
         media_controls_layout.addWidget(self.load_btn)
         media_controls_layout.addStretch()
         media_controls_layout.addWidget(self.clear_btn)
-        media_controls_layout.insertWidget(2, self.current_time_label, alignment=Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         media_controls_layout.addWidget(self.save_btn)
         media_controls_layout.addWidget(self.load_show_btn)
         media_controls_layout.addWidget(self.pattern_selector)
@@ -616,10 +588,6 @@ class FireworkShowApp(QMainWindow):
         dark_palette.setColor(self.backgroundRole(), QColor(30, 30, 30))
         dark_palette.setColor(self.foregroundRole(), QColor(220, 220, 220))
         self.setPalette(dark_palette)
-        # Adjust current_time_label to fit time tightly (remove extra width)
-        self.current_time_label.setFixedWidth(self.current_time_label.fontMetrics().horizontalAdvance("00:00:000") + 18)
-        self.current_time_label.setContentsMargins(0, 0, 0, 0)
-
 
     ###############################################################
     #                                                             #

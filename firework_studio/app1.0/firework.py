@@ -15,7 +15,7 @@ class Firework:
         self.exploded = False
         self.velocity_y = -random.uniform(10.5, 11.8)
         self.particle_count = particle_count
-        self.delay = random.uniform(1.8, 2.0)
+        self.delay = 2
         self.timer = QTimer()
         self.timer.setInterval(int(self.delay * 1000))
         self.timer.setSingleShot(True)
@@ -32,8 +32,8 @@ class Firework:
         base_color = self.color
 
         # Simulate "far away" fireworks: smaller, dimmer, less saturated, less spread, longer fade
-        distance_factor = 0.55  # 0.5-0.65: smaller, dimmer, less spread
-        fade_factor = 1.25      # Particles last longer (slower fade)
+        distance_factor = 0.5  # 0.5-0.65: smaller, dimmer, less spread
+        fade_factor = 1.10      # Particles last longer (slower fade)
 
         def far_color(color):
             hsv = color.toHsv()
