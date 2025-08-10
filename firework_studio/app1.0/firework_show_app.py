@@ -61,90 +61,90 @@ class FireworkShowApp(QMainWindow):
             QPushButton {
             background-color: #49505a;
             color: #f0f0f0;
-            border: 1.5px solid #444657;
-            border-radius: 8px;
-            font-size: 15px;
+            border: 1.2px solid #444657;
+            border-radius: 7px;
+            font-size: 14px;
             font-weight: 600;
-            min-width: 64px;
-            min-height: 32px;
-            max-width: 130px;
-            max-height: 44px;
-            padding: 6px 16px;
-            margin: 4px;
+            min-width: 48px;
+            min-height: 26px;
+            max-width: 110px;
+            max-height: 34px;
+            padding: 4px 10px;
+            margin: 2px;
             transition: background 0.2s, color 0.2s, border 0.2s;
             box-shadow: 0 2px 8px rgba(0,0,0,0.10);
             }
             QPushButton:hover {
             background-color: #606874;
             color: #ffd700;
-            border: 2px solid #ffd700;
+            border: 1.5px solid #ffd700;
             box-shadow: 0 4px 16px rgba(255,215,0,0.10);
             }
             QPushButton:pressed {
             background-color: #353a40;
             color: #ffd700;
-            border: 2px solid #ffd700;
+            border: 1.5px solid #ffd700;
             box-shadow: 0 2px 8px rgba(255,215,0,0.18);
             }
             QPushButton:checked {
             background-color: #23242b;
             color: #ffd700;
-            border: 2px solid #ffd700;
+            border: 1.5px solid #ffd700;
             box-shadow: 0 2px 8px rgba(255,215,0,0.18);
             }
             QComboBox {
             color: #e0e0e0;
             background: #23242b;
-            font-size: 15px;
-            border: 1.5px solid #444657;
-            border-radius: 7px;
-            padding: 7px 28px 7px 14px;
-            min-width: 120px;
-            max-width: 180px;
-            margin: 4px;
+            font-size: 14px;
+            border: 1.2px solid #444657;
+            border-radius: 6px;
+            padding: 5px 22px 5px 10px;
+            min-width: 90px;
+            max-width: 140px;
+            margin: 2px;
             transition: border 0.2s, color 0.2s;
             }
             QComboBox:hover, QComboBox:focus {
             background: #31323a;
-            border: 2px solid #ffd700;
+            border: 1.5px solid #ffd700;
             color: #ffd700;
             }
             QComboBox:!hover:!focus {
-            border: 1.5px solid #444657;
+            border: 1.2px solid #444657;
             color: #e0e0e0;
             }
             QComboBox::drop-down {
             subcontrol-origin: padding;
             subcontrol-position: top right;
-            width: 28px;
-            border-left: 1.5px solid #444657;
+            width: 22px;
+            border-left: 1.2px solid #444657;
             background: #23242b;
             }
             QComboBox::down-arrow {
             image: url(:/qt-project.org/styles/commonstyle/images/arrowdown-16.png);
-            width: 16px;
-            height: 16px;
+            width: 14px;
+            height: 14px;
             }
             QComboBox QAbstractItemView {
             background: #23242b;
             color: #e0e0e0;
             selection-background-color: #31323a;
             selection-color: #ffd700;
-            border: 1.5px solid #444657;
+            border: 1.2px solid #444657;
             outline: none;
             }
             QToolBar {
             background: #23242b;
             border: none;
-            spacing: 8px;
-            padding: 8px;
+            spacing: 6px;
+            padding: 6px;
             }
             QToolBar:horizontal > * {
-            margin-right: 10px;
+            margin-right: 6px;
             margin-bottom: 0px;
             }
             QToolBar:vertical > * {
-            margin-bottom: 10px;
+            margin-bottom: 6px;
             margin-right: 0px;
             }
         """
