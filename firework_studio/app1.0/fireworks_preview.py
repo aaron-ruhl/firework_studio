@@ -338,8 +338,8 @@ class FireworkPreviewWidget(QWidget):
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawRoundedRect(QRect(left_margin, top_margin, usable_w, usable_h), 12, 12)
         painter.setClipping(False)
-
         
+
     def mousePressEvent(self, event):
         w = self.width()
         left_margin = 40
