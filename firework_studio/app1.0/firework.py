@@ -13,7 +13,7 @@ class Firework:
         self.color = color
         self.particles = []
         self.exploded = False
-        self.velocity_y = -random.uniform(10.5, 11.8)
+        self.velocity_y = -random.uniform(11.5, 12.2)
         self.particle_count = particle_count
         self.delay = 2
         self.timer = QTimer()

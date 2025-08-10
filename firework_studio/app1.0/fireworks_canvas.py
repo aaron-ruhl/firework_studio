@@ -28,6 +28,13 @@ class FireworksCanvas(QWidget):
         self.background = "night"  # Default background
         self.custom_background_image_path = None
         self.pattern = "circle"
+        self._dynamic_stars = None
+        self._star_tick = 0
+        self._city_window_states = None
+        self._city_window_ticks = 0
+        self._city_stars = None
+        self._mountain_stars = None
+        self._custom_bg_pixmap = None
 
     def choose_firework_pattern(self, pattern):
         self.pattern = pattern
@@ -51,6 +58,15 @@ class FireworksCanvas(QWidget):
         self.background = background
         if background == "custom" and path:
             self.custom_background_image_path = path
+            self._custom_bg_pixmap = QPixmap(path)
+        else:
+            self._custom_bg_pixmap = None
+        # Reset cached background elements so they redraw for new background
+        self._dynamic_stars = None
+        self._city_window_states = None
+        self._city_stars = None
+        self._mountain_stars = None
+        self.update()
     
     def reset_firings(self):
         self.fired_times.clear()
@@ -97,8 +113,7 @@ class FireworksCanvas(QWidget):
         elif self.background == "mountains":
             self.draw_background_mountains(painter)
         elif self.background == "custom":
-            self.load_custom_background(path=self.custom_background_image_path)
-            if hasattr(self, "_custom_bg_pixmap") and self._custom_bg_pixmap:
+            if self._custom_bg_pixmap:
                 painter.drawPixmap(self.rect(), self._custom_bg_pixmap)
         # Draw fireworks particles after background
         self.draw_fireworks(painter)
@@ -136,11 +151,8 @@ class FireworksCanvas(QWidget):
             coastline_y = self.height() - coastline_height
             random.seed()  # Reset random seed
             star_count = 180
-            for _ in range(star_count):
-                x = random.randint(0, self.width())
-                y = random.randint(0, coastline_y)
             # Dynamic stars: add/remove stars slowly
-            if not hasattr(self, "_dynamic_stars"):
+            if self._dynamic_stars is None:
                 self._dynamic_stars = set()
                 for _ in range(star_count):
                     sx = random.randint(0, self.width())
@@ -162,8 +174,6 @@ class FireworksCanvas(QWidget):
                 brightness = random.randint(180, 255)
                 painter.setPen(QColor(brightness, brightness, brightness))
                 painter.drawPoint(sx, sy)
-                painter.setPen(QColor(brightness, brightness, brightness))
-                painter.drawPoint(x, y)
 
             moon_radius = 38  # Increased from 28 to 38 for a bigger moon
             moon_x = int(self.width() * 0.8)
@@ -296,7 +306,7 @@ class FireworksCanvas(QWidget):
             painter.fillRect(i, self.height() - building_height, 80, building_height, building_color)
 
         # Draw windows with slow flicker, always below building_height
-        if not hasattr(self, "_city_window_states"):
+        if self._city_window_states is None:
             # Initialize window states: {(building_idx, window_row): is_on}
             self._city_window_states = {}
             self._city_window_ticks = 0
@@ -327,7 +337,7 @@ class FireworksCanvas(QWidget):
             painter.fillRect(i + 40, self.height() - 40, 20, 40, door_color)
 
         # Draw stars in the sky above the buildings (not inside buildings)
-        if not hasattr(self, "_city_stars"):
+        if self._city_stars is None:
             # Precompute star positions above buildings
             self._city_stars = []
             star_count = 120
@@ -386,7 +396,7 @@ class FireworksCanvas(QWidget):
         ynew = spl(xnew)
 
         # 3. Draw stars above the mountains (dense star field)
-        if not hasattr(self, "_mountain_stars"):
+        if self._mountain_stars is None:
             # Precompute star positions above the mountains
             self._mountain_stars = []
             star_count = 350  # Increased for a denser star field
@@ -488,5 +498,3 @@ class FireworksCanvas(QWidget):
         painter.setBrush(back_color)
         painter.setPen(QColor(35, 35, 50, 180))
         painter.drawPath(back_path)
-
-

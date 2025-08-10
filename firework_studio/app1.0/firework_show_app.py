@@ -20,6 +20,7 @@ from loader import AudioLoader
 from toaster import ToastDialog
 from show_file_handler import ShowFileHandler
 from waveform_selection import WaveformSelectionTool
+from PyQt6.QtWidgets import QToolBar, QWidgetAction
 
 '''THIS IS THE MAIN WINDOW CLASS FOR THE FIREWORK STUDIO APPLICATION'''
 class FireworkShowApp(QMainWindow):
@@ -60,59 +61,93 @@ class FireworkShowApp(QMainWindow):
             QPushButton {
             background-color: #49505a;
             color: #f0f0f0;
-            border: none;
-            border-radius: 7px;
-            font-size: 14px;
-            font-weight: bold;
-            min-width: 60px;
-            min-height: 28px;
-            padding: 4px 8px;
+            border: 1.5px solid #444657;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            min-width: 64px;
+            min-height: 32px;
+            max-width: 130px;
+            max-height: 44px;
+            padding: 6px 16px;
+            margin: 4px;
+            transition: background 0.2s, color 0.2s, border 0.2s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.10);
             }
             QPushButton:hover {
             background-color: #606874;
+            color: #ffd700;
+            border: 2px solid #ffd700;
+            box-shadow: 0 4px 16px rgba(255,215,0,0.10);
             }
             QPushButton:pressed {
             background-color: #353a40;
+            color: #ffd700;
+            border: 2px solid #ffd700;
+            box-shadow: 0 2px 8px rgba(255,215,0,0.18);
+            }
+            QPushButton:checked {
+            background-color: #23242b;
+            color: #ffd700;
+            border: 2px solid #ffd700;
+            box-shadow: 0 2px 8px rgba(255,215,0,0.18);
             }
             QComboBox {
-                color: #e0e0e0;
-                background: #23242b;
-                font-size: 15px;
-                border: 1px solid #444657;
-                border-radius: 6px;
-                padding: 6px 24px 6px 12px;
-                min-width: 120px;
+            color: #e0e0e0;
+            background: #23242b;
+            font-size: 15px;
+            border: 1.5px solid #444657;
+            border-radius: 7px;
+            padding: 7px 28px 7px 14px;
+            min-width: 120px;
+            max-width: 180px;
+            margin: 4px;
+            transition: border 0.2s, color 0.2s;
             }
             QComboBox:hover, QComboBox:focus {
-                background: #31323a;
-                border: 1.5px solid #ffd700;
-                color: #ffd700;
+            background: #31323a;
+            border: 2px solid #ffd700;
+            color: #ffd700;
             }
             QComboBox:!hover:!focus {
-                border: 1px solid #444657;
-                color: #e0e0e0;
+            border: 1.5px solid #444657;
+            color: #e0e0e0;
             }
             QComboBox::drop-down {
-                subcontrol-origin: padding;
-                subcontrol-position: top right;
-                width: 28px;
-                border-left: 1px solid #444657;
-                background: #23242b;
+            subcontrol-origin: padding;
+            subcontrol-position: top right;
+            width: 28px;
+            border-left: 1.5px solid #444657;
+            background: #23242b;
             }
             QComboBox::down-arrow {
-                image: url(:/qt-project.org/styles/commonstyle/images/arrowdown-16.png);
-                width: 16px;
-                height: 16px;
+            image: url(:/qt-project.org/styles/commonstyle/images/arrowdown-16.png);
+            width: 16px;
+            height: 16px;
             }
             QComboBox QAbstractItemView {
-                background: #23242b;
-                color: #e0e0e0;
-                selection-background-color: #31323a;
-                selection-color: #ffd700;
-                border: 1px solid #444657;
-                outline: none;
+            background: #23242b;
+            color: #e0e0e0;
+            selection-background-color: #31323a;
+            selection-color: #ffd700;
+            border: 1.5px solid #444657;
+            outline: none;
             }
-            """
+            QToolBar {
+            background: #23242b;
+            border: none;
+            spacing: 8px;
+            padding: 8px;
+            }
+            QToolBar:horizontal > * {
+            margin-right: 10px;
+            margin-bottom: 0px;
+            }
+            QToolBar:vertical > * {
+            margin-bottom: 10px;
+            margin-right: 0px;
+            }
+        """
 
         #############################################################
         #                                                          #
@@ -305,6 +340,7 @@ class FireworkShowApp(QMainWindow):
         self.load_btn = QPushButton("Load Audio")
         self.audio_loader = AudioLoader()
         self.load_btn.setStyleSheet(button_style)
+        self.load_btn.clicked.connect(lambda: self.generate_btn.setVisible(True))
 
         def handle_audio():
             # Load audio data
@@ -438,10 +474,10 @@ class FireworkShowApp(QMainWindow):
                 radio_buttons.append((radio, bg_name))
                 if bg_name != "custom":
                     def make_handler(bg=bg_name):
-                        return lambda checked: self.fireworks_canvas.set_background(bg) if checked else None
+                        return lambda checked, bg=bg: self.fireworks_canvas.set_background(bg) if checked else None
                     radio.toggled.connect(make_handler())
                 else:
-                    def on_custom_bg_selected(checked, radio=radio):
+                    def on_custom_bg_selected(checked):
                         if checked:
                             file_dialog = QFileDialog(self)
                             file_dialog.setNameFilter("Images (*.png *.jpg *.jpeg *.bmp *.gif)")
@@ -463,23 +499,22 @@ class FireworkShowApp(QMainWindow):
         #              Fireworks show generator button            #
         #                                                         #
         ###########################################################
-
         # Create a button to generate fireworks show
         def create_generate_btn():
             btn = QPushButton("Generate Show")
-            btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)            
+            btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
             ai_button_style = button_style + """
-                QPushButton {
-                    background: qlineargradient(
-                        x1:0, y1:0, x2:1, y2:0,
-                        stop:0 #ff5252, 
-                        stop:0.2 #ffeb3b, 
-                        stop:0.4 #4caf50, 
-                        stop:0.6 #2196f3, 
-                        stop:0.8 #8e24aa, 
-                        stop:1 #e040fb
-                    );
-                }
+            QPushButton {
+                background: qlineargradient(
+                x1:0, y1:0, x2:1, y2:0,
+                stop:0 #ff5252, 
+                stop:0.2 #ffeb3b, 
+                stop:0.4 #4caf50, 
+                stop:0.6 #2196f3, 
+                stop:0.8 #8e24aa, 
+                stop:1 #e040fb
+                );
+            }
             """
             btn.setStyleSheet(ai_button_style)
             btn.setCheckable(False)  # Prevent checked/pressed state
@@ -491,12 +526,12 @@ class FireworkShowApp(QMainWindow):
                 self.play_pause_btn.setChecked(False)
                 self.play_pause_btn.setText("Play")
                 self.play_pause_btn.blockSignals(False)
-                QApplication.processEvents()
+            QApplication.processEvents()
             btn.clicked.connect(generate_and_reset)
             return btn
-        
+
         self.generate_btn = create_generate_btn()
-        self.generate_btn.setVisible(False)  # Hide initially
+        self.generate_btn.setVisible(False)  # Show initially
 
         ###########################################################
         #                                                         #
@@ -524,57 +559,65 @@ class FireworkShowApp(QMainWindow):
         #        Media playback controls                           #
         #                                                          #                                                        
         ############################################################
+        # Create a toolbar for media controls that can be docked
 
-        # Create a horizontal layout for media controls
-        media_controls_layout = QHBoxLayout()
-        media_controls_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
-        # Ensure all three buttons are aligned properly in the media_controls_layout
-        media_controls_layout.setSpacing(12)
-        media_controls_layout.setContentsMargins(0, 0, 0, 0)
-        media_controls_layout.addStretch()
+        self.media_toolbar = QToolBar("Media Controls", self)
+        self.media_toolbar.setMovable(True)
+        self.media_toolbar.setFloatable(True)
+        # Note: QToolBar does not support setFloating in PyQt6, so this line is intentionally commented out.
+        self.media_toolbar.setAllowedAreas(
+            Qt.ToolBarArea.TopToolBarArea |
+            Qt.ToolBarArea.BottomToolBarArea |
+            Qt.ToolBarArea.LeftToolBarArea |
+            Qt.ToolBarArea.RightToolBarArea
+        )
+        self.media_toolbar.setStyleSheet("QToolBar { background: #23242b; border: none; }")
+        self.media_toolbar.setIconSize(self.play_pause_btn.size())
 
-        media_controls_layout.insertWidget(0, self.play_pause_btn, alignment=Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
-        media_controls_layout.insertWidget(1, self.stop_btn, alignment=Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
-        media_controls_layout.addWidget(self.add_firing_btn)
-        media_controls_layout.addWidget(self.delete_firing_btn)
-        media_controls_layout.addWidget(self.load_btn)
-        media_controls_layout.addStretch()
-        media_controls_layout.addWidget(self.clear_btn)
-        media_controls_layout.addWidget(self.save_btn)
-        media_controls_layout.addWidget(self.load_show_btn)
-        media_controls_layout.addWidget(self.pattern_selector)
-        media_controls_layout.addWidget(self.background_btn)
-        media_controls_layout.addWidget(self.generate_btn)
+        # Helper to add widgets to toolbar using QWidgetAction
+        def add_toolbar_widget(widget):
+            action = QWidgetAction(self)
+            action.setDefaultWidget(widget)
+            self.media_toolbar.addAction(action)
 
-        # Wrap the media_controls_layout in a QWidget so it can be added to the main layout
-        self.media_controls_widget = QWidget()
-        self.media_controls_widget.setLayout(media_controls_layout)
-        
+        add_toolbar_widget(self.play_pause_btn)
+        add_toolbar_widget(self.stop_btn)
+        self.media_toolbar.addSeparator()
+
+        add_toolbar_widget(self.add_firing_btn)
+        add_toolbar_widget(self.delete_firing_btn)
+        self.media_toolbar.addSeparator()
+
+        add_toolbar_widget(self.load_btn)
+        add_toolbar_widget(self.clear_btn)
+        add_toolbar_widget(self.save_btn)
+        add_toolbar_widget(self.load_show_btn)
+        self.media_toolbar.addSeparator()
+
+        add_toolbar_widget(self.pattern_selector)
+        self.media_toolbar.addSeparator()
+
+        add_toolbar_widget(self.background_btn)
+        self.media_toolbar.addSeparator()
+
+        add_toolbar_widget(self.generate_btn)
+
+        # Add the toolbar to the main window at the top by default
+        self.addToolBar(Qt.ToolBarArea.RightToolBarArea, self.media_toolbar)
+        self.media_controls_widget = self.media_toolbar  # For compatibility with rest of layout code
+
         #############################################################
         #                                                          #
-        #        Overall UI Elements layout                         #
+        #        Overall UI Elements layout                        #
         #                                                          #
         #############################################################
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
 
         layout = QVBoxLayout(central_widget)
-        # Use a QStackedLayout-like approach to overlay media_controls_widget on top of the fireworks_canvas_container
-        # Create a container widget with a QVBoxLayout for stacking
-        overlay_container = QWidget()
-        overlay_layout = QVBoxLayout(overlay_container)
-        overlay_layout.setContentsMargins(0, 0, 0, 0)
-        overlay_layout.setSpacing(0)
         # Add the fireworks canvas (main content)
-        overlay_layout.addWidget(self.fireworks_canvas_container)
-        # Place the media controls widget with negative top margin to overlap the bottom of the canvas
-        self.media_controls_widget.setParent(overlay_container)
-        overlay_layout.addWidget(self.media_controls_widget, alignment=Qt.AlignmentFlag.AlignBottom)
-        overlay_layout.setStretch(0, 1)
-        overlay_layout.setStretch(1, 0)
-        # Add the overlay container to the main layout
-        layout.addWidget(overlay_container)
-        layout.addWidget(self.media_controls_widget)  # Use the widget, not the layout
+        layout.addWidget(self.fireworks_canvas_container)
+        # Add the preview widget and waveform canvas below
         layout.addWidget(self.preview_widget, stretch=0, alignment=Qt.AlignmentFlag.AlignBottom)
         layout.addWidget(self.waveform_canvas)
         
