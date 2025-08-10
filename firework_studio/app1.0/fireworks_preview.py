@@ -57,13 +57,6 @@ class FireworkPreviewWidget(QWidget):
         if self.audio_data is not None and self.sr is not None:
             sd.stop()
             import threading
-
-            # Clamp current_time to region start if outside when resuming playback
-            if self.selected_region and len(self.selected_region) == 2:
-                start, end = self.selected_region
-                if self.current_time < start or self.current_time > end:
-                    self.current_time = start
-
             # Always clamp current_time to [0, duration]
             if self.current_time < 0:
                 self.current_time = 0

@@ -63,62 +63,62 @@ class FireworkShowApp(QMainWindow):
             QPushButton {
             background-color: #49505a;
             color: #f0f0f0;
-            border: 1.2px solid #444657;
-            border-radius: 7px;
-            font-size: 14px;
-            font-weight: 600;
-            min-width: 48px;
-            min-height: 26px;
-            max-width: 110px;
-            max-height: 34px;
-            padding: 4px 10px;
-            margin: 2px;
+            border: 1px solid #444657;
+            border-radius: 5px;
+            font-size: 12px;
+            font-weight: 500;
+            min-width: 36px;
+            min-height: 20px;
+            max-width: 80px;
+            max-height: 28px;
+            padding: 2px 6px;
+            margin: 1px;
             }
             QPushButton:hover {
             background-color: #606874;
             color: #ffd700;
-            border: 1.5px solid #ffd700;
+            border: 1.2px solid #ffd700;
             }
             QPushButton:pressed {
             background-color: #353a40;
             color: #ffd700;
-            border: 1.5px solid #ffd700;
+            border: 1.2px solid #ffd700;
             }
             QPushButton:checked {
             background-color: #23242b;
             color: #ffd700;
-            border: 1.5px solid #ffd700;
+            border: 1.2px solid #ffd700;
             }
             QComboBox {
             background: #23242b;
             color: #e0e0e0;
-            border: 1.2px solid #444657;
-            font-size: 14px;
-            border-radius: 6px;
-            padding: 5px 22px 5px 10px;
-            min-width: 90px;
-            max-width: 140px;
-            margin: 2px;
+            border: 1px solid #444657;
+            font-size: 12px;
+            border-radius: 4px;
+            padding: 3px 16px 3px 6px;
+            min-width: 70px;
+            max-width: 100px;
+            margin: 1px;
             }
             QComboBox:hover, QComboBox:focus {
             background: #31323a;
             color: #ffd700;
-            border: 1.5px solid #ffd700;
+            border: 1.2px solid #ffd700;
             }
             QComboBox::drop-down {
             background: #23242b;
-            border-left: 1.2px solid #444657;
+            border-left: 1px solid #444657;
             subcontrol-origin: padding;
             subcontrol-position: top right;
-            width: 22px;
+            width: 16px;
             }
             QComboBox::down-arrow {
-            width: 14px;
-            height: 14px;
+            width: 10px;
+            height: 10px;
             }
             QComboBox QAbstractItemView {
             background: #23242b;
-            border: 1.2px solid #444657;
+            border: 1px solid #444657;
             color: #e0e0e0;
             selection-background-color: #31323a;
             selection-color: #ffd700;
@@ -127,8 +127,8 @@ class FireworkShowApp(QMainWindow):
             QToolBar {
             background: #23242b;
             border: none;
-            spacing: 6px;
-            padding: 6px;
+            spacing: 2px;
+            padding: 2px;
             }
         """
 
