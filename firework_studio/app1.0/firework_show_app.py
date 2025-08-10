@@ -18,8 +18,8 @@ from fireworks_preview import FireworkPreviewWidget
 from analysis import AudioAnalyzer
 from loader import AudioLoader
 from toaster import ToastDialog
-from fireworks_preview import WaveformSelectionTool
 from show_file_handler import ShowFileHandler
+from waveform_selection import WaveformSelectionTool
 
 '''THIS IS THE MAIN WINDOW CLASS FOR THE FIREWORK STUDIO APPLICATION'''
 class FireworkShowApp(QMainWindow):
@@ -416,21 +416,10 @@ class FireworkShowApp(QMainWindow):
             )
             label.setFixedWidth(140)
 
-            # Update current_time_label to always reflect the playhead position
-            def update_time_label():
-                if hasattr(self.preview_widget, "current_time"):
-                    t = self.preview_widget.current_time
-                    mins = int(t // 60)
-                    secs = int(t % 60)
-                    ms = int((t - int(t)) * 1000)
-                    self.current_time_label.setText(f"{mins:02d}:{secs:02d}:{ms:03d}")
-                else:
-                    self.current_time_label.setText("00:00:000")
-
             # Timer to update the label regardless of play/pause state
             self.time_update_timer = QTimer(self)  # type: ignore
             self.time_update_timer.setInterval(30)  # type: ignore # update ~33 times per second for smoothness
-            self.time_update_timer.timeout.connect(update_time_label)  # type: ignore
+            self.time_update_timer.timeout.connect(self.update_time_label)  # type: ignore
             self.time_update_timer.start()  # type: ignore
 
             self.stop_btn.clicked.connect(lambda: (self.current_time_label.setText("00:00:000")))
@@ -630,26 +619,31 @@ class FireworkShowApp(QMainWindow):
         # Adjust current_time_label to fit time tightly (remove extra width)
         self.current_time_label.setFixedWidth(self.current_time_label.fontMetrics().horizontalAdvance("00:00:000") + 18)
         self.current_time_label.setContentsMargins(0, 0, 0, 0)
-       
-        
+
 
     ###############################################################
     #                                                             #
     #  HELPER FUNCTIONS for loading audio and segmenting it       #
     #                                                             #
     ###############################################################
+    def update_time_label(self):
+        """Update current_time_label to always reflect the playhead position."""
+        if hasattr(self.preview_widget, "playhead"):
+            t = self.preview_widget.playhead.current_time
+            mins = int(t // 60)
+            secs = int(t % 60)
+            ms = int((t - int(t)) * 1000)
+            self.current_time_label.setText(f"{mins:02d}:{secs:02d}:{ms:03d}")
+        else:
+            self.current_time_label.setText("00:00:000")
     def plot_waveform(self):
-        """
-        Plot the waveform and highlight segment times and firework firings.
-        Uses a black background and white waveform for a professional look, with grid lines.
-        """
         ax = self.waveform_canvas.figure.axes[0]
         ax.clear()
-        if self.audio_data is not None and self.sr is not None:
-            # Draw waveform in white for a clean, professional look
-            librosa.display.waveshow(self.audio_data, sr=self.sr, ax=ax, color="#ffffff")
-            ax.set_facecolor('black')
-            ax.tick_params(axis='x', colors='white')
+        if self.audio_data is not None:
+            # Create time axis in seconds
+            times = np.linspace(0, len(self.audio_data) / self.sr, num=len(self.audio_data))
+            ax.plot(times, self.audio_data, color='#00eaff', linewidth=1.2, alpha=0.95, antialiased=True)
+            ax.set_facecolor('#181a20')
             ax.tick_params(axis='y', colors='white')
             ax.set_title("Waveform with Segments", color='white')
             # Plot segment times in subtle gray
