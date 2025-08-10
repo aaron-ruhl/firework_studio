@@ -21,6 +21,7 @@ from toaster import ToastDialog
 from show_file_handler import ShowFileHandler
 from waveform_selection import WaveformSelectionTool
 from PyQt6.QtWidgets import QToolBar, QWidgetAction
+from PyQt6.QtGui import QIcon
 
 '''THIS IS THE MAIN WINDOW CLASS FOR THE FIREWORK STUDIO APPLICATION'''
 class FireworkShowApp(QMainWindow):
@@ -215,13 +216,17 @@ class FireworkShowApp(QMainWindow):
             btn.setFixedSize(40, 40)
             btn.setCheckable(True)
             btn.setText("Play")
+            btn.setIcon(QIcon(os.path.join("icons", "play.png")))
             btn.setStyleSheet(button_style)
             def toggle_icon(checked, btn=btn):
-                btn.setText("Pause" if checked else "Play")
                 if checked:
+                    btn.setText("Pause")
+                    btn.setIcon(QIcon(os.path.join("icons", "pause.png")))
                     self.fireworks_canvas.set_fireworks_enabled(True)  # Enable fireworks while playing
                     self.fireworks_canvas.reset_firings()  # Reset fired times to always allow new firings
                 else:
+                    btn.setText("Play")
+                    btn.setIcon(QIcon(os.path.join("icons", "play.png")))
                     self.fireworks_canvas.set_fireworks_enabled(False)  # Disable fireworks while paused
                     self.fireworks_canvas.reset_firings()  # Reset fired times to always allow new firings
                 self.preview_widget.toggle_play_pause()
@@ -238,6 +243,7 @@ class FireworkShowApp(QMainWindow):
         # Create a stop button to stop the preview and reset fireworks
         def create_stop_btn():
             btn = QPushButton("Stop")
+            btn.setIcon(QIcon(os.path.join("icons", "stop.png")))
             btn.setFixedSize(40, 40)
             btn.setStyleSheet(button_style)
             btn.clicked.connect(self.preview_widget.stop_preview)
@@ -248,6 +254,7 @@ class FireworkShowApp(QMainWindow):
                 if btn_parent.isChecked():
                     btn_parent.setChecked(False)
                 btn_parent.setText("Play")
+                btn_parent.setIcon(QIcon(os.path.join("icons", "play.png")))
                 btn_parent.blockSignals(False)
             btn.clicked.connect(reset_play_pause)
             return btn
@@ -263,6 +270,7 @@ class FireworkShowApp(QMainWindow):
         # Create a button to add a new firework firing time
         def create_add_firing_btn():
             btn = QPushButton("Add Firing")
+            btn.setIcon(QIcon(os.path.join("icons", "plus.png")))
             btn.setStyleSheet(button_style)
             def add_firing_and_update_info():
                 if self.audio_data is None:
@@ -283,6 +291,7 @@ class FireworkShowApp(QMainWindow):
         # Create a button to delete the selected firing
         def create_delete_firing_btn():
             btn = QPushButton("Delete Firing")
+            btn.setIcon(QIcon(os.path.join("icons", "delete.png")))
             btn.setStyleSheet(button_style)
             def remove_firing_and_update_info():
                 if self.audio_data is None:
@@ -338,6 +347,7 @@ class FireworkShowApp(QMainWindow):
 
         # Create a button to load audio files
         self.load_btn = QPushButton("Load Audio")
+        self.load_btn.setIcon(QIcon(os.path.join("icons", "upload.png")))
         self.audio_loader = AudioLoader()
         self.load_btn.setStyleSheet(button_style)
         self.load_btn.clicked.connect(lambda: self.generate_btn.setVisible(True))
@@ -382,6 +392,7 @@ class FireworkShowApp(QMainWindow):
         # Create a button to clear the show
         def create_clear_btn():
             btn = QPushButton("Clear Show")
+            btn.setIcon(QIcon(os.path.join("icons", "clear-show.png")))
             btn.setStyleSheet(button_style)
             # Also pause the show if playing
             def clear_show():
@@ -441,7 +452,9 @@ class FireworkShowApp(QMainWindow):
         # Instantiate and use the handler
         self.show_file_handler = ShowFileHandler(self, button_style)
         self.save_btn = self.show_file_handler.create_save_btn()
+        self.save_btn.setIcon(QIcon(os.path.join("icons", "save.png")))
         self.load_show_btn = self.show_file_handler.create_load_show_btn()
+        self.load_show_btn.setIcon(QIcon(os.path.join("icons", "load.png")))
         # Add a spacer after save/load buttons for better layout
 
         ###########################################################
