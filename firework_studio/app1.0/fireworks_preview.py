@@ -188,7 +188,7 @@ class FireworkPreviewWidget(QWidget):
                 ms = int((t - int(t)) * 1000)
                 return f"{mins:02d}:{secs:02d}:{ms:03d}"
             # Draw arrow and time if playhead is outside region
-            gap = 1.35  # add a small gap to improve functionality
+            gap = 1.41  # add a small gap to improve functionality
             if self.playhead_time < draw_start - gap or self.playhead_time > draw_end + gap:
                 # Lower the arrow so it's not blocked by the preview timeline
                 label = format_time(self.playhead_time)

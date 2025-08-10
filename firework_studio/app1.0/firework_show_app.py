@@ -186,6 +186,71 @@ class FireworkShowApp(QMainWindow):
             original_mouse_release_event(event)
         self.preview_widget.mouseReleaseEvent = custom_mouse_release_event
 
+        ###########################################################
+        #                                                         #
+        # Canvas for waveform display and firework firing display #
+        #                                                         #
+        ###########################################################
+        # Create a canvas for displaying the waveform needed here for loading audio
+        def create_waveform_canvas():
+            canvas = FigureCanvas(Figure(figsize=(20, 1)))
+            ax = canvas.figure.subplots()
+            ax.set_facecolor('black')
+            ax.tick_params(axis='x', colors='white')
+            ax.tick_params(axis='y', colors='white')
+            canvas.figure.subplots_adjust(left=0, right=1, top=1, bottom=0)
+            return canvas
+        self.waveform_canvas = create_waveform_canvas()
+
+        # Add a waveform panning/selection tool using matplotlib's SpanSelector
+        self.waveform_selector = WaveformSelectionTool(self.waveform_canvas, main_window=self)
+
+        # --- Add mouse hover event to show time label at cursor ---
+
+        self.waveform_time_label = QLabel(self.waveform_canvas)
+        self.waveform_time_label.setStyleSheet(
+            "background: #23242b; color: #ffd700; border: 1px solid #ffd700; border-radius: 4px; padding: 2px 6px; font-size: 13px;"
+        )
+        self.waveform_time_label.setVisible(False)
+
+        def on_waveform_motion(event):
+            if event.inaxes and self.audio_data is not None and self.sr is not None:
+                x = event.xdata
+                if x is not None and 0 <= x <= (self.duration if self.duration else len(self.audio_data)/self.sr):
+                    mins = int(x // 60)
+                    secs = int(x % 60)
+                    ms = int((x - int(x)) * 1000)
+                    self.waveform_time_label.setText(f"{mins:02d}:{secs:02d}:{ms:03d}")
+                    # Convert axes coords to widget coords
+                    canvas = self.waveform_canvas
+                    ax = event.inaxes
+                    # Get pixel position of mouse in widget
+                    x_disp, y_disp = canvas.figure.transFigure.inverted().transform(
+                        canvas.figure.transFigure.transform((event.x, event.y))
+                    )
+                    # Use event.x, event.y (pixels) relative to canvas widget
+                    label_width = self.waveform_time_label.sizeHint().width()
+                    label_height = self.waveform_time_label.sizeHint().height()
+                    # Offset label above cursor, keep inside widget
+                    x_widget = int(event.x) - label_width // 2
+                    y_widget = int(event.y) - label_height - 8
+                    x_widget = max(0, min(x_widget, canvas.width() - label_width))
+                    y_widget = max(0, y_widget)
+                    self.waveform_time_label.move(x_widget, y_widget)
+                    self.waveform_time_label.setVisible(True)
+                else:
+                    self.waveform_time_label.setVisible(False)
+            else:
+                self.waveform_time_label.setVisible(False)
+
+        self.waveform_canvas.mpl_connect("motion_notify_event", on_waveform_motion)
+
+        # Hide the label when the mouse leaves the waveform_canvas widget
+        def on_waveform_leave(event):
+            self.waveform_time_label.setVisible(False)
+
+        self.waveform_canvas.mpl_connect("figure_leave_event", on_waveform_leave)
+        self.waveform_canvas.leaveEvent = lambda event: self.waveform_time_label.setVisible(False)
 
         ###############################################
         #                                             #
@@ -533,72 +598,6 @@ class FireworkShowApp(QMainWindow):
         self.generate_btn = create_generate_btn()
         self.generate_btn.setVisible(False)  # Show initially
 
-        ###########################################################
-        #                                                         #
-        # Canvas for waveform display and firework firing display #
-        #                                                         #
-        ###########################################################
-        # Create a canvas for displaying the waveform needed here for loading audio
-        def create_waveform_canvas():
-            canvas = FigureCanvas(Figure(figsize=(20, 1)))
-            ax = canvas.figure.subplots()
-            ax.set_facecolor('black')
-            ax.tick_params(axis='x', colors='white')
-            ax.tick_params(axis='y', colors='white')
-            canvas.figure.subplots_adjust(left=0, right=1, top=1, bottom=0)
-            return canvas
-        self.waveform_canvas = create_waveform_canvas()
-
-        # Add a waveform panning/selection tool using matplotlib's SpanSelector
-        self.waveform_selector = WaveformSelectionTool(self.waveform_canvas, main_window=self)
-
-        # --- Add mouse hover event to show time label at cursor ---
-
-        self.waveform_time_label = QLabel(self.waveform_canvas)
-        self.waveform_time_label.setStyleSheet(
-            "background: #23242b; color: #ffd700; border: 1px solid #ffd700; border-radius: 4px; padding: 2px 6px; font-size: 13px;"
-        )
-        self.waveform_time_label.setVisible(False)
-
-        def on_waveform_motion(event):
-            if event.inaxes and self.audio_data is not None and self.sr is not None:
-                x = event.xdata
-                if x is not None and 0 <= x <= (self.duration if self.duration else len(self.audio_data)/self.sr):
-                    mins = int(x // 60)
-                    secs = int(x % 60)
-                    ms = int((x - int(x)) * 1000)
-                    self.waveform_time_label.setText(f"{mins:02d}:{secs:02d}:{ms:03d}")
-                    # Convert axes coords to widget coords
-                    canvas = self.waveform_canvas
-                    ax = event.inaxes
-                    # Get pixel position of mouse in widget
-                    x_disp, y_disp = canvas.figure.transFigure.inverted().transform(
-                        canvas.figure.transFigure.transform((event.x, event.y))
-                    )
-                    # Use event.x, event.y (pixels) relative to canvas widget
-                    label_width = self.waveform_time_label.sizeHint().width()
-                    label_height = self.waveform_time_label.sizeHint().height()
-                    # Offset label above cursor, keep inside widget
-                    x_widget = int(event.x) - label_width // 2
-                    y_widget = int(event.y) - label_height - 8
-                    x_widget = max(0, min(x_widget, canvas.width() - label_width))
-                    y_widget = max(0, y_widget)
-                    self.waveform_time_label.move(x_widget, y_widget)
-                    self.waveform_time_label.setVisible(True)
-                else:
-                    self.waveform_time_label.setVisible(False)
-            else:
-                self.waveform_time_label.setVisible(False)
-
-        self.waveform_canvas.mpl_connect("motion_notify_event", on_waveform_motion)
-
-        # Hide the label when the mouse leaves the waveform_canvas widget
-        def on_waveform_leave(event):
-            self.waveform_time_label.setVisible(False)
-
-        self.waveform_canvas.mpl_connect("figure_leave_event", on_waveform_leave)
-        self.waveform_canvas.leaveEvent = lambda event: self.waveform_time_label.setVisible(False)
-
         ############################################################
         #                                                          #
         #        Media playback controls                           #
@@ -612,9 +611,7 @@ class FireworkShowApp(QMainWindow):
         # Note: QToolBar does not support setFloating in PyQt6, so this line is intentionally commented out.
         self.media_toolbar.setAllowedAreas(
             Qt.ToolBarArea.TopToolBarArea |
-            Qt.ToolBarArea.BottomToolBarArea |
-            Qt.ToolBarArea.LeftToolBarArea |
-            Qt.ToolBarArea.RightToolBarArea
+            Qt.ToolBarArea.BottomToolBarArea 
         )
         self.media_toolbar.setStyleSheet("""
             QToolBar {
@@ -642,6 +639,8 @@ class FireworkShowApp(QMainWindow):
 
         add_toolbar_widget(self.load_btn)
         add_toolbar_widget(self.clear_btn)
+        self.media_toolbar.addSeparator()
+        
         add_toolbar_widget(self.save_btn)
         add_toolbar_widget(self.load_show_btn)
         self.media_toolbar.addSeparator()
@@ -655,7 +654,7 @@ class FireworkShowApp(QMainWindow):
         add_toolbar_widget(self.generate_btn)
 
         # Add the toolbar to the main window at the top by default
-        self.addToolBar(Qt.ToolBarArea.RightToolBarArea, self.media_toolbar)
+        self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self.media_toolbar)
         self.media_controls_widget = self.media_toolbar  # For compatibility with rest of layout code
 
         #############################################################
@@ -692,20 +691,20 @@ class FireworkShowApp(QMainWindow):
     def update_time_label(self):
         """Update current_time_label to always reflect the playhead position."""
         if hasattr(self.preview_widget, "playhead"):
-            t = self.preview_widget.playhead.current_time
+            t = self.preview_widget.playhead.current_time  # type: ignore
             mins = int(t // 60)
             secs = int(t % 60)
             ms = int((t - int(t)) * 1000)
-            self.current_time_label.setText(f"{mins:02d}:{secs:02d}:{ms:03d}")
+            self.current_time_label.setText(f"{mins:02d}:{secs:02d}:{ms:03d}")  # type: ignore
         else:
-            self.current_time_label.setText("00:00:000")
+            self.current_time_label.setText("00:00:000")  # type: ignore
             
     def plot_waveform(self):
-        ax = self.waveform_canvas.figure.axes[0]
+        ax = self.waveform_canvas.figure.axes[0]  
         ax.clear()
         if self.audio_data is not None:
             # Create time axis in seconds
-            times = np.linspace(0, len(self.audio_data) / self.sr, num=len(self.audio_data))
+            times = np.linspace(0, len(self.audio_data) / self.sr, num=len(self.audio_data))  # type: ignore
             # Downsample for dense signals to avoid smudging
             max_points = 4000  # Adjust for performance/detail
             if len(self.audio_data) > max_points:
