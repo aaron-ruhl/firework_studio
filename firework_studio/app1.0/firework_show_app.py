@@ -1,80 +1,25 @@
-# firework_show_app.py
-# This is the main application file for the Firework Studio, which includes the main window and
+import numpy as np
+import os
+import librosa
+import librosa.display
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+
 from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal
 from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QPushButton, QLabel, QFileDialog, QSizePolicy, QDialog, QStatusBar
+    QPushButton, QLabel, QFileDialog, QSizePolicy, QStatusBar,
+    QGroupBox, QRadioButton, QButtonGroup, QComboBox
 )
-
-import numpy as np
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_qt import NavigationToolbar2QT
-import librosa
-import librosa.display
 
 from fireworks_canvas import FireworksCanvas
 from fireworks_preview import FireworkPreviewWidget
-from PyQt6.QtWidgets import QFrame
-import os
-from PyQt6.QtCore import QPropertyAnimation
-import random
-
 from analysis import AudioAnalyzer
 from loader import AudioLoader
 from toaster import ToastDialog
-import json
-from PyQt6.QtWidgets import QGroupBox, QRadioButton, QButtonGroup
-from matplotlib.widgets import SpanSelector
 from fireworks_preview import WaveformSelectionTool
-import soundfile as sf
-from PyQt6.QtWidgets import QComboBox
-from PyQt6.QtCore import QEvent
-
-class FireworkShowManager:
-    """
-    Handles saving and loading of firework show data (firings, segments, etc.)
-    """
-
-    @staticmethod
-    def save_show(filepath, audio_data, firings, segment_times=None, sr=None, duration=None, background=None, background_path=None, fireworks_colors=None):
-        """
-        Save the firework show data to a file (JSON format).
-        """
-        # Convert numpy array to list for JSON serialization
-        audio_data_serializable = audio_data.tolist() if isinstance(audio_data, np.ndarray) else audio_data
-        show_data = {
-            "firings": firings,
-            "segment_times": segment_times if segment_times is not None else [],
-            "sample_rate": sr,
-            "duration": duration,
-            "audio_data": audio_data_serializable,  # Now serializable
-            "background": background,
-            "background_path": background_path
-        }
-        with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(show_data, f, ensure_ascii=False, indent=4)
-
-    @staticmethod
-    def load_show(filepath):
-        """
-        Load the firework show data from a file (JSON format).
-        Returns: firings, segment_times, sr, duration, audio_data, background, background_path
-        """
-        with open(filepath, "r", encoding="utf-8") as f:
-            show_data = json.load(f)
-        firings = show_data.get("firings", [])
-        segment_times = show_data.get("segment_times", [])
-        sr = show_data.get("sample_rate", None)
-        duration = show_data.get("duration", None)
-        audio_data = show_data.get("audio_data", None)
-        background = show_data.get("background", None)
-        background_path = show_data.get("background_path", None)
-        if audio_data is not None:
-            # Convert audio data from list to numpy array if needed
-            audio_data = np.array(audio_data)
-        return firings, segment_times, sr, duration, audio_data, background, background_path
+from show_file_handler import ShowFileHandler
 
 '''THIS IS THE MAIN WINDOW CLASS FOR THE FIREWORK STUDIO APPLICATION'''
 class FireworkShowApp(QMainWindow):
@@ -171,7 +116,7 @@ class FireworkShowApp(QMainWindow):
 
         #############################################################
         #                                                          #
-        #        Fireworks Show Preview Screen                     #
+        #        Fireworks Display Screen                     #
         #                                                          #
         #############################################################
 
@@ -196,7 +141,7 @@ class FireworkShowApp(QMainWindow):
 
         ############################################################
         #                                                          #
-        #        Fireworks Preview Widget                          #
+        #        Fireworks Display Preview                         #
         #                                                          #
         ############################################################
 
@@ -313,6 +258,7 @@ class FireworkShowApp(QMainWindow):
             return btn
 
         self.delete_firing_btn = create_delete_firing_btn()
+
         ###########################################################
         #                                                         #
         #      Firework Pattern Selector (Change Pattern)         #
@@ -492,123 +438,16 @@ class FireworkShowApp(QMainWindow):
 
         self.current_time_label = create_current_time_label()
 
-         #################################################################
+        #################################################################
         #                                                               # 
-        #        Save and Load Show buttons                            #
+        #        Save and Load Show buttons                             #
         #                                                               #
         #################################################################
-        # Create a button to save and load firework shows
-        def create_save_btn():
-            btn = QPushButton("Save Show")
-            btn.setStyleSheet(button_style)
-            def save_show():
-                options = QFileDialog.Option(0)
-                file_path, _ = QFileDialog.getSaveFileName(
-                    self, "Save Firework Show", "", "Firework Show (*.json);;All Files (*)", options=options
-                )
-                if file_path:
-                    # Get current background and path
-                    bg = getattr(self.fireworks_canvas, "current_background", None)
-                    bg_path = getattr(self.fireworks_canvas, "custom_background_path", None)
-                    fireworks_colors = getattr(self.preview_widget, "fireworks_colors", None)
-                    # Ensure all data is serializable and no extra artifacts are added
-                    audio_data_to_save = (
-                        self.audio_data.tolist() if isinstance(self.audio_data, np.ndarray) else self.audio_data
-                    )
-                    firings_to_save = (
-                        [float(t) for t in getattr(self.preview_widget, "firework_firing", [])] if hasattr(self.preview_widget, "firework_firing") else []
-                    )
-                    segment_times_to_save = (
-                        [float(t) for t in self.segment_times] if self.segment_times is not None else []
-                    )
-                    FireworkShowManager.save_show(
-                        file_path,
-                        audio_data_to_save,
-                        firings_to_save,
-                        segment_times_to_save,
-                        self.sr,
-                        self.duration,
-                        background=bg,
-                        background_path=bg_path,
-                        fireworks_colors=fireworks_colors
-                    )
-                    toast = ToastDialog("Show saved!", parent=self)
-                    geo = self.geometry()
-                    x = geo.x() + geo.width() - toast.width() - 40
-                    y = geo.y() + geo.height() - toast.height() - 40
-                    toast.move(x, y)
-                    toast.show()
-                    QTimer.singleShot(2000, toast.close)
-            btn.clicked.connect(save_show)
-            return btn
 
-        def create_load_show_btn():
-            btn = QPushButton("Load Show")
-            btn.setStyleSheet(button_style)
-            def load_show():
-                options = QFileDialog.Option(0)
-                file_path, _ = QFileDialog.getOpenFileName(
-                    self, "Load Firework Show", "", "Firework Show (*.json);;All Files (*)", options=options
-                )
-                if file_path:
-                    firings, segment_times, sr, duration, audio_data_loaded, background, background_path = FireworkShowManager.load_show(file_path)
-                    # Carefully restore all fields, converting types as needed
-                    self.firework_firing = [float(t) for t in firings] if firings is not None else []
-                    self.segment_times = [float(t) for t in segment_times] if segment_times is not None else []
-                    self.sr = int(sr) if sr is not None else None
-                    self.duration = float(duration) if duration is not None else None
-                    if isinstance(audio_data_loaded, list):
-                        self.audio_data = np.array(audio_data_loaded, dtype=np.float32)
-                    elif isinstance(audio_data_loaded, np.ndarray):
-                        self.audio_data = audio_data_loaded.astype(np.float32)
-                    else:
-                        self.audio_data = None
-                    self.plot_waveform()
-                    # Set fireworks colors in the preview_widget and also update the canvas
-                    self.fireworks_colors = [
-                        QColor(random.randint(50, 255), random.randint(50, 255), random.randint(50, 255))
-                        for _ in self.firework_firing
-                    ]
-                    self.preview_widget.set_fireworks_colors(self.fireworks_colors)
-                    # Set show data (this will update firings and colors)
-                    self.preview_widget.set_show_data(
-                        self.audio_data, self.sr, self.segment_times, self.firework_firing, self.duration
-                    )
-                    # Ensure preview_widget's firing list is updated for immediate display
-                    if hasattr(self.preview_widget, "firework_firing"):
-                        self.preview_widget.firework_firing = list(self.firework_firing)
-                    # Restore background selection
-                    if background:
-                        if background == "custom" and background_path:
-                            self.fireworks_canvas.set_background("custom", background_path)
-                            for btn_radio in self.background_btn.findChildren(QRadioButton):
-                                if btn_radio.text().lower() == "custom":
-                                    btn_radio.setChecked(True)
-                                    break
-                        else:
-                            self.fireworks_canvas.set_background(background)
-                            for btn_radio in self.background_btn.findChildren(QRadioButton):
-                                if btn_radio.text().replace(" ", "").lower() == background.replace(" ", "").lower():
-                                    btn_radio.setChecked(True)
-                                    break
-                    self.fireworks_canvas.update_animation()
-                    self.update_firework_show_info()
-                    self.preview_widget.update()
-                    # Force a redraw of the preview widget to show numbers/colors immediately
-                    self.preview_widget.repaint()
-                    toast = ToastDialog("Show loaded!", parent=self)
-                    geo = self.geometry()
-                    x = geo.x() + geo.width() - toast.width() - 40
-                    y = geo.y() + geo.height() - toast.height() - 40
-                    toast.move(x, y)
-                    toast.show()
-                    QTimer.singleShot(2000, toast.close)
-                # End of if file_path
-            btn.clicked.connect(load_show)
-            return btn
-
-        self.save_btn = create_save_btn()
-        self.load_show_btn = create_load_show_btn()
+        # Instantiate and use the handler
+        self.show_file_handler = ShowFileHandler(self, button_style)
+        self.save_btn = self.show_file_handler.create_save_btn()
+        self.load_show_btn = self.show_file_handler.create_load_show_btn()
         # Add a spacer after save/load buttons for better layout
 
         ###########################################################
@@ -777,6 +616,7 @@ class FireworkShowApp(QMainWindow):
         layout.addWidget(self.media_controls_widget)  # Use the widget, not the layout
         layout.addWidget(self.preview_widget, stretch=0, alignment=Qt.AlignmentFlag.AlignBottom)
         layout.addWidget(self.waveform_canvas)
+        
         ###########################################################
         #                                                         #
         #        Set dark theme palette and styles for the app    #
