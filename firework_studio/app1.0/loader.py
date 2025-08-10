@@ -1,10 +1,7 @@
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QObject
 import librosa
 from PyQt6.QtWidgets import QFileDialog
 from matplotlib.backends.backend_qt import NavigationToolbar2QT
 import numpy as np
-import librosa.display
-from toaster import ToastDialog
 
 class AudioLoader():
     
