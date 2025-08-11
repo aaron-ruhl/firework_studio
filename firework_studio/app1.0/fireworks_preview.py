@@ -133,7 +133,7 @@ class FireworkPreviewWidget(QWidget):
         self.firework_times.append(firing_time)
         self.firework_times.sort()
         display_number = self.firework_times.index(firing_time) + 1
-        handle = FiringHandles(firing_time, color, number_firings=10, pattern="circle", display_number=display_number)
+        handle = FiringHandles(firing_time, color, number_firings=5, pattern="circle", display_number=display_number)
         self.fireworks.append(handle)
         self.fireworks.sort(key=lambda handle: handle.firing_time)
         self.update()
