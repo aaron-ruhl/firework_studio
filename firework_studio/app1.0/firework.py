@@ -7,10 +7,13 @@ from particle import Particle
 
 
 class Firework:
-    def __init__(self, x, y, color, particle_count=50):
+    def __init__(self, x, y, color, pattern, display_number, number_firings, particle_count=50):
         self.x = x
         self.y = y
         self.color = color
+        self.pattern = pattern
+        self.number_firings = number_firings
+        self.display_number = display_number
         self.particles = []
         self.exploded = False
         self.velocity_y = -random.uniform(11.5, 12.2)
@@ -21,7 +24,6 @@ class Firework:
         self.timer.setSingleShot(True)
         self.timer.timeout.connect(self.explode)
         self.timer.start()
-        self.pattern = "circle"
 
     def choose_firework_pattern(self, pattern=None):
         if pattern is not None:

@@ -1,10 +1,57 @@
-from PyQt6.QtWidgets import QWidget, QApplication
+from PyQt6.QtWidgets import QWidget
 from PyQt6.QtCore import QTimer, QRect, Qt, QPoint
 from PyQt6.QtGui import QPainter, QColor
 
 import sounddevice as sd
 import random
-import os
+
+class FiringHandles:
+    def __init__(self, firing_time, color, display_number, pattern="circle", number_firings=1):
+        self.firing_time = firing_time
+        self.firing_color = color
+        self.pattern = pattern
+        self.number_firings = number_firings
+        self.display_number = display_number
+
+    @property
+    def display_number(self):
+        return self._display_number
+
+    @display_number.setter
+    def display_number(self, value):
+        self._display_number = value
+
+    @property
+    def firing_time(self):
+        return self._firing_time
+
+    @firing_time.setter
+    def firing_time(self, value):
+        self._firing_time = value
+
+    @property
+    def firing_color(self):
+        return self._firing_color
+
+    @firing_color.setter
+    def firing_color(self, value):
+        self._firing_color = value
+
+    @property
+    def pattern(self):
+        return self._pattern
+
+    @pattern.setter
+    def pattern(self, value):
+        self._pattern = value
+
+    @property
+    def number_firings(self):
+        return self._number_firings
+
+    @number_firings.setter
+    def number_firings(self, value):
+        self._number_firings = value
 
 '''THIS IS THE BAR CLASS FOR ALONG THE BOTTOM TWO PLOTS'''
 class FireworkPreviewWidget(QWidget):
@@ -17,32 +64,30 @@ class FireworkPreviewWidget(QWidget):
         self.audio_data = None
         self.sr = None
         self.segment_times = None
-        self.firework_firing = None
-        self.preview_timer = None
+        self.fired_times = set()
+        self.firework_times = []
+        self.delay = 1.8  # 1.8 seconds
+        self.fireworks = []
+
         self.current_time = 0
         self.playhead_time = 0
         self.duration = 0
         self.resume = False
-        self.firework_colors = []  # Always a list, never None
         self.audio_thread = None
         self.selected_firing = None
         self.selected_region = tuple()
         self.waveform_selection_tool = waveform_selection_tool
-        self.delay = 1.8  # 1.8 seconds
-        self.fired_times = set()
         self.main_window = main_window
+        self.preview_timer = None
 
-    def set_show_data(self, audio_data, sr, segment_times, firework_firing, duration):
+    def set_show_data(self, audio_data, sr, segment_times, firework_times, duration):
         self.audio_data = audio_data
         self.sr = sr
         self.segment_times = segment_times
-        self.firework_firing = firework_firing
+        self.firework_times = firework_times
         self.duration = duration
         self.update()
 
-    def set_fireworks_colors(self, colors):
-        self.firework_colors = colors
-        self.update()
 
     def reset_selected_region(self):
         """Reset the selected region to the whole duration."""
@@ -50,9 +95,58 @@ class FireworkPreviewWidget(QWidget):
             self.selected_region = (0, self.duration)
         else:
             self.selected_region = tuple()
-        self.set_show_data(self.audio_data, self.sr, self.segment_times, self.firework_firing, self.duration)
+        self.set_show_data(self.audio_data, self.sr, self.segment_times, self.firework_times, self.duration)
+        self.update()
+        
+    # Ensure negative times are not allowed in selected_region
+    def set_selected_region(self, region):
+        """Called by WaveformSelectionTool when a region is selected."""
+        if region and len(region) == 2:
+            start, end = region
+            if start < 0:
+                start = 0
+            if end > self.duration:
+                end = self.duration
+            # Never move playhead when zooming/panning
+            self.selected_region = (start, end)
+        else:
+            self.selected_region = region
+        self.update()
+   
+    def add_time(self):
+        if self.audio_data is None or self.sr is None:
+            return
+        if self.firework_times is None:
+            self.firework_times = []
+        elif not isinstance(self.firework_times, list):
+            self.firework_times = list(self.firework_times)
+
+        '''THIS IS WHERE HANDLES ARE CREATED '''
+        firing_time = self.current_time
+        if firing_time < self.delay:
+            return
+        color = QColor(random.randint(50, 255), random.randint(50, 255), random.randint(50, 255))
+        self.firework_times.append(firing_time)
+        self.firework_times.sort()
+        display_number = self.firework_times.index(firing_time) + 1
+        handle = FiringHandles(firing_time, color, display_number)
+        self.fireworks.append(handle)
+        self.fireworks.sort(key=lambda handle: handle.firing_time)
         self.update()
 
+    def remove_selected_firing(self):
+        if hasattr(self, 'selected_firing') and self.selected_firing is not None:
+            idx = self.selected_firing
+            if self.firework_times is not None and 0 <= idx < len(self.firework_times):
+                if not isinstance(self.firework_times, list):
+                    self.firework_times = list(self.firework_times)
+                del self.firework_times[idx]
+                if hasattr(self, 'firework_colors') and len(self.firework_colors) > idx:
+                    del self.firework_colors[idx]
+            self.selected_firing = None
+            self.update()
+        return self.firework_times
+    
     def start_preview(self):
         if self.audio_data is not None and self.sr is not None:
             sd.stop()
@@ -67,7 +161,7 @@ class FireworkPreviewWidget(QWidget):
                     if self.selected_region and len(self.selected_region) == 2:
                         start, end = self.selected_region
                         # Clamp current_time to region
-                        play_start = max(start, min(self.current_time, end))
+                        play_start = min(self.current_time, end)
                         start_idx = int(play_start * self.sr)
                         # MODIFIED: play to end of audio, not just to end of region
                         end_idx = int(self.duration * self.sr)
@@ -88,7 +182,6 @@ class FireworkPreviewWidget(QWidget):
         self.preview_timer.start(16)
 
     def advance_preview(self):
-        """Advance the preview timer with certain checks to keep things in bounds."""
         if self.audio_data is None or self.sr is None or self.duration is None:
             return
         # Advance by 16 ms (assuming timer interval is 16 ms)
@@ -98,6 +191,15 @@ class FireworkPreviewWidget(QWidget):
             self.current_time = self.duration
         if self.current_time < 0:
             self.current_time = 0
+
+        '''THIS IS WHAT TRIGGERS FIREWORKS TO BE DRAWN'''
+        # Check if any firework firing_time is near the playhead (within 30 ms)
+        for handle in self.fireworks:
+            if abs(handle.firing_time - self.current_time) < 0.03 and handle.firing_time not in self.fired_times:
+                if self.main_window and hasattr(self.main_window, "fireworks_canvas"):
+                    self.main_window.fireworks_canvas.add_firework(handle)
+                    self.fired_times.add(handle.firing_time)
+
         # MODIFIED: Only stop at the end of the full duration, not the zoomed region
         if self.current_time >= self.duration:
             self.current_time = self.duration
@@ -136,29 +238,6 @@ class FireworkPreviewWidget(QWidget):
         if self.audio_thread is not None and self.audio_thread.is_alive():
             self.audio_thread.join(timeout=1)
             self.audio_thread = None
-        self.update()
-
-    def add_time(self):
-        if self.audio_data is None or self.sr is None:
-            return
-        if self.firework_firing is None:
-            self.firework_firing = []
-        elif not isinstance(self.firework_firing, list):
-            self.firework_firing = list(self.firework_firing)
-        # Prevent adding a firing if it would be before the start of the show (after applying delay)
-        firing_time = self.current_time - self.delay
-        if firing_time < 0:
-            return
-        # Add a random color for the new firing
-        if not hasattr(self, 'firework_colors') or len(self.firework_colors) != len(self.firework_firing):
-            self.firework_colors = [
-                QColor(random.randint(50, 255), random.randint(50, 255), random.randint(50, 255))
-                for _ in self.firework_firing
-            ]
-        self.firework_colors.append(
-            QColor(random.randint(50, 255), random.randint(50, 255), random.randint(50, 255))
-        )
-        self.firework_firing.append(firing_time)
         self.update()
 
     def paintEvent(self, event):
@@ -282,21 +361,17 @@ class FireworkPreviewWidget(QWidget):
         # Draw fireworks (handles)
         self.firing_handles = []
         handle_radius = 12
-        if self.firework_firing is not None and self.duration:
-            if self.firework_colors is None:
-                self.firework_colors = []
+        if self.fireworks is not None and self.duration:
             filtered_firings = []
             filtered_colors = []
             filtered_indices = []
-            for idx, ft in enumerate(self.firework_firing):
-                if draw_start <= ft <= draw_end:
-                    filtered_firings.append(ft)
-                    if self.firework_colors and len(self.firework_colors) > idx:
-                        filtered_colors.append(self.firework_colors[idx])
-                    else:
-                        filtered_colors.append(QColor(255, 255, 255))
+            for idx, fw in enumerate(self.fireworks):
+                if draw_start <= fw.firing_time <= draw_end:
+                    filtered_firings.append(fw.firing_time)
+                    filtered_colors.append(fw.firing_color)
                     filtered_indices.append(idx)
-            for i, (ft, color, orig_idx) in enumerate(zip(filtered_firings, filtered_colors, filtered_indices)):
+
+            for ft, color, orig_idx in zip(filtered_firings, filtered_colors, filtered_indices):
                 # Accurate mapping: always use the same formula as playhead
                 x = left_margin + ((ft - draw_start) / zoom_duration) * usable_w
                 is_selected = hasattr(self, 'selected_firing') and self.selected_firing == orig_idx
@@ -458,11 +533,11 @@ class FireworkPreviewWidget(QWidget):
             x = max(left_margin, min(x, w - right_margin))
             new_time = (x - left_margin) / usable_w * zoom_duration + draw_start
             new_time = max(draw_start, min(new_time, draw_end))
-            if self.firework_firing is not None:
+            if self.firework_times is not None:
                 idx = self.selected_firing
                 # Guard: never allow firework firing to be outside [0, duration]
                 new_time = max(0, min(new_time, self.duration))
-                self.firework_firing[idx] = new_time
+                self.firework_times[idx] = new_time
             self.update()
             return
 
@@ -534,30 +609,4 @@ class FireworkPreviewWidget(QWidget):
             # Otherwise, just update current_time and state; playback will resume from here when play is pressed
             return
 
-    # Ensure negative times are not allowed in selected_region
-    def set_selected_region(self, region):
-        """Called by WaveformSelectionTool when a region is selected."""
-        if region and len(region) == 2:
-            start, end = region
-            if start < 0:
-                start = 0
-            if end > self.duration:
-                end = self.duration
-            # Never move playhead when zooming/panning
-            self.selected_region = (start, end)
-        else:
-            self.selected_region = region
-        self.update()
 
-    def remove_selected_firing(self):
-        if hasattr(self, 'selected_firing') and self.selected_firing is not None:
-            idx = self.selected_firing
-            if self.firework_firing is not None and 0 <= idx < len(self.firework_firing):
-                if not isinstance(self.firework_firing, list):
-                    self.firework_firing = list(self.firework_firing)
-                del self.firework_firing[idx]
-                if hasattr(self, 'firework_colors') and len(self.firework_colors) > idx:
-                    del self.firework_colors[idx]
-            self.selected_firing = None
-            self.update()
-        return self.firework_firing

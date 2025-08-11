@@ -39,13 +39,13 @@ class FireworksCanvas(QWidget):
     def choose_firework_pattern(self, pattern):
         self.pattern = pattern
 
-    def add_firework(self, x=None, color=None):
+    def add_firework(self, handle, x=None):
         if x is None:
             x = random.randint(0, self.width())
-        if color is None:
-            color = self.firework_color
         firework = Firework(x, self.height(), 
-                             color,
+                             handle.firing_color, handle.pattern,
+                             handle.number_firings,
+                             handle.display_number,
                              self.particle_count)
         firework.choose_firework_pattern(self.pattern)
         self.fireworks.append(firework)
@@ -89,16 +89,16 @@ class FireworksCanvas(QWidget):
                 preview_widget = parent.preview_widget
                 break
             parent = parent.parentWidget()
-        if preview_widget and preview_widget.firework_firing is not None:
-            time_list = preview_widget.firework_firing
-            for idx, t in enumerate(time_list):
-                if abs(preview_widget.current_time - t) < 0.08 and t not in self.fired_times:
-                    if hasattr(preview_widget, "firework_colors") and isinstance(preview_widget.firework_colors, list) and idx < len(preview_widget.firework_colors):
-                        self.firework_color = preview_widget.firework_colors[idx]
+        if preview_widget and preview_widget.firework_times is not None:
+            handles = preview_widget.fireworks
+            for idx, handle in enumerate(handles):
+                if abs(preview_widget.current_time - handle.firing_time) < 0.08 and handle.firing_time not in self.fired_times:
+                    if hasattr(handle, "firing_color"):
+                        self.firework_color = handle.firing_color
                     else:
                         self.firework_color = QColor(255, 0, 0)
-                    self.add_firework()
-                    self.fired_times.add(t)
+                    self.add_firework(handle)
+                    self.fired_times.add(handle.firing_time)
         self.update()
     
     def paintEvent(self, event):
@@ -123,11 +123,14 @@ class FireworksCanvas(QWidget):
         if self._fireworks_enabled:
             for firework in self.fireworks:
                 if not firework.exploded:
-                    painter.setPen(QPen(firework.color, 4))
+                    color = firework.color if firework.color is not None else QColor(255, 0, 0)
+                    painter.setPen(QPen(color, 4))
                     painter.drawPoint(int(firework.x), int(firework.y))
                 else:
                     for particle in firework.particles:
                         color = particle.get_color()
+                        if color is None:
+                            color = QColor(255, 255, 255)
                         painter.setPen(QPen(color, 3))
                         painter.drawPoint(int(particle.x), int(particle.y))
 

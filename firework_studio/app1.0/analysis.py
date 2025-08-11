@@ -78,6 +78,7 @@ class AudioAnalyzer:
     def __init__(self, audio_datas, sr):
         self.audio_datas = audio_datas
         self.sr = sr
+        self.filtered_firings = []
 
     def analyze_firework_firings(self):
         firework_firings = []
@@ -85,9 +86,13 @@ class AudioAnalyzer:
         for audio_file in self.audio_datas:
             # Segment audio and get segment times
             periods_info, segment_times = AudioAnalyzer([audio_file], self.sr).segment_audio()
+            # Use periods_info to find interesting points (e.g., onsets)
+            interesting_points = []
+            if isinstance(periods_info, dict) and "onsets" in periods_info:
+                interesting_points = periods_info["onsets"]
             # Get beat times
             beat_times, _ = AudioAnalyzer([audio_file], self.sr).beat_sample()
-            # Cluster beats near segment centers and sample at intervals
+            # Cluster beats near segment centers, sample at intervals, and prioritize interesting points
             beat_interval = 5  # seconds between sampled beats
             cluster_window = 2 # seconds for clustering
             firing = []
@@ -106,11 +111,19 @@ class AudioAnalyzer:
                     for bt in clustered:
                         if bt not in firing:
                             firing.append(bt)
+                # Add beats that are close to interesting points (e.g., onsets)
+                for ip in interesting_points:
+                    if seg_start <= ip < seg_end:
+                        # Find the closest beat to this interesting point
+                        if len(beats_in_seg) > 0:
+                            closest_beat = beats_in_seg[np.argmin(np.abs(beats_in_seg - ip))]
+                            if closest_beat not in firing:
+                                firing.append(closest_beat)
             firing = np.sort(np.array(firing)) + offset
             firework_firings.extend(firing)
-            offset += librosa.get_duration(y=y, sr=self.sr)
-        return np.sort(np.array(firework_firings))
-    
+            offset += librosa.get_duration(y=audio_file, sr=self.sr)
+        return firework_firings
+
     def segment_audio(self):
         # Example segmentation using librosa onset detection
         audio = np.concatenate(self.audio_datas)

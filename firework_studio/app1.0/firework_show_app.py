@@ -51,6 +51,7 @@ class FireworkShowApp(QMainWindow):
         self.start = None
         self.end = None
         self.fireworks_colors = []
+        self.filtered_firings = []
 
 
         #############################################################
@@ -188,7 +189,7 @@ class FireworkShowApp(QMainWindow):
 
         ###########################################################
         #                                                         #
-        # Canvas for waveform display and firework firing display #
+        # Canvas for waveform display                               #
         #                                                         #
         ###########################################################
         # Create a canvas for displaying the waveform needed here for loading audio
@@ -406,31 +407,26 @@ class FireworkShowApp(QMainWindow):
         def handle_audio():
             # Load audio data
             self.audio_data, self.sr, self.audio_datas, self.duration = self.audio_loader.select_and_load()
-            # setup the preview widget with loaded audio data becuase play button works by playing preview_widget
             # otherwise pressing play will not play anything because the show data is not set in preview_widget
             self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, None, self.duration)
             # Plot the waveform
             self.plot_waveform()
-            # If audio data is loaded, enable the generate button
+            # If audio data is loaded, start the analysis
             if self.audio_data is not None:
-                self.generate_btn.setEnabled(True)
-                self.generate_btn.setVisible(True)  
                 # Show when audio is loaded
                 self.status_bar.showMessage("Generate fireworks show from scratch or use generate show button to get help.")
                 # Show a toast notification with loaded audio file names
                 basenames = [os.path.basename(p) for p in self.audio_loader.paths]
                 toast = ToastDialog(f"Loaded audio: {', '.join(basenames)}", parent=self)
-                self.update_firework_show_info()
                 geo = self.geometry()
                 x = geo.x() + geo.width() - toast.width() - 40
                 y = geo.y() + geo.height() - toast.height() - 40
                 toast.move(x, y)
                 toast.show()
                 QTimer.singleShot(2500, toast.close)
+                self.update_firework_show_info()
             elif self.audio_data is None:
-                self.generate_btn.setVisible(False)  # Hide if no audio
-
-        # Connect the load_btn to open file dialog and load audio
+                self.status_bar.showMessage("No audio loaded.")
 
         self.load_btn.clicked.connect(lambda: handle_audio())
 
@@ -487,13 +483,12 @@ class FireworkShowApp(QMainWindow):
         #              Add info status bar                        #
         #                                                         #
         ############################################################
-
+  
         # Add info label to display audio loading status
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
         self.status_bar.showMessage(self.firework_show_info)
-
-   
+        self.status_bar.repaint()  # Force repaint to ensure visibility 
 
         #################################################################
         #                                                               # 
@@ -596,7 +591,6 @@ class FireworkShowApp(QMainWindow):
             return btn
 
         self.generate_btn = create_generate_btn()
-        self.generate_btn.setVisible(False)  # Show initially
 
         ############################################################
         #                                                          #
@@ -727,7 +721,7 @@ class FireworkShowApp(QMainWindow):
             if self.segment_times is not None and isinstance(self.segment_times, (list, tuple, np.ndarray)):
                 for t in self.segment_times:
                     if t is not None and np.isfinite(t):
-                        ax.axvline(x=t, color="#bbbbbb", linestyle="--", linewidth=1.2, alpha=0.7)
+                        ax.axvline(x=t, color="#e3bd13", linestyle="--", linewidth=1.2, alpha=0.7)
             if self.duration is not None and self.sr is not None:
                 ax.set_xlim(0, self.duration)
             elif self.audio_data is not None and self.sr is not None:
@@ -759,5 +753,8 @@ class FireworkShowApp(QMainWindow):
             f"Segments: {len(self.segment_times) if self.segment_times is not None else 0} | "
             f"Firework Firings: {len(self.firework_firing) if self.firework_firing is not None else 0}"
         )
-        if hasattr(self, "status_bar"):
+        if hasattr(self, "status_bar") and self.status_bar is not None:
             self.status_bar.showMessage(self.firework_show_info)
+            self.status_bar.repaint()  # Force repaint to ensure update
+
+   
