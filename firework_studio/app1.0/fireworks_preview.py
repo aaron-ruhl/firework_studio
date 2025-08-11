@@ -127,12 +127,12 @@ class FireworkPreviewWidget(QWidget):
             self.firework_times = list(self.firework_times)
 
         '''THIS IS WHERE HANDLES ARE CREATED '''
-        firing_time = self.current_time - self.delay
+        firing_time = self.current_time
+        # do not allow placing at very start
         if firing_time < self.delay:
             return
         color = QColor(random.randint(50, 255), random.randint(50, 255), random.randint(50, 255))
 
-        # add a delay to the fireworks
         self.firework_times.append(firing_time)
         self.firework_times.sort()
         display_number = self.firework_times.index(firing_time) + 1

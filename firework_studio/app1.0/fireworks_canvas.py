@@ -24,7 +24,7 @@ class FireworksCanvas(QWidget):
         self.background = None
         self.fired_times = set()  # Track fired times
         self._fireworks_enabled = True  # Initialize attribute
-        self.delay = 0.0  # Delay for fireworks to explode
+        self.delay = 2.0  # Delay for fireworks to explode
         self.background = "night"  # Default background
         self.custom_background_image_path = None
         self.pattern = "circle"
@@ -81,7 +81,6 @@ class FireworksCanvas(QWidget):
         preview_widget = None
         # Import here to avoid circular import
         from firework_show_app import FireworkShowApp
-
         # Find the parent FireworkShowApp to access firework_firing
         while parent:
             if isinstance(parent, FireworkShowApp):
@@ -90,12 +89,12 @@ class FireworksCanvas(QWidget):
             parent = parent.parentWidget()
         if preview_widget and preview_widget.firework_times is not None:
             handles = preview_widget.fireworks
-            for idx, handle in enumerate(handles):
-                if abs(preview_widget.current_time - handle.firing_time) < 0.08 and handle.firing_time not in self.fired_times:
-                    if hasattr(handle, "firing_color"):
-                        self.firework_color = handle.firing_color
-                    else:
-                        self.firework_color = QColor(255, 0, 0)
+            for handle in handles:
+            # Fire if current_time is within self.delay seconds BEFORE the firing_time
+            # (i.e., in the interval [firing_time - self.delay, firing_time))
+                if (preview_widget.current_time >= handle.firing_time - self.delay and
+                    preview_widget.current_time < handle.firing_time and
+                    handle.firing_time not in self.fired_times):
                     self.add_firework(handle)
                     self.fired_times.add(handle.firing_time)
         self.update()
