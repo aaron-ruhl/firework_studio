@@ -449,7 +449,7 @@ class FireworkShowApp(QMainWindow):
                     self.preview_widget.stop_preview()
                     self.preview_widget.reset_selected_region()  # Reset selected region in preview widget
                     self.fireworks_canvas.update_animation()  # Reset firings displayed
-                    setattr(self, "firework_firing", [])  # Clear firings
+                    self.preview_widget.reset_fireworks()  # Reset fireworks in preview widget
                     self.plot_waveform()  # Update waveform after clearing
                     self.update_firework_show_info()  # Update info after clearing
                     

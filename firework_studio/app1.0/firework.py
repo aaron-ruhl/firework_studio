@@ -25,10 +25,6 @@ class Firework:
         self.timer.timeout.connect(self.explode)
         self.timer.start()
 
-    def choose_firework_pattern(self, pattern=None):
-        if pattern is not None:
-            self.pattern = pattern
-
     def explode(self):
         self.exploded = True
         base_color = self.color

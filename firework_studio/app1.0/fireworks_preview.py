@@ -88,6 +88,10 @@ class FireworkPreviewWidget(QWidget):
         self.duration = duration
         self.update()
 
+    def reset_fireworks(self):
+        """Reset all fireworks."""
+        self.fireworks = []
+        self.update()
 
     def reset_selected_region(self):
         """Reset the selected region to the whole duration."""
@@ -129,7 +133,7 @@ class FireworkPreviewWidget(QWidget):
         self.firework_times.append(firing_time)
         self.firework_times.sort()
         display_number = self.firework_times.index(firing_time) + 1
-        handle = FiringHandles(firing_time, color, display_number)
+        handle = FiringHandles(firing_time, color, number_firings=10, pattern="circle", display_number=display_number)
         self.fireworks.append(handle)
         self.fireworks.sort(key=lambda handle: handle.firing_time)
         self.update()
@@ -141,8 +145,8 @@ class FireworkPreviewWidget(QWidget):
                 if not isinstance(self.firework_times, list):
                     self.firework_times = list(self.firework_times)
                 del self.firework_times[idx]
-                if hasattr(self, 'firework_colors') and len(self.firework_colors) > idx:
-                    del self.firework_colors[idx]
+                if self.fireworks is not None and len(self.fireworks) > idx:
+                    del self.fireworks[idx]
             self.selected_firing = None
             self.update()
         return self.firework_times
@@ -192,7 +196,7 @@ class FireworkPreviewWidget(QWidget):
         if self.current_time < 0:
             self.current_time = 0
 
-        '''THIS IS WHAT TRIGGERS FIREWORKS TO BE DRAWN'''
+        '''THIS IS WHAT TRIGGERS FIREWORKS TO BE DRAWN ON FIREWORKS CANVAS'''
         # Check if any firework firing_time is near the playhead (within 30 ms)
         for handle in self.fireworks:
             if abs(handle.firing_time - self.current_time) < 0.03 and handle.firing_time not in self.fired_times:

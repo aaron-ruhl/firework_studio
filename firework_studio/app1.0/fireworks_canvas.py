@@ -19,7 +19,7 @@ class FireworksCanvas(QWidget):
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_animation)
         self.timer.start(16)  # ~60 FPS
-        self.particle_count = 100
+        self.particle_count = 50
         self.firework_color = QColor(255, 0, 0)
         self.background = None
         self.fired_times = set()  # Track fired times
@@ -44,10 +44,9 @@ class FireworksCanvas(QWidget):
             x = random.randint(0, self.width())
         firework = Firework(x, self.height(), 
                              handle.firing_color, handle.pattern,
+                             handle.display_number, 
                              handle.number_firings,
-                             handle.display_number,
                              self.particle_count)
-        firework.choose_firework_pattern(self.pattern)
         self.fireworks.append(firework)
 
     def reset_fireworks(self):
@@ -122,17 +121,24 @@ class FireworksCanvas(QWidget):
         # Draw fireworks
         if self._fireworks_enabled:
             for firework in self.fireworks:
-                if not firework.exploded:
-                    color = firework.color if firework.color is not None else QColor(255, 0, 0)
-                    painter.setPen(QPen(color, 4))
-                    painter.drawPoint(int(firework.x), int(firework.y))
-                else:
-                    for particle in firework.particles:
-                        color = particle.get_color()
-                        if color is None:
-                            color = QColor(255, 255, 255)
-                        painter.setPen(QPen(color, 3))
-                        painter.drawPoint(int(particle.x), int(particle.y))
+                for firing_idx in range(getattr(firework, "number_firings", 1)):
+                    # Offset each firing horizontally for visual separation
+                    offset = (firing_idx - (firework.number_firings - 1) / 2) * 12
+                    fx = firework.x + offset if firework.exploded else firework.x + offset
+                    fy = firework.y
+                    if not firework.exploded:
+                        color = firework.color if firework.color is not None else QColor(255, 0, 0)
+                        painter.setPen(QPen(color, 4))
+                        painter.drawPoint(int(fx), int(fy))
+                    # Draw number_firings explosions, each offset horizontally
+                    for firing_idx2 in range(getattr(firework, "number_firings", 1)):
+                        offset2 = (firing_idx2 - (firework.number_firings - 1) / 2) * 12
+                        for particle in firework.particles:
+                            color = particle.get_color()
+                            if color is None:
+                                color = QColor(255, 255, 255)
+                            painter.setPen(QPen(color, 3))
+                            painter.drawPoint(int(particle.x + offset2), int(particle.y))
 
     def load_custom_background(self, path=None):
         if path:
