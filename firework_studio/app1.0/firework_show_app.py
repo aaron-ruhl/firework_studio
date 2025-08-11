@@ -169,7 +169,6 @@ class FireworkShowApp(QMainWindow):
         self.preview_widget.setMinimumHeight(90)
         # Enable mouse press tracking for the preview widget
         self.preview_widget.setMouseTracking(True)
-        self.preview_widget.installEventFilter(self)
 
         # If the user is dragging the playhead, set play_pause_btn to "Play"
         def on_dragging_playhead(event_type):

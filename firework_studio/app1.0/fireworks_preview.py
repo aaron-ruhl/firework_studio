@@ -118,6 +118,7 @@ class FireworkPreviewWidget(QWidget):
         self.update()
    
     def add_time(self):
+        # Only add a firework when explicitly called, not automatically by playhead
         if self.audio_data is None or self.sr is None:
             return
         if self.firework_times is None:
@@ -126,17 +127,45 @@ class FireworkPreviewWidget(QWidget):
             self.firework_times = list(self.firework_times)
 
         '''THIS IS WHERE HANDLES ARE CREATED '''
-        firing_time = self.current_time
+        firing_time = self.current_time - self.delay
         if firing_time < self.delay:
             return
         color = QColor(random.randint(50, 255), random.randint(50, 255), random.randint(50, 255))
+
+        # add a delay to the fireworks
         self.firework_times.append(firing_time)
         self.firework_times.sort()
         display_number = self.firework_times.index(firing_time) + 1
+
+        # create the handle for displaying on preview_widget
+        # Store the  firing_time in the handle for consistency
         handle = FiringHandles(firing_time, color, number_firings=5, pattern="circle", display_number=display_number)
         self.fireworks.append(handle)
         self.fireworks.sort(key=lambda handle: handle.firing_time)
         self.update()
+
+    def advance_preview(self):
+            if self.audio_data is None or self.sr is None or self.duration is None:
+                return
+            # Advance by 16 ms (assuming timer interval is 16 ms)
+            self.current_time += 0.016
+            # Always clamp current_time to [0, duration]
+            if self.current_time > self.duration:
+                self.current_time = self.duration
+            if self.current_time < 0:
+                self.current_time = 0
+
+            # MODIFIED: Only stop at the end of the full duration, not the zoomed region
+            if self.current_time >= self.duration:
+                self.current_time = self.duration
+                if self.preview_timer:
+                    self.preview_timer.stop()
+                try:
+                    if sd.get_stream() is not None:
+                        sd.stop(ignore_errors=True)
+                except RuntimeError:
+                    pass
+            self.update()
 
     def remove_selected_firing(self):
         if hasattr(self, 'selected_firing') and self.selected_firing is not None:
@@ -184,37 +213,6 @@ class FireworkPreviewWidget(QWidget):
         self.preview_timer = QTimer(self)
         self.preview_timer.timeout.connect(self.advance_preview)
         self.preview_timer.start(16)
-
-    def advance_preview(self):
-        if self.audio_data is None or self.sr is None or self.duration is None:
-            return
-        # Advance by 16 ms (assuming timer interval is 16 ms)
-        self.current_time += 0.016
-        # Always clamp current_time to [0, duration]
-        if self.current_time > self.duration:
-            self.current_time = self.duration
-        if self.current_time < 0:
-            self.current_time = 0
-
-        '''THIS IS WHAT TRIGGERS FIREWORKS TO BE DRAWN ON FIREWORKS CANVAS'''
-        # Check if any firework firing_time is near the playhead (within 30 ms)
-        for handle in self.fireworks:
-            if abs(handle.firing_time - self.current_time) < 0.03 and handle.firing_time not in self.fired_times:
-                if self.main_window and hasattr(self.main_window, "fireworks_canvas"):
-                    self.main_window.fireworks_canvas.add_firework(handle)
-                    self.fired_times.add(handle.firing_time)
-
-        # MODIFIED: Only stop at the end of the full duration, not the zoomed region
-        if self.current_time >= self.duration:
-            self.current_time = self.duration
-            if self.preview_timer:
-                self.preview_timer.stop()
-            try:
-                if sd.get_stream() is not None:
-                    sd.stop(ignore_errors=True)
-            except RuntimeError:
-                pass
-        self.update()
 
     def toggle_play_pause(self):
         if self.preview_timer and self.preview_timer.isActive():
@@ -364,50 +362,41 @@ class FireworkPreviewWidget(QWidget):
 
         # Draw fireworks (handles)
         self.firing_handles = []
+        # Add enough space for a self.delay amount of delay at the start
         handle_radius = 12
         if self.fireworks is not None and self.duration:
-            filtered_firings = []
-            filtered_colors = []
-            filtered_indices = []
             for idx, fw in enumerate(self.fireworks):
+                # Only draw if within visible region
                 if draw_start <= fw.firing_time <= draw_end:
-                    filtered_firings.append(fw.firing_time)
-                    filtered_colors.append(fw.firing_color)
-                    filtered_indices.append(idx)
-
-            for ft, color, orig_idx in zip(filtered_firings, filtered_colors, filtered_indices):
-                # Accurate mapping: always use the same formula as playhead
-                x = left_margin + ((ft - draw_start) / zoom_duration) * usable_w
-                is_selected = hasattr(self, 'selected_firing') and self.selected_firing == orig_idx
-                painter.setBrush(QColor(0, 0, 0, 120))
-                painter.setPen(Qt.PenStyle.NoPen)
-                painter.drawEllipse(int(round(x)) - handle_radius, timeline_y - handle_radius + 3, 2 * handle_radius, 2 * handle_radius)
-                painter.setBrush(color)
-                painter.setPen(QColor(255, 255, 0) if is_selected else QColor(220, 220, 220, 180))
-                r = int(handle_radius * (1.3 if is_selected else 1))
-                painter.drawEllipse(int(round(x)) - r, timeline_y - r, 2 * r, 2 * r)
-                painter.setPen(QColor(40, 40, 40, 180))
-                painter.setBrush(Qt.BrushStyle.NoBrush)
-                # Store handle rect for hit-testing
-                self.firing_handles.append((
-                    QRect(int(round(x)) - handle_radius, timeline_y - handle_radius + 3, 2 * handle_radius, 2 * handle_radius),
-                    orig_idx
-                ))
-                # Draw firing number on top of the handle
-                painter.setPen(QColor(255, 255, 255))
-                number_font = painter.font()
-                number_font.setBold(True)
-                number_font.setPointSizeF(label_font.pointSizeF() * 1.1)
-                painter.setFont(number_font)
-                painter.drawText(
-                    int(round(x)) - handle_radius,
-                    timeline_y - handle_radius + 3,
-                    2 * handle_radius,
-                    2 * handle_radius,
-                    Qt.AlignmentFlag.AlignCenter,
-                    str(orig_idx + 1)
-                )
-            painter.setFont(label_font)  # Restore font
+                    x = left_margin + ((fw.firing_time - draw_start) / zoom_duration) * usable_w
+                    is_selected = hasattr(self, 'selected_firing') and self.selected_firing == idx
+                    painter.setBrush(QColor(0, 0, 0, 120))
+                    painter.setPen(Qt.PenStyle.NoPen)
+                    painter.drawEllipse(int(round(x)) - handle_radius, timeline_y - handle_radius + 3, 2 * handle_radius, 2 * handle_radius)
+                    painter.setBrush(fw.firing_color)
+                    painter.setPen(QColor(255, 255, 0) if is_selected else QColor(220, 220, 220, 180))
+                    r = int(handle_radius * (1.3 if is_selected else 1))
+                    painter.drawEllipse(int(round(x)) - r, timeline_y - r, 2 * r, 2 * r)
+                    painter.setPen(QColor(40, 40, 40, 180))
+                    painter.setBrush(Qt.BrushStyle.NoBrush)
+                    
+                    # Draw firing number from FiringHandles.display_number
+                    painter.setPen(QColor(255, 255, 255))
+                    number_font = painter.font()
+                    number_font.setBold(True)
+                    number_font.setPointSizeF(label_font.pointSizeF() * 1.1)
+                    painter.setFont(number_font)
+                    painter.drawText(
+                        int(round(x)) - handle_radius,
+                        timeline_y - handle_radius + 3,
+                        2 * handle_radius,
+                        2 * handle_radius,
+                        Qt.AlignmentFlag.AlignCenter,
+                        str(fw.display_number)
+                    )
+                    # Store handle rect for hit-testing
+                    self.firing_handles.append((QRect(int(round(x)) - handle_radius, timeline_y - handle_radius + 3, 2 * handle_radius, 2 * handle_radius), idx))
+                painter.setFont(label_font)  # Restore font
 
         # --- PLAYHEAD DRAWING (always draw, even if outside zoom) ---
         self.playhead_time = min(max(self.current_time, 0), self.duration)
@@ -531,7 +520,7 @@ class FireworkPreviewWidget(QWidget):
             draw_start = 0
             draw_end = self.duration
             zoom_duration = self.duration if self.duration else 1
-
+        
         if hasattr(self, 'dragging_firing') and self.dragging_firing and self.selected_firing is not None:
             x = event.position().x() - getattr(self, 'drag_offset', 0)
             x = max(left_margin, min(x, w - right_margin))
@@ -612,5 +601,4 @@ class FireworkPreviewWidget(QWidget):
                 return
             # Otherwise, just update current_time and state; playback will resume from here when play is pressed
             return
-
 
