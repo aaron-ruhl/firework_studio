@@ -121,7 +121,7 @@ class FireworksCanvas(QWidget):
             for firework in self.fireworks:
                 # Draw the firework launch point if not exploded
                 if not firework.exploded:
-                    color = firework.color if firework.color is not None else QColor(255, 0, 0)
+                    color = firework.color if isinstance(firework.color, QColor) else QColor(255, 0, 0)
                     painter.setPen(QPen(color, 4))
                     painter.drawPoint(int(firework.x), int(firework.y))
                 # Draw the explosion particles
@@ -129,7 +129,7 @@ class FireworksCanvas(QWidget):
                     px = particle.x
                     py = particle.y
                     color = particle.get_color()
-                    if color is None:
+                    if not isinstance(color, QColor):
                         color = QColor(255, 255, 255)
                     painter.setPen(QPen(color, 3))
                     painter.drawPoint(int(px), int(py))

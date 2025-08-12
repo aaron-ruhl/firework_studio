@@ -6,6 +6,7 @@ from PyQt6.QtWidgets import QMenu, QColorDialog, QInputDialog
 import sounddevice as sd
 import random
 
+
 from fireworks_timeline import FireworkTimelineRenderer
 from handles import FiringHandles
 
@@ -47,6 +48,30 @@ class FireworkPreviewWidget(QWidget):
 
     def reset_fireworks(self):
         self.fireworks = []
+        self.update()
+
+    def get_handles(self):
+        return self.fireworks
+
+    def set_handles(self, handles):
+        self.fireworks = []
+        self.firework_times = []
+        for i, handle in enumerate(handles):
+            color = handle.firing_color if hasattr(handle, "firing_color") else QColor(random.randint(50, 255), random.randint(50, 255), random.randint(50, 255))
+            pattern = handle.pattern if hasattr(handle, "pattern") else self.pattern
+            number_firings = handle.number_firings if hasattr(handle, "number_firings") else self.number_firings
+            firing_time = handle.firing_time
+            fw_handle = FiringHandles(
+                firing_time,
+                color,
+                number_firings=number_firings,
+                pattern=pattern,
+                display_number=i + 1
+            )
+            self.fireworks.append(fw_handle)
+            self.firework_times.append(firing_time)
+        self.fireworks.sort(key=lambda h: h.firing_time)
+        self.firework_times.sort()
         self.update()
 
     def reset_selected_region(self):

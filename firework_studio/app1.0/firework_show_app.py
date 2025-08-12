@@ -18,13 +18,207 @@ from fireworks_preview import FireworkPreviewWidget
 from analysis import AudioAnalyzer
 from loader import AudioLoader
 from toaster import ToastDialog
-from show_file_handler import ShowFileHandler
 from waveform_selection import WaveformSelectionTool
 from PyQt6.QtWidgets import QToolBar, QWidgetAction
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import QLabel
 from PyQt6.QtWidgets import QSpinBox, QGroupBox
 from PyQt6.QtWidgets import QWidgetAction
+
+
+import numpy as np
+import json
+from PyQt6.QtWidgets import QPushButton, QFileDialog, QRadioButton
+from PyQt6.QtGui import QColor
+from toaster import ToastDialog
+from handles import FiringHandles
+
+class FireworkshowManager:
+    @staticmethod
+    def save_show(file_path, audio_paths, sr, firework_times, segment_times, duration, handles):
+        # Convert handles to a list of lists using to_list() if available, and ensure all elements are JSON serializable
+        def make_json_serializable(obj):
+            if isinstance(obj, QColor):
+                return obj.name()  # Convert QColor to hex string
+            elif isinstance(obj, (list, tuple)):
+                return [make_json_serializable(x) for x in obj]
+            elif isinstance(obj, dict):
+                return {k: make_json_serializable(v) for k, v in obj.items()}
+            else:
+                return obj
+
+        handles_list = []
+        if isinstance(handles, list):
+            for handle in handles:
+                if hasattr(handle, "to_list"):
+                    handle_data = handle.to_list()
+                elif isinstance(handle, (list, tuple)):
+                    handle_data = list(handle)
+                else:
+                    try:
+                        handle_data = list(handle)
+                    except Exception:
+                        handle_data = [str(handle)]
+                handles_list.append(make_json_serializable(handle_data))
+
+        # Save only the file paths for audio_datas
+        show_data = {
+            "audio_paths": audio_paths,
+            "sr": sr,
+            "firework_times": make_json_serializable(firework_times),
+            "segment_times": make_json_serializable(segment_times),
+            "duration": duration,
+            "handles": handles_list,
+        }
+        with open(file_path, "w") as f:
+            json.dump(show_data, f)
+
+    @staticmethod
+    def load_show(file_path):
+        import os
+        show_data = {}
+        if not os.path.exists(file_path) or os.path.getsize(file_path) == 0:
+            print(f"File {file_path} does not exist or is empty.")
+            return None, None, [], [], [], None, []
+        try:
+            with open(file_path, "r") as f:
+                show_data = json.load(f)
+        except json.JSONDecodeError as e:
+            print(f"Error decoding JSON from {file_path}: {e}")
+            return None, None, [], [], [], None, []
+        except Exception as e:
+            print(f"Error reading file {file_path}: {e}")
+            return None, None, [], [], [], None, []
+        # Always return the same keys as in save_show
+        audio_paths = show_data.get("audio_paths", [])
+        sr = show_data.get("sr", None)
+        firework_times = show_data.get("firework_times", [])
+        segment_times = show_data.get("segment_times", [])
+        duration = show_data.get("duration", None)
+        handles = show_data.get("handles", [])
+
+        # Use AudioLoader to load audio from paths, with error handling
+        audio_loader = AudioLoader()
+        try:
+            audio_data, loaded_sr, audio_datas, loaded_duration = audio_loader.just_load(audio_paths)
+            # If sr or duration is missing in file, use loaded values
+            if sr is None:
+                sr = loaded_sr
+            if duration is None:
+                duration = loaded_duration
+        except Exception as e:
+            audio_data, audio_datas, sr, duration = None, [], None, None
+            print(f"Error loading audio files: {e}")
+
+        return audio_data, sr, audio_datas, firework_times, segment_times, duration, handles
+
+class ShowFileHandler:
+    def __init__(self, main_window, button_style):
+        self.main_window = main_window
+        self.button_style = button_style
+
+    def save_show(self):
+        if not self.main_window.audio_datas:
+            ToastDialog("No show to save!", parent=self.main_window).show()
+            return
+        file_path, _ = QFileDialog.getSaveFileName(
+            self.main_window, "Save Firework Show", "", "Firework Show (*.fwshow);;All Files (*)"
+        )
+        if file_path:
+            audio_paths = self.main_window.paths
+            sr = self.main_window.sr
+            firework_times = getattr(self.main_window.preview_widget, "firework_times", [])
+            segment_times = self.main_window.segment_times
+            duration = self.main_window.duration
+            handles = []
+            if hasattr(self.main_window.preview_widget, "get_handles"):
+                raw_handles = self.main_window.preview_widget.get_handles()
+                for handle in raw_handles:
+                    handles.append(handle.to_list())
+            FireworkshowManager.save_show(file_path, audio_paths, sr, firework_times, segment_times, duration, handles)
+            def show_saved_toast():
+                toast = ToastDialog("Show saved!", parent=self.main_window)
+                geo = self.main_window.geometry()
+                x = geo.x() + geo.width() - toast.width() - 40
+                y = geo.y() + geo.height() - toast.height() - 40
+                toast.move(x, y)
+                toast.show()
+                QTimer.singleShot(2500, toast.close)
+            show_saved_toast()
+
+    def load_show(self):
+        file_path, _ = QFileDialog.getOpenFileName(
+            self.main_window, "Load Firework Show", "", "Firework Show (*.fwshow);;All Files (*)"
+        )
+        if file_path:
+            # Always load all fields as saved by FireworkshowManager.save_show
+            audio_data, sr, audio_datas, firework_times, segment_times, duration, handles = FireworkshowManager.load_show(file_path)
+            self.main_window.audio_data = audio_data
+            self.main_window.sr = sr
+            self.main_window.audio_datas = audio_datas
+            self.main_window.segment_times = segment_times
+            self.main_window.duration = duration
+            self.main_window.paths = audio_datas and [getattr(a, 'path', a) for a in audio_datas] or []
+            # Try to run the same logic as handle_audio, but with loaded data
+            # Set show data in preview_widget
+            self.main_window.preview_widget.set_show_data(audio_data, sr, segment_times, firework_times, duration)
+            # Plot the waveform
+            self.main_window.plot_waveform()
+            # Show status bar and toast
+            if audio_data is not None:
+                self.main_window.status_bar.showMessage("Generate fireworks show from scratch or use generate show button to get help.")
+                basenames = []
+                if hasattr(self.main_window, "paths") and self.main_window.paths:
+                    basenames = [os.path.basename(str(p)) for p in self.main_window.paths if isinstance(p, (str, bytes, os.PathLike))]
+                elif hasattr(self.main_window.audio_loader, "paths"):
+                    basenames = [os.path.basename(str(p)) for p in self.main_window.audio_loader.paths if isinstance(p, (str, bytes, os.PathLike))]
+                toast = ToastDialog(f"Loaded audio: {', '.join(basenames)}", parent=self.main_window)
+                geo = self.main_window.geometry()
+                x = geo.x() + geo.width() - toast.width() - 40
+                y = geo.y() + geo.height() - toast.height() - 40
+                toast.move(x, y)
+                toast.show()
+                QTimer.singleShot(2500, toast.close)
+                self.main_window.update_firework_show_info()
+            elif audio_data is None:
+                self.main_window.status_bar.showMessage("No audio loaded.")
+
+            # Reconstruct handles before setting show data
+            loaded_handles = []
+            if handles and isinstance(handles, list):
+                for handle in handles:
+                    try:
+                        loaded_handles.append(FiringHandles.from_list(handle) if isinstance(handle, list) else handle)
+                    except Exception as e:
+                        print(f"Error reconstructing handle: {e}")
+                        loaded_handles.append(handle)
+            if hasattr(self.main_window.preview_widget, "set_handles"):
+                self.main_window.preview_widget.set_handles(loaded_handles)
+            # Set all show data, including firework_times and segment_times (already done above)
+            # self.main_window.preview_widget.set_show_data(audio_data, sr, segment_times, firework_times, duration)
+            # self.main_window.plot_waveform()
+            # self.main_window.update_firework_show_info()
+            def show_loaded_toast():
+                toast = ToastDialog("Show loaded!", parent=self.main_window)
+                geo = self.main_window.geometry()
+                x = geo.x() + geo.width() - toast.width() - 40
+                y = geo.y() + geo.height() - toast.height() - 40
+                toast.move(x, y)
+                toast.show()
+                QTimer.singleShot(2500, toast.close)
+            show_loaded_toast()
+
+    def create_save_btn(self):
+        btn = QPushButton("Save Show")
+        btn.setStyleSheet(self.button_style)
+        btn.clicked.connect(self.save_show)
+        return btn
+
+    def create_load_show_btn(self):
+        btn = QPushButton("Load Show")
+        btn.setStyleSheet(self.button_style)
+        btn.clicked.connect(self.load_show)
+        return btn
 
 '''THIS IS THE MAIN WINDOW CLASS FOR THE FIREWORK STUDIO APPLICATION'''
 class FireworkShowApp(QMainWindow):
@@ -54,7 +248,7 @@ class FireworkShowApp(QMainWindow):
         self.end = None
         self.fireworks_colors = []
         self.filtered_firings = []
-
+        self.paths = []
 
         #############################################################
         #                                                          #
@@ -465,6 +659,7 @@ class FireworkShowApp(QMainWindow):
         def handle_audio():
             # Load audio data
             self.audio_data, self.sr, self.audio_datas, self.duration = self.audio_loader.select_and_load()
+            self.paths = self.audio_loader.paths
             # otherwise pressing play will not play anything because the show data is not set in preview_widget
             self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, None, self.duration)
             # Plot the waveform
@@ -687,6 +882,8 @@ class FireworkShowApp(QMainWindow):
 
         add_toolbar_widget(self.add_firing_btn)
         add_toolbar_widget(self.delete_firing_btn)
+        add_toolbar_widget(self.pattern_selector)
+        add_toolbar_widget(self.firework_count_spinner_group)
         self.media_toolbar.addSeparator()
 
         add_toolbar_widget(self.load_btn)
@@ -695,12 +892,6 @@ class FireworkShowApp(QMainWindow):
         
         add_toolbar_widget(self.save_btn)
         add_toolbar_widget(self.load_show_btn)
-        self.media_toolbar.addSeparator()
-
-        add_toolbar_widget(self.pattern_selector)
-        self.media_toolbar.addSeparator()
-
-        add_toolbar_widget(self.firework_count_spinner_group)
         self.media_toolbar.addSeparator()
 
         add_toolbar_widget(self.background_btn)
@@ -761,7 +952,7 @@ class FireworkShowApp(QMainWindow):
             # Create time axis in seconds
             times = np.linspace(0, len(self.audio_data) / self.sr, num=len(self.audio_data))  # type: ignore
             # Downsample for dense signals to avoid smudging
-            max_points = 4000  # Adjust for performance/detail
+            max_points = 2000  # Adjust for performance/detail
             if len(self.audio_data) > max_points:
                 factor = len(self.audio_data) // max_points
                 # Use min/max envelope for better visibility

@@ -13,15 +13,26 @@ class AudioLoader():
         self.duration = 0.0
 
     def select_files(self, parent=None):
-        files, _ = QFileDialog.getOpenFileNames(parent, "Select Audio Files", "", "Audio Files (*.wav *.mp3 *.flac)")
+        files, _ = QFileDialog.getOpenFileNames(
+            parent,
+            "Select Audio Files",
+            "",
+            "Audio Files (*.wav *.mp3 *.flac *.npy)"
+        )
         if files:
             self.paths = files
 
     def load(self):
         for path in self.paths:
-            if self.sr is None:
-                self.sr = 16000  # Default sample rate if not specified
-            audio_data, _ = librosa.load(path, sr=self.sr, mono=True)
+            if path.lower().endswith('.npy'):
+                audio_data = np.load(path)
+                # If .npy file contains sample rate info, handle here (not standard)
+                if self.sr is None:
+                    self.sr = 16000  # Default sample rate if not specified
+            else:
+                if self.sr is None:
+                    self.sr = 16000  # Default sample rate if not specified
+                audio_data, _ = librosa.load(path, sr=self.sr, mono=True)
             self.audio_datas.append(audio_data)
         # Update self.audio_data after loading
         self.audio_data = np.concatenate(self.audio_datas) if self.audio_datas else None
@@ -39,4 +50,13 @@ class AudioLoader():
         self.sr = None
         self.load()
 
+        return self.audio_data, self.sr, self.audio_datas, self.duration
+
+    def just_load(self, path):
+        # Ensure path is a string, not a list
+        if isinstance(path, list):
+            self.paths = path
+        else:
+            self.paths = [path]
+        self.load()
         return self.audio_data, self.sr, self.audio_datas, self.duration
