@@ -90,7 +90,7 @@ class FireworksCanvas(QWidget):
             handles = preview_widget.fireworks
             for handle in handles:
                 if (preview_widget.current_time >= handle.firing_time - self.delay and
-                        preview_widget.current_time < handle.firing_time and
+                        preview_widget.current_time < handle.firing_time - self.delay + 0.016 and
                         (handle.firing_time, 0) not in self.fired_times):
                     for _ in range(handle.number_firings):
                         # Add firework at random x position

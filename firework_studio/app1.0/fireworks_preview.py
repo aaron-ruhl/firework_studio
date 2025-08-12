@@ -25,6 +25,7 @@ class FireworkPreviewWidget(QWidget):
         self.fireworks = []
         self.number_firings = 1
         self.pattern = "circle"
+        self.firing_handles = []
 
         self.current_time = 0
         self.playhead_time = 0

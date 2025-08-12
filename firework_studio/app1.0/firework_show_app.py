@@ -253,21 +253,6 @@ class FireworkShowApp(QMainWindow):
 
         self.waveform_canvas.mpl_connect("figure_leave_event", on_waveform_leave)
         self.waveform_canvas.leaveEvent = lambda event: self.waveform_time_label.setVisible(False)
-        ###############################################
-        #                                             #
-        #        Reset Firings button                 #
-        #                                             #
-        ###############################################
-
-        def create_reset_btn():
-            btn = QPushButton("Reset Firings")
-            btn.setIcon(QIcon(os.path.join("icons", "refresh.png")))
-            btn.setStyleSheet(button_style)
-            btn.clicked.connect(self.fireworks_canvas.reset_firings)
-            return btn
-
-        self.reset_btn = create_reset_btn()
-        self.reset_btn.setToolTip("Reset all firework firings")
 
         ###############################################
         #                                             #
@@ -292,6 +277,7 @@ class FireworkShowApp(QMainWindow):
                 self.play_pause_btn.setText("Pause")
                 self.play_pause_btn.setIcon(QIcon(os.path.join("icons", "pause.png")))
                 self.fireworks_canvas.set_fireworks_enabled(True)
+                self.fireworks_canvas.reset_firings()  # Reset firings to ensure they are displayed correctly
                 if hasattr(self.fireworks_canvas, "fireworks"):
                     for firework in self.fireworks_canvas.fireworks:
                         firework.resume_explode()
@@ -697,7 +683,6 @@ class FireworkShowApp(QMainWindow):
 
         add_toolbar_widget(self.play_pause_btn)
         add_toolbar_widget(self.stop_btn)
-        add_toolbar_widget(self.reset_btn)
         self.media_toolbar.addSeparator()
 
         add_toolbar_widget(self.add_firing_btn)
