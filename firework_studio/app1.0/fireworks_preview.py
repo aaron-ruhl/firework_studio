@@ -381,7 +381,13 @@ class FireworkPreviewWidget(QWidget):
         if handle is None:
             return
         if action == change_color_action:
-            color = QColorDialog.getColor(handle.firing_color, self, "Select Firework Color")
+            initial_color = handle.firing_color
+            if not isinstance(initial_color, QColor):
+                try:
+                    initial_color = QColor(initial_color)
+                except Exception:
+                    initial_color = QColor(255, 255, 255)
+            color = QColorDialog.getColor(initial_color, self, "Select Firework Color")
             if color.isValid():
                 handle.firing_color = color
                 self.update()

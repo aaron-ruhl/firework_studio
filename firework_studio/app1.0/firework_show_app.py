@@ -188,16 +188,19 @@ class ShowFileHandler:
             if handles and isinstance(handles, list):
                 for handle in handles:
                     try:
+                        # Convert color string back to QColor if needed
+                        if isinstance(handle, list) and len(handle) > 0:
+                            # If color is at a known index (e.g., index 2), convert it
+                            color_index = 2  # Adjust this index if your handle structure differs
+                            if len(handle) > color_index and isinstance(handle[color_index], str):
+                                from PyQt6.QtGui import QColor
+                                handle[color_index] = QColor(handle[color_index])
                         loaded_handles.append(FiringHandles.from_list(handle) if isinstance(handle, list) else handle)
                     except Exception as e:
                         print(f"Error reconstructing handle: {e}")
                         loaded_handles.append(handle)
             if hasattr(self.main_window.preview_widget, "set_handles"):
                 self.main_window.preview_widget.set_handles(loaded_handles)
-            # Set all show data, including firework_times and segment_times (already done above)
-            # self.main_window.preview_widget.set_show_data(audio_data, sr, segment_times, firework_times, duration)
-            # self.main_window.plot_waveform()
-            # self.main_window.update_firework_show_info()
             def show_loaded_toast():
                 toast = ToastDialog("Show loaded!", parent=self.main_window)
                 geo = self.main_window.geometry()
