@@ -2,6 +2,7 @@ from PyQt6.QtWidgets import QWidget
 from PyQt6.QtCore import QTimer, QRect, Qt, QPoint
 from PyQt6.QtGui import QPainter, QColor
 
+from PyQt6.QtWidgets import QMenu, QColorDialog, QInputDialog
 import sounddevice as sd
 import random
 
@@ -506,12 +507,15 @@ class FireworkPreviewWidget(QWidget):
                 self.selected_firing = idx
                 self.dragging_firing = True
                 self.drag_offset = event.position().x() - rect.center().x()
-                self.setCursor(Qt.CursorShape.ClosedHandCursor)
+                self.setCursor(Qt.CursorShape.SplitHCursor)
                 self.update()
+                # Show context menu on right-click
+                if event.button() == Qt.MouseButton.RightButton:
+                    self.show_firing_context_menu(event.globalPosition().toPoint(), idx)
+                    self.dragging_firing = False
                 return
 
     def mouseMoveEvent(self, event):
-        # Region selection never interferes with playback: only handle timeline/firework/playhead
         w = self.width()
         left_margin = 40
         right_margin = 40
@@ -530,31 +534,41 @@ class FireworkPreviewWidget(QWidget):
             draw_start = 0
             draw_end = self.duration
             zoom_duration = self.duration if self.duration else 1
-        
-        if hasattr(self, 'dragging_firing') and self.dragging_firing and self.selected_firing is not None:
-            x = event.position().x() - getattr(self, 'drag_offset', 0)
-            x = max(left_margin, min(x, w - right_margin))
-            new_time = (x - left_margin) / usable_w * zoom_duration + draw_start
-            new_time = max(draw_start, min(new_time, draw_end))
-            if self.firework_times is not None:
-                idx = self.selected_firing
-                # Guard: never allow firework firing to be outside [0, duration]
-                new_time = max(0, min(new_time, self.duration))
-                self.firework_times[idx] = new_time
-            self.update()
-            return
 
+        # Drag playhead
         if hasattr(self, 'dragging_playhead') and self.dragging_playhead:
             x = event.position().x()
             x = max(left_margin, min(x, w - right_margin))
             new_time = (x - left_margin) / usable_w * zoom_duration + draw_start
-            # Always clamp playhead to [0, duration]
             new_time = max(0, min(new_time, self.duration))
             if event.buttons() & Qt.MouseButton.LeftButton:
                 self.current_time = new_time
             self.update()
             return
 
+        # Drag firework handle
+        if hasattr(self, 'dragging_firing') and self.dragging_firing and self.selected_firing is not None:
+            x = event.position().x() - getattr(self, 'drag_offset', 0)
+            x = max(left_margin, min(x, w - right_margin))
+            new_time = (x - left_margin) / usable_w * zoom_duration + draw_start
+            new_time = max(0, min(new_time, self.duration))
+            # Update the handle's time and re-sort
+            handle = self.fireworks[self.selected_firing]
+            handle.firing_time = new_time
+            self.fireworks.sort(key=lambda h: h.firing_time)
+            self.firework_times = [h.firing_time for h in self.fireworks]
+            # Update display numbers
+            for i, h in enumerate(self.fireworks):
+                h.display_number = i + 1
+            # Update selected_firing to new index after sort
+            for i, h in enumerate(self.fireworks):
+                if h is handle:
+                    self.selected_firing = i
+                    break
+            self.update()
+            return
+
+        # Cursor feedback for handles
         if hasattr(self, 'firing_handles'):
             for rect, idx in self.firing_handles:
                 if rect.contains(event.position().toPoint()):
@@ -570,13 +584,14 @@ class FireworkPreviewWidget(QWidget):
         self.setCursor(Qt.CursorShape.ArrowCursor)
 
     def mouseReleaseEvent(self, event):
-        # Region selection never interferes with playback: only handle timeline/firework/playhead
+        # Finish dragging firework handle
         if hasattr(self, 'dragging_firing') and self.dragging_firing:
             self.dragging_firing = False
             self.setCursor(Qt.CursorShape.ArrowCursor)
             self.update()
             return
 
+        # Finish dragging playhead
         if hasattr(self, 'dragging_playhead') and self.dragging_playhead:
             w = self.width()
             left_margin = 40
@@ -594,13 +609,11 @@ class FireworkPreviewWidget(QWidget):
             x = event.position().x()
             x = max(left_margin, min(x, w - right_margin))
             new_time = (x - left_margin) / usable_w * zoom_duration + draw_start
-            # Always clamp playhead to [0, duration]
             new_time = max(0, min(new_time, self.duration))
             self.current_time = new_time
             self.dragging_playhead = False
             self.setCursor(Qt.CursorShape.ArrowCursor)
             self.update()
-            # If playback was active, pause it and update play/pause button state
             if self.preview_timer and self.preview_timer.isActive():
                 try:
                     if sd.get_stream() is not None:
@@ -609,6 +622,48 @@ class FireworkPreviewWidget(QWidget):
                     pass
                 self.preview_timer.stop()
                 return
-            # Otherwise, just update current_time and state; playback will resume from here when play is pressed
             return
 
+    def show_firing_context_menu(self, global_pos, idx):
+        menu = QMenu(self)
+        change_color_action = menu.addAction("Change Color")
+        change_time_action = menu.addAction("Change Time")
+        change_pattern_action = menu.addAction("Change Pattern")
+        change_number_action = menu.addAction("Change Number of Firings")
+        action = menu.exec(global_pos)
+        handle = self.fireworks[idx] if 0 <= idx < len(self.fireworks) else None
+        if handle is None:
+            return
+        if action == change_color_action:
+            color = QColorDialog.getColor(handle.firing_color, self, "Select Firework Color")
+            if color.isValid():
+                handle.firing_color = color
+                self.update()
+        elif action == change_time_action:
+            new_time, ok = QInputDialog.getDouble(self, "Change Firing Time", "Time (seconds):", handle.firing_time, 0, self.duration, 3)
+            if ok:
+                handle.firing_time = new_time
+                self.fireworks.sort(key=lambda h: h.firing_time)
+                self.firework_times = [h.firing_time for h in self.fireworks]
+                for i, h in enumerate(self.fireworks):
+                    h.display_number = i + 1
+                self.update()
+        elif action == change_pattern_action:
+            patterns = [
+                "circle",
+                "chrysanthemum",
+                "palm",
+                "willow",
+                "peony",
+                "ring",
+            ]
+            current = patterns.index(handle.pattern) if handle.pattern in patterns else 0
+            pattern, ok = QInputDialog.getItem(self, "Change Pattern", "Pattern:", patterns, current, False)
+            if ok:
+                handle.pattern = pattern
+                self.update()
+        elif action == change_number_action:
+            num, ok = QInputDialog.getInt(self, "Change Number of Firings", "Number:", handle.number_firings, 1, 100, 1)
+            if ok:
+                handle.number_firings = num
+                self.update()
