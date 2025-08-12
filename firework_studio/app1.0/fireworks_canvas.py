@@ -272,23 +272,24 @@ class FireworksCanvas(QWidget):
             
     
     def draw_background_sunset(self, painter):
-        # Draw background - advanced sunset transitioning to night
+        # Draw background - realistic sunset over water
+
+        # 1. Sky gradient: deep indigo to warm orange, fading to blue at horizon
         gradient = QLinearGradient(0, 0, 0, self.height())
-        # Deepen the colors for a tranquil, late sunset
-        gradient.setColorAt(0.0, QColor(40, 20, 60))      # Deep indigo at top
-        gradient.setColorAt(0.25, QColor(90, 40, 120))    # Purple
-        gradient.setColorAt(0.5, QColor(255, 120, 80))    # Orange-pink
-        gradient.setColorAt(0.7, QColor(255, 180, 120))   # Soft peach
-        gradient.setColorAt(1.0, QColor(40, 30, 80))      # Night blue at bottom
+        gradient.setColorAt(0.0, QColor(30, 20, 70))      # Deep indigo at top
+        gradient.setColorAt(0.24, QColor(90, 40, 120))    # Purple (taller indigo section)
+        gradient.setColorAt(0.42, QColor(255, 120, 80))   # Orange-pink
+        gradient.setColorAt(0.60, QColor(255, 180, 120))  # Peach
+        gradient.setColorAt(0.77, QColor(120, 140, 200))  # Blue at horizon
+        gradient.setColorAt(1.0, QColor(40, 60, 110))     # Water blue
         painter.fillRect(self.rect(), gradient)
 
-        # Draw sun, low on horizon, partially set
-        sun_radius = 200
-        # Draw only the upper half of the sun above the horizon (cut off at horizon)
-        horizon_y = int(self.height() * 0.73)
-        sun_x = int(self.width() * 0.75)
-        sun_y = int(self.height() * 0.82)
-        sun_color = QColor(255, 220, 140, 180)
+        # 2. Sun: low, half-dipped at horizon, with glow
+        sun_radius = 180
+        horizon_y = int(self.height() * 0.76)  # Move water line further down
+        sun_x = int(self.width() * 0.7)
+        sun_y = horizon_y + sun_radius // 3
+        sun_color = QColor(255, 220, 140, 220)
         sun_rect = QRectF(sun_x - sun_radius // 2, sun_y - sun_radius // 2, sun_radius, sun_radius)
         painter.save()
         painter.setClipRect(0, 0, self.width(), horizon_y)
@@ -297,48 +298,84 @@ class FireworksCanvas(QWidget):
         painter.drawEllipse(sun_rect)
         painter.restore()
 
-        # Draw tranquil, layered clouds with soft edges
-        cloud_color = QColor(255, 255, 255, 180)
-        painter.setBrush(cloud_color)
+        # Sun glow (radial gradient)
+        glow = QRadialGradient(sun_x, sun_y, sun_radius * 1.2)
+        glow.setColorAt(0.0, QColor(255, 230, 180, 120))
+        glow.setColorAt(0.5, QColor(255, 200, 120, 60))
+        glow.setColorAt(1.0, QColor(255, 180, 100, 0))
+        painter.setBrush(glow)
         painter.setPen(Qt.PenStyle.NoPen)
-        # Draw clouds at fixed positions for consistency
-        clouds = [
-            # Main cloud layer (amorphous, overlapping)
-            (60, horizon_y - 120, 220, 60),
-            (180, horizon_y - 130, 120, 50),   # Overlaps first
-            (250, horizon_y - 110, 180, 40),
-            (320, horizon_y - 120, 100, 35),   # Overlaps second and third
-            (480, horizon_y - 100, 200, 55),
-            (600, horizon_y - 110, 120, 40),   # Overlaps fourth and fifth
-            (700, horizon_y - 105, 170, 35),
-            (820, horizon_y - 120, 120, 50),   # Overlaps sixth and seventh
-            (900, horizon_y - 110, 250, 70),
-            # Near the sun, but at same height as other clouds
-            (sun_x - 60, horizon_y - 110, 110, 28),
-            (sun_x + 40, horizon_y - 110, 90, 22),
-            (sun_x - 20, horizon_y - 110, 120, 30),
+        painter.save()
+        painter.setClipRect(0, 0, self.width(), horizon_y)
+        painter.drawEllipse(sun_x - sun_radius, sun_y - sun_radius, sun_radius * 2, sun_radius * 2)
+        painter.restore()
+
+        # 3. Clouds: layered, semi-transparent, warm colors
+        cloud_colors = [
+            QColor(255, 200, 180, 120),  # Peach
+            QColor(255, 255, 255, 90),   # White
+            QColor(255, 180, 120, 80),   # Orange
+            QColor(200, 160, 220, 60),   # Purple
         ]
-        for cloud_x, cloud_y, cloud_width, cloud_height in clouds:
+        clouds = [
+            (60, horizon_y - 120, 220, 60, 0),
+            (180, horizon_y - 130, 120, 50, 1),
+            (250, horizon_y - 110, 180, 40, 2),
+            (320, horizon_y - 120, 100, 35, 3),
+            (480, horizon_y - 100, 200, 55, 0),
+            (600, horizon_y - 110, 120, 40, 1),
+            (700, horizon_y - 105, 170, 35, 2),
+            (820, horizon_y - 120, 120, 50, 3),
+            (900, horizon_y - 110, 250, 70, 0),
+            (sun_x - 60, horizon_y - 110, 110, 28, 1),
+            (sun_x + 40, horizon_y - 110, 90, 22, 2),
+            (sun_x - 20, horizon_y - 110, 120, 30, 0),
+        ]
+        painter.setPen(Qt.PenStyle.NoPen)
+        for cloud_x, cloud_y, cloud_width, cloud_height, color_idx in clouds:
+            painter.setBrush(cloud_colors[color_idx % len(cloud_colors)])
             painter.drawEllipse(cloud_x, cloud_y, cloud_width, cloud_height)
 
-        # Add a faint crescent moon for a tranquil, late sunset
-        moon_radius = 28
-        moon_x = int(self.width() * 0.18)
-        moon_y = int(self.height() * 0.22)
-        moon_color = QColor(230, 230, 255, 120)
+        # 4. Crescent moon, faint, high in sky
+        moon_radius = 26
+        moon_x = int(self.width() * 0.16)
+        moon_y = int(self.height() * 0.18)
+        moon_color = QColor(230, 230, 255, 80)
         painter.setBrush(moon_color)
         painter.setPen(Qt.PenStyle.NoPen)
         painter.drawEllipse(moon_x, moon_y, moon_radius, moon_radius)
-        # Crescent effect
-        painter.setBrush(QColor(40, 20, 60, 0))
+        painter.setBrush(QColor(30, 20, 70, 0))
         painter.drawEllipse(moon_x + 7, moon_y, moon_radius, moon_radius)
 
-        # Optionally, add a few early stars
-        painter.setPen(QColor(255, 255, 255, 80))
-        for _ in range(18):
+        # 5. Early stars, faint, only in upper sky
+        painter.setPen(QColor(255, 255, 255, 60))
+        for _ in range(16):
             x = random.randint(0, self.width())
-            y = random.randint(0, int(self.height() * 0.4))
+            y = random.randint(0, int(self.height() * 0.35))
             painter.drawPoint(x, y)
+
+        # 6. Water: horizontal gradient, subtle reflection of sun and sky
+        water_rect = QRectF(0, horizon_y, self.width(), self.height() - horizon_y)
+        water_gradient = QLinearGradient(0, horizon_y, 0, self.height())
+        water_gradient.setColorAt(0.0, QColor(80, 110, 180, 220))
+        water_gradient.setColorAt(0.5, QColor(40, 60, 110, 255))
+        water_gradient.setColorAt(1.0, QColor(20, 30, 60, 255))
+        painter.fillRect(water_rect, water_gradient)
+
+        # 7. Sun reflection: vertical streaks, shimmering
+        reflection_width = sun_radius // 2
+        reflection_x = sun_x - reflection_width // 2
+        reflection_y = horizon_y
+        reflection_height = int(self.height() - horizon_y)
+        for i in range(18):
+            alpha = 120 - i * 6
+            width = reflection_width - i * 6
+            if width <= 0:
+                break
+            color = QColor(255, 230, 180, max(0, alpha))
+            painter.setBrush(color)
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.drawEllipse(reflection_x + i * 3, reflection_y + i * 10, width, 12)
 
     def draw_background_city(self, painter):
         # Draw background - cityscape at night with gently flickering lights in windows
