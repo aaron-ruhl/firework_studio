@@ -5,6 +5,7 @@ from PyQt6.QtGui import QPainter, QColor
 from PyQt6.QtWidgets import QMenu, QColorDialog, QInputDialog
 import sounddevice as sd
 import random
+from PyQt6.QtGui import QIcon, QPixmap
 
 
 from fireworks_timeline import FireworkTimelineRenderer
@@ -373,7 +374,7 @@ class FireworkPreviewWidget(QWidget):
                 self.preview_timer.stop()
                 return
             return
-
+        
     def show_firing_context_menu(self, global_pos, idx):
         handle = self.fireworks[idx] if 0 <= idx < len(self.fireworks) else None
         if handle is None:
@@ -381,8 +382,21 @@ class FireworkPreviewWidget(QWidget):
 
         menu = QMenu(self)
 
-        # Show current values in the menu text
-        change_color_action = menu.addAction(f"Change Color (Current: {handle.firing_color.name() if isinstance(handle.firing_color, QColor) else str(handle.firing_color)})")
+        # Display the firing number at the top as a disabled, bold action
+        display_number_text = f"🔥 Firing #{handle.display_number}"
+        display_number_action = menu.addAction(display_number_text)
+        font = display_number_action.font()
+        font.setBold(True)
+        display_number_action.setFont(font)
+        display_number_action.setEnabled(False)
+        menu.addSeparator()
+
+        # Show color sample as a colored square in the menu
+        color = handle.firing_color if isinstance(handle.firing_color, QColor) else QColor(handle.firing_color)
+        pixmap = QPixmap(16, 16)
+        pixmap.fill(color)
+        icon = QIcon(pixmap)
+        change_color_action = menu.addAction(icon, f"Change Color (Current: {color.name()})")
         change_time_action = menu.addAction(f"Change Time (Current: {handle.firing_time:.3f}s)")
         change_pattern_action = menu.addAction(f"Change Pattern (Current: {handle.pattern})")
         change_number_action = menu.addAction(f"Change Number of Firings (Current: {handle.number_firings})")
