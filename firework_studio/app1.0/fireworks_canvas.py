@@ -141,87 +141,134 @@ class FireworksCanvas(QWidget):
             self._custom_bg_pixmap = None
 
     def draw_background_night(self, painter):
-            # Draw background - night sky with a coastline
-            # Draw sky gradient
-            gradient = QLinearGradient(0, 0, 0, self.height())
-            gradient.setColorAt(0.0, QColor(10, 10, 40))
-            gradient.setColorAt(0.7, QColor(20, 20, 60))
-            gradient.setColorAt(1.0, QColor(30, 30, 80))
-            painter.fillRect(self.rect(), gradient)
+        # Draw background - night sky with a coastline
+        # Draw sky gradient (deeper, more vibrant blues)
+        gradient = QLinearGradient(0, 0, 0, self.height())
+        gradient.setColorAt(0.0, QColor(12, 10, 48))
+        gradient.setColorAt(0.3, QColor(18, 18, 60))
+        gradient.setColorAt(0.7, QColor(28, 28, 80))
+        gradient.setColorAt(1.0, QColor(38, 38, 100))
+        painter.fillRect(self.rect(), gradient)
 
-            # Draw stars (drawn down to waterline)
-            coastline_height = int(self.height() * 0.15)
-            coastline_y = self.height() - coastline_height
-            random.seed()  # Reset random seed
-            star_count = 180
-            # Dynamic stars: add/remove stars slowly
-            if self._dynamic_stars is None:
-                self._dynamic_stars = set()
-                for _ in range(star_count):
-                    sx = random.randint(0, self.width())
-                    sy = random.randint(0, coastline_y)
-                    self._dynamic_stars.add((sx, sy))
-            if not hasattr(self, "_star_tick"):
-                self._star_tick = 0
-            self._star_tick += 1
-            if self._star_tick > 120:  # About every 2 seconds at 60 FPS
-                self._star_tick = 0
-                # Remove a random star
-                if len(self._dynamic_stars) > 0:
-                    self._dynamic_stars.pop()
-                    # Add a new star
-                    sx = random.randint(0, self.width())
-                    sy = random.randint(0, coastline_y)
-                    self._dynamic_stars.add((sx, sy))
-            for sx, sy in self._dynamic_stars:
+        # Draw stars (drawn down to waterline)
+        coastline_height = int(self.height() * 0.15)
+        coastline_y = self.height() - coastline_height
+        random.seed()  # Reset random seed
+        star_count = 220  # More stars for a denser sky
+        # Dynamic stars: add/remove stars slowly
+        if self._dynamic_stars is None:
+            self._dynamic_stars = set()
+            for _ in range(star_count):
+                sx = random.randint(0, self.width())
+                sy = random.randint(0, coastline_y)
+                self._dynamic_stars.add((sx, sy))
+        if not hasattr(self, "_star_tick"):
+            self._star_tick = 0
+        self._star_tick += 1
+        if self._star_tick > 120:  # About every 2 seconds at 60 FPS
+            self._star_tick = 0
+            # Remove a random star
+            if len(self._dynamic_stars) > 0:
+                self._dynamic_stars.pop()
+                # Add a new star
+                sx = random.randint(0, self.width())
+                sy = random.randint(0, coastline_y)
+                self._dynamic_stars.add((sx, sy))
+        # Draw stars with some twinkling and color variation
+        for sx, sy in self._dynamic_stars:
+            twinkle = random.randint(0, 10)
+            if twinkle < 2:
+                # Occasional blue or yellowish star
+                if random.random() < 0.5:
+                    color = QColor(180, 200, 255, 255)  # Blue-white
+                else:
+                    color = QColor(255, 240, 200, 255)  # Yellow-white
+            else:
                 brightness = random.randint(180, 255)
-                painter.setPen(QColor(brightness, brightness, brightness))
-                painter.drawPoint(sx, sy)
+                color = QColor(brightness, brightness, brightness)
+            painter.setPen(color)
+            painter.drawPoint(sx, sy)
+            # Occasionally draw a slightly larger star
+            if random.random() < 0.02:
+                painter.drawPoint(sx+1, sy)
+                painter.drawPoint(sx, sy+1)
 
-            moon_radius = 38  # Increased from 28 to 38 for a bigger moon
-            moon_x = int(self.width() * 0.8)
-            moon_y = int(self.height() * 0.18)
+        # Draw a few shooting stars
+        for _ in range(2):
+            if random.random() < 0.0002:  # Rarely appear
+                sx = random.randint(int(self.width() * 0.1), int(self.width() * 0.9))
+                sy = random.randint(10, int(coastline_y * 0.7))
+                length = random.randint(30, 60)
+                angle = random.uniform(-0.3, 0.3)
+                ex = sx + int(length * math.cos(angle))
+                ey = sy + int(length * math.sin(angle))
+                grad = QLinearGradient(sx, sy, ex, ey)
+                grad.setColorAt(0.0, QColor(255, 255, 255, 180))
+                grad.setColorAt(1.0, QColor(255, 255, 255, 0))
+                painter.setPen(QPen(grad, 2))
+                painter.drawLine(sx, sy, ex, ey)
 
-            # Draw moon with texture and slightly yellow tint
-            moon_color = QColor(245, 235, 180, 220)  # Slightly yellowish
-            painter.setBrush(moon_color)
-            painter.setPen(moon_color)
-            painter.drawEllipse(moon_x, moon_y, moon_radius, moon_radius)
+        # Draw moon with texture and slightly yellow tint
+        moon_radius = 44  # Larger moon
+        moon_x = int(self.width() * 0.8)
+        moon_y = int(self.height() * 0.16)
+        moon_color = QColor(245, 235, 180, 230)  # Slightly yellowish
+        painter.setBrush(moon_color)
+        painter.setPen(moon_color)
+        painter.drawEllipse(moon_x, moon_y, moon_radius, moon_radius)
 
-            # Subtle radial gradient for moon shading
-            grad = QRadialGradient(
-                moon_x + moon_radius // 2, moon_y + moon_radius // 2, moon_radius
-            )
-            grad.setColorAt(0.0, QColor(255, 255, 230, 180))
-            grad.setColorAt(0.7, QColor(230, 230, 210, 120))
-            grad.setColorAt(1.0, QColor(180, 180, 170, 80))
-            painter.setBrush(grad)
-            painter.setPen(Qt.PenStyle.NoPen)
-            painter.drawEllipse(moon_x, moon_y, moon_radius, moon_radius)
-            painter.setPen(QColor(230, 230, 210, 220))  # Restore pen
+        # Subtle radial gradient for moon shading
+        grad = QRadialGradient(
+            moon_x + moon_radius // 2, moon_y + moon_radius // 2, moon_radius
+        )
+        grad.setColorAt(0.0, QColor(255, 255, 230, 200))
+        grad.setColorAt(0.7, QColor(230, 230, 210, 120))
+        grad.setColorAt(1.0, QColor(180, 180, 170, 80))
+        painter.setBrush(grad)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawEllipse(moon_x, moon_y, moon_radius, moon_radius)
+        painter.setPen(QColor(230, 230, 210, 220))  # Restore pen
 
-            # Draw coastline silhouette
-            coastline_height = int(self.height() * 0.15)
-            coastline_y = self.height() - coastline_height
-            painter.setPen(QColor(10, 10, 20))
-            painter.setBrush(QColor(10, 10, 20))
+        # Add subtle moon craters (texture)
+        painter.setBrush(QColor(220, 210, 160, 80))
+        painter.setPen(Qt.PenStyle.NoPen)
+        for _ in range(7):
+            cr_x = moon_x + random.randint(7, moon_radius-12)
+            cr_y = moon_y + random.randint(7, moon_radius-12)
+            cr_r = random.randint(3, 7)
+            painter.drawEllipse(cr_x, cr_y, cr_r, cr_r)
 
-            # Draw a wavy coastline
-            path = []
-            for i in range(0, self.width(), 10):
-                wave = math.sin(i * 0.03) * 10 + math.cos(i * 0.015) * 7
-                path.append((i, coastline_y + wave))
-            path.append((self.width(), self.height()))
-            path.append((0, self.height()))
-            painter.drawPolygon(*[QPointF(x, y) for x, y in path])
+        # Draw a faint moon halo
+        halo_grad = QRadialGradient(
+            moon_x + moon_radius // 2, moon_y + moon_radius // 2, moon_radius * 2
+        )
+        halo_grad.setColorAt(0.0, QColor(255, 255, 200, 60))
+        halo_grad.setColorAt(1.0, QColor(255, 255, 200, 0))
+        painter.setBrush(halo_grad)
+        painter.drawEllipse(
+            moon_x - moon_radius // 2, moon_y - moon_radius // 2, moon_radius * 2, moon_radius * 2
+        )
 
-            water_rect = self.rect()
-            water_rect.setTop(coastline_y)
-            water_gradient = QLinearGradient(0, coastline_y, 0, self.height())
-            water_gradient.setColorAt(0.0, QColor(30, 40, 90, 180))
-            water_gradient.setColorAt(1.0, QColor(10, 20, 40, 220))
-            painter.fillRect(water_rect, water_gradient)
-            painter.fillRect(water_rect, water_gradient)
+        # Draw coastline silhouette (unchanged)
+        coastline_height = int(self.height() * 0.15)
+        coastline_y = self.height() - coastline_height
+        painter.setPen(QColor(10, 10, 20))
+        painter.setBrush(QColor(10, 10, 20))
+        path = []
+        for i in range(0, self.width(), 10):
+            wave = math.sin(i * 0.03) * 10 + math.cos(i * 0.015) * 7
+            path.append((i, coastline_y + wave))
+        path.append((self.width(), self.height()))
+        path.append((0, self.height()))
+        painter.drawPolygon(*[QPointF(x, y) for x, y in path])
+
+        water_rect = self.rect()
+        water_rect.setTop(coastline_y)
+        water_gradient = QLinearGradient(0, coastline_y, 0, self.height())
+        water_gradient.setColorAt(0.0, QColor(30, 40, 90, 180))
+        water_gradient.setColorAt(1.0, QColor(10, 20, 40, 220))
+        painter.fillRect(water_rect, water_gradient)
+        painter.fillRect(water_rect, water_gradient)
             
     
     def draw_background_sunset(self, painter):

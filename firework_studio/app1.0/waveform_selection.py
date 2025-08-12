@@ -1,4 +1,6 @@
 from matplotlib.widgets import SpanSelector
+from toaster import ToastDialog
+from PyQt6.QtCore import QTimer
 
 class WaveformSelectionTool:
     # Add a waveform panning/selection tool using matplotlib's SpanSelector
@@ -24,8 +26,7 @@ class WaveformSelectionTool:
             if self.main_window and hasattr(self.main_window, "preview_widget"):
                 self.main_window.preview_widget.reset_selected_region()
                 self.main_window.preview_widget.update()
-            if self.main_window and hasattr(self.main_window, "status_bar"):
-                self.main_window.status_bar.showMessage("Selection cleared")
+                self.main_window.status_bar.showMessage(self.main_window.firework_show_info)
             return
         self.selected_region = (xmin, xmax)
         # Update status bar and filter segments/firings if main_window is provided

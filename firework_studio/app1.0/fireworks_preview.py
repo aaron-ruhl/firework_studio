@@ -14,46 +14,6 @@ class FiringHandles:
         self.number_firings = number_firings
         self.display_number = display_number
 
-    @property
-    def display_number(self):
-        return self._display_number
-
-    @display_number.setter
-    def display_number(self, value):
-        self._display_number = value
-
-    @property
-    def firing_time(self):
-        return self._firing_time
-
-    @firing_time.setter
-    def firing_time(self, value):
-        self._firing_time = value
-
-    @property
-    def firing_color(self):
-        return self._firing_color
-
-    @firing_color.setter
-    def firing_color(self, value):
-        self._firing_color = value
-
-    @property
-    def pattern(self):
-        return self._pattern
-
-    @pattern.setter
-    def pattern(self, value):
-        self._pattern = value
-
-    @property
-    def number_firings(self):
-        return self._number_firings
-
-    @number_firings.setter
-    def number_firings(self, value):
-        self._number_firings = value
-
 '''THIS IS THE BAR CLASS FOR ALONG THE BOTTOM TWO PLOTS'''
 class FireworkPreviewWidget(QWidget):
     def __init__(self, waveform_selection_tool=None, main_window=None):
@@ -105,7 +65,6 @@ class FireworkPreviewWidget(QWidget):
         self.set_show_data(self.audio_data, self.sr, self.segment_times, self.firework_times, self.duration)
         self.update()
         
-    # Ensure negative times are not allowed in selected_region
     def set_selected_region(self, region):
         """Called by WaveformSelectionTool when a region is selected."""
         if region and len(region) == 2:
@@ -114,7 +73,6 @@ class FireworkPreviewWidget(QWidget):
                 start = 0
             if end > self.duration:
                 end = self.duration
-            # Never move playhead when zooming/panning
             self.selected_region = (start, end)
         else:
             self.selected_region = region
@@ -129,7 +87,6 @@ class FireworkPreviewWidget(QWidget):
         self.pattern = pattern
 
     def add_time(self):
-        # Only add a firework when explicitly called, not automatically by playhead
         if self.audio_data is None or self.sr is None:
             return
         if self.firework_times is None:
@@ -137,9 +94,7 @@ class FireworkPreviewWidget(QWidget):
         elif not isinstance(self.firework_times, list):
             self.firework_times = list(self.firework_times)
 
-        '''THIS IS WHERE HANDLES ARE CREATED '''
         firing_time = self.current_time
-        # do not allow placing at very start
         if firing_time < self.delay:
             return
         color = QColor(random.randint(50, 255), random.randint(50, 255), random.randint(50, 255))
@@ -148,35 +103,30 @@ class FireworkPreviewWidget(QWidget):
         self.firework_times.sort()
         display_number = self.firework_times.index(firing_time) + 1
 
-        # create the handle for displaying on preview_widget
-        # Store the  firing_time in the handle for consistency
         handle = FiringHandles(firing_time, color, number_firings=self.number_firings, pattern=self.pattern, display_number=display_number)
         self.fireworks.append(handle)
         self.fireworks.sort(key=lambda handle: handle.firing_time)
         self.update()
 
     def advance_preview(self):
-            if self.audio_data is None or self.sr is None or self.duration is None:
-                return
-            # Advance by 16 ms (assuming timer interval is 16 ms)
-            self.current_time += 0.016
-            # Always clamp current_time to [0, duration]
-            if self.current_time > self.duration:
-                self.current_time = self.duration
-            if self.current_time < 0:
-                self.current_time = 0
+        if self.audio_data is None or self.sr is None or self.duration is None:
+            return
+        self.current_time += 0.016
+        if self.current_time > self.duration:
+            self.current_time = self.duration
+        if self.current_time < 0:
+            self.current_time = 0
 
-            # MODIFIED: Only stop at the end of the full duration, not the zoomed region
-            if self.current_time >= self.duration:
-                self.current_time = self.duration
-                if self.preview_timer:
-                    self.preview_timer.stop()
-                try:
-                    if sd.get_stream() is not None:
-                        sd.stop(ignore_errors=True)
-                except RuntimeError:
-                    pass
-            self.update()
+        if self.current_time >= self.duration:
+            self.current_time = self.duration
+            if self.preview_timer:
+                self.preview_timer.stop()
+            try:
+                if sd.get_stream() is not None:
+                    sd.stop(ignore_errors=True)
+            except RuntimeError:
+                pass
+        self.update()
 
     def remove_selected_firing(self):
         if hasattr(self, 'selected_firing') and self.selected_firing is not None:
@@ -195,19 +145,15 @@ class FireworkPreviewWidget(QWidget):
         if self.audio_data is not None and self.sr is not None:
             sd.stop()
             import threading
-            # Always clamp current_time to [0, duration]
             if self.current_time < 0:
                 self.current_time = 0
 
             def play_audio():
                 if self.audio_data is not None and self.current_time is not None and self.sr is not None:
-                    # If a region is selected, play only that region from the correct offset
                     if self.selected_region and len(self.selected_region) == 2:
                         start, end = self.selected_region
-                        # Clamp current_time to region
                         play_start = min(self.current_time, end)
                         start_idx = int(play_start * self.sr)
-                        # MODIFIED: play to end of audio, not just to end of region
                         end_idx = int(self.duration * self.sr)
                         sd.play(self.audio_data[start_idx:end_idx], self.sr, blocking=False)
                     else:
@@ -228,13 +174,11 @@ class FireworkPreviewWidget(QWidget):
     def toggle_play_pause(self):
         if self.preview_timer and self.preview_timer.isActive():
             try:
-                # Just stop playback and timer, do not update current_time
                 sd.stop(ignore_errors=True)
                 self.preview_timer.stop()
             except Exception:
                 pass
         else:
-            # Resume from current_time
             self.start_preview()
 
     def stop_preview(self):
@@ -267,8 +211,6 @@ class FireworkPreviewWidget(QWidget):
 
         grad = QColor(25, 28, 40)
         painter.fillRect(self.rect(), grad)
-        # --- ZOOM LOGIC ---
-        # If a region is selected, zoom in on that region
         if self.selected_region and len(self.selected_region) == 2 and self.duration:
             zoom_start, zoom_end = self.selected_region
             zoom_duration = max(zoom_end - zoom_start, 1e-9)
@@ -279,12 +221,9 @@ class FireworkPreviewWidget(QWidget):
                 secs = int(t % 60)
                 ms = int((t - int(t)) * 1000)
                 return f"{mins:02d}:{secs:02d}:{ms:03d}"
-            # Draw arrow and time if playhead is outside region
-            gap = 1.41  # add a small gap to improve functionality
+            gap = 1.41
             if self.playhead_time < draw_start - gap or self.playhead_time > draw_end + gap:
-                # Lower the arrow so it's not blocked by the preview timeline
                 label = format_time(self.playhead_time)
-                # Save current font
                 orig_font = painter.font()
                 label_font = painter.font()
                 label_font.setBold(True)
@@ -292,11 +231,9 @@ class FireworkPreviewWidget(QWidget):
                 painter.setFont(label_font)
                 label_width = painter.fontMetrics().horizontalAdvance(label) + 12
                 label_height = painter.fontMetrics().height() + 6
-                # Place arrow at the same vertical position as the playhead timer label
                 arrow_y = timeline_y - 48 + 12 + label_height // 2
 
                 if self.playhead_time < draw_start:
-                    # Draw left arrow
                     arrow_x = 10
                     points = [
                         QPoint(arrow_x + 8, arrow_y - 18),
@@ -306,13 +243,11 @@ class FireworkPreviewWidget(QWidget):
                     painter.setBrush(QColor(0, 255, 120, 180))
                     painter.setPen(Qt.PenStyle.NoPen)
                     painter.drawPolygon(*points)
-                    # Draw label to right of arrow
                     painter.setBrush(QColor(25, 28, 40, 230))
                     painter.drawRoundedRect(arrow_x + 16, arrow_y - label_height // 2, label_width, label_height, 7, 7)
                     painter.setPen(QColor(0, 255, 120))
                     painter.drawText(arrow_x + 16, arrow_y - label_height // 2, label_width, label_height, Qt.AlignmentFlag.AlignCenter, label)
                 else:
-                    # Draw right arrow
                     arrow_x = self.width() - 10
                     points = [
                         QPoint(arrow_x - 8, arrow_y - 18),
@@ -322,12 +257,10 @@ class FireworkPreviewWidget(QWidget):
                     painter.setBrush(QColor(0, 255, 120, 180))
                     painter.setPen(Qt.PenStyle.NoPen)
                     painter.drawPolygon(*points)
-                    # Draw label to left of arrow
                     painter.setBrush(QColor(25, 28, 40, 230))
                     painter.drawRoundedRect(arrow_x - 16 - label_width, arrow_y - label_height // 2, label_width, label_height, 7, 7)
                     painter.setPen(QColor(0, 255, 120))
                     painter.drawText(arrow_x - 16 - label_width, arrow_y - label_height // 2, label_width, label_height, Qt.AlignmentFlag.AlignCenter, label)
-                # Restore original font so tick labels are not affected
                 painter.setFont(orig_font)
         else:
             draw_start = 0
@@ -339,13 +272,10 @@ class FireworkPreviewWidget(QWidget):
         painter.setBrush(QColor(50, 55, 70, 220))
         painter.drawRoundedRect(bar_rect, 8, 8)
 
-        # Draw tighter, more professional ticks and labels
         painter.setPen(QColor(150, 150, 170))
-        # Choose a reasonable pixel spacing for ticks (e.g., every ~60px)
         min_tick_px = 60
         tick_area = usable_w
         approx_ticks = max(2, tick_area // min_tick_px)
-        # Compute a "nice" step (1, 2, 5, 10, 15, 30, 60, etc. seconds)
         def nice_step(span, target_ticks):
             raw = span / target_ticks
             for step in [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600]:
@@ -371,13 +301,10 @@ class FireworkPreviewWidget(QWidget):
                 painter.setPen(QColor(150, 150, 170))
             t += step
 
-        # Draw fireworks (handles)
         self.firing_handles = []
-        # Add enough space for a self.delay amount of delay at the start
         handle_radius = 12
         if self.fireworks is not None and self.duration:
             for idx, fw in enumerate(self.fireworks):
-                # Only draw if within visible region
                 if draw_start <= fw.firing_time <= draw_end:
                     x = left_margin + ((fw.firing_time - draw_start) / zoom_duration) * usable_w
                     is_selected = hasattr(self, 'selected_firing') and self.selected_firing == idx
@@ -386,7 +313,6 @@ class FireworkPreviewWidget(QWidget):
                     r = int(handle_radius * (1.3 if is_selected else 1))
                     painter.drawRect(int(round(x)) - r, timeline_y - r, 2 * r, 2 * r)
                     
-                    # Draw firing number from FiringHandles.display_number
                     painter.setPen(QColor(255, 255, 255))
                     number_font = painter.font()
                     number_font.setBold(True)
@@ -400,34 +326,21 @@ class FireworkPreviewWidget(QWidget):
                         Qt.AlignmentFlag.AlignCenter,
                         str(fw.display_number)
                     )
-                    # Store handle rect for hit-testing
                     self.firing_handles.append((QRect(int(round(x)) - handle_radius, timeline_y - handle_radius + 3, 2 * handle_radius, 2 * handle_radius), idx))
-                painter.setFont(label_font)  # Restore font
+                painter.setFont(label_font)
 
-        # --- PLAYHEAD DRAWING (always draw, even if outside zoom) ---
         self.playhead_time = min(max(self.current_time, 0), self.duration)
         playhead_x = left_margin + ((self.playhead_time - draw_start) / zoom_duration) * usable_w
-        # Clamp playhead_x to valid integer range to avoid OverflowError
         playhead_x = max(-2_147_483_648, min(playhead_x, 2_147_483_647))
-        # Allow playhead to be drawn outside the zoomed region (fade if out of bounds)
         fade = False
         if self.playhead_time < draw_start or self.playhead_time > draw_end:
             fade = True
         painter.setPen(Qt.PenStyle.NoPen)
-        if fade:
-            painter.setBrush(QColor(0, 0, 0, 40))
-        else:
-            painter.setBrush(QColor(0, 0, 0, 100))
+        painter.setBrush(QColor(0, 0, 0, 40) if fade else QColor(0, 0, 0, 100))
         painter.drawRect(int(round(playhead_x)) - 2, timeline_y - 44, 4, 88)
-        if fade:
-            painter.setPen(QColor(0, 255, 120, 80))
-        else:
-            painter.setPen(QColor(0, 255, 120))
+        painter.setPen(QColor(0, 255, 120, 80) if fade else QColor(0, 255, 120))
         painter.drawLine(int(round(playhead_x)), timeline_y - 40, int(round(playhead_x)), timeline_y + 40)
-        if fade:
-            painter.setBrush(QColor(0, 255, 120, 80))
-        else:
-            painter.setBrush(QColor(0, 255, 120))
+        painter.setBrush(QColor(0, 255, 120, 80) if fade else QColor(0, 255, 120))
         points = [
             (int(round(playhead_x)) - 8, timeline_y - 48),
             (int(round(playhead_x)) + 8, timeline_y - 48),
@@ -435,7 +348,6 @@ class FireworkPreviewWidget(QWidget):
         ]
         painter.drawPolygon(*[QPoint(*pt) for pt in points])
 
-        # --- PROFESSIONAL TIME LABEL (mm:ss:ms) ---
         minutes = int(self.playhead_time // 60)
         seconds = int(self.playhead_time % 60)
         milliseconds = int((self.playhead_time - int(self.playhead_time)) * 1000)
@@ -445,16 +357,13 @@ class FireworkPreviewWidget(QWidget):
         label_font.setBold(True)
         label_font.setPointSizeF(label_font.pointSizeF() * 1.15)
         painter.setFont(label_font)
-        # Draw the label just below the triangle
         label_width = painter.fontMetrics().horizontalAdvance(time_label) + 12
         label_height = painter.fontMetrics().height() + 4
         label_x = int(round(playhead_x)) - label_width // 2
-        label_y = timeline_y - 48 + 12  # 12px below the triangle tip
-        # Draw background for readability
+        label_y = timeline_y - 48 + 12
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(QColor(25, 28, 40, 230))
         painter.drawRoundedRect(label_x, label_y, label_width, label_height, 7, 7)
-        # Draw the text
         painter.setPen(QColor(0, 255, 120) if not fade else QColor(0, 255, 120, 120))
         painter.drawText(label_x, label_y, label_width, label_height, Qt.AlignmentFlag.AlignCenter, time_label)
 
@@ -476,7 +385,6 @@ class FireworkPreviewWidget(QWidget):
         timeline_y = top_margin + usable_h // 2
         self.head_move = True
 
-        # --- ZOOM LOGIC ---
         if self.selected_region and len(self.selected_region) == 2 and self.duration:
             draw_start, draw_end = self.selected_region
             zoom_duration = max(draw_end - draw_start, 1e-6)
@@ -485,7 +393,6 @@ class FireworkPreviewWidget(QWidget):
             draw_end = self.duration
             zoom_duration = self.duration if self.duration else 1
 
-        # Playhead
         playhead_time = min(max(self.current_time, 0), self.duration)
         playhead_x = left_margin + usable_w * (playhead_time - draw_start) / zoom_duration if self.duration else 0
         playhead_rect = QRect(int(playhead_x) - 8, timeline_y - 40, 16, 80)
@@ -504,7 +411,6 @@ class FireworkPreviewWidget(QWidget):
                 self.drag_offset = event.position().x() - rect.center().x()
                 self.setCursor(Qt.CursorShape.SplitHCursor)
                 self.update()
-                # Show context menu on right-click
                 if event.button() == Qt.MouseButton.RightButton:
                     self.show_firing_context_menu(event.globalPosition().toPoint(), idx)
                     self.dragging_firing = False
@@ -521,7 +427,6 @@ class FireworkPreviewWidget(QWidget):
         usable_h = h - top_margin - bottom_margin
         timeline_y = top_margin + usable_h // 2
 
-        # --- ZOOM LOGIC ---
         if self.selected_region and len(self.selected_region) == 2 and self.duration:
             draw_start, draw_end = self.selected_region
             zoom_duration = max(draw_end - draw_start, 1e-6)
@@ -530,7 +435,6 @@ class FireworkPreviewWidget(QWidget):
             draw_end = self.duration
             zoom_duration = self.duration if self.duration else 1
 
-        # Drag playhead
         if hasattr(self, 'dragging_playhead') and self.dragging_playhead:
             x = event.position().x()
             x = max(left_margin, min(x, w - right_margin))
@@ -541,21 +445,17 @@ class FireworkPreviewWidget(QWidget):
             self.update()
             return
 
-        # Drag firework handle
         if hasattr(self, 'dragging_firing') and self.dragging_firing and self.selected_firing is not None:
             x = event.position().x() - getattr(self, 'drag_offset', 0)
             x = max(left_margin, min(x, w - right_margin))
             new_time = (x - left_margin) / usable_w * zoom_duration + draw_start
             new_time = max(0, min(new_time, self.duration))
-            # Update the handle's time and re-sort
             handle = self.fireworks[self.selected_firing]
             handle.firing_time = new_time
             self.fireworks.sort(key=lambda h: h.firing_time)
             self.firework_times = [h.firing_time for h in self.fireworks]
-            # Update display numbers
             for i, h in enumerate(self.fireworks):
                 h.display_number = i + 1
-            # Update selected_firing to new index after sort
             for i, h in enumerate(self.fireworks):
                 if h is handle:
                     self.selected_firing = i
@@ -563,7 +463,6 @@ class FireworkPreviewWidget(QWidget):
             self.update()
             return
 
-        # Cursor feedback for handles
         if hasattr(self, 'firing_handles'):
             for rect, idx in self.firing_handles:
                 if rect.contains(event.position().toPoint()):
@@ -579,14 +478,12 @@ class FireworkPreviewWidget(QWidget):
         self.setCursor(Qt.CursorShape.ArrowCursor)
 
     def mouseReleaseEvent(self, event):
-        # Finish dragging firework handle
         if hasattr(self, 'dragging_firing') and self.dragging_firing:
             self.dragging_firing = False
             self.setCursor(Qt.CursorShape.ArrowCursor)
             self.update()
             return
 
-        # Finish dragging playhead
         if hasattr(self, 'dragging_playhead') and self.dragging_playhead:
             w = self.width()
             left_margin = 40

@@ -195,7 +195,7 @@ class FireworkShowApp(QMainWindow):
         ###########################################################
         # Create a canvas for displaying the waveform needed here for loading audio
         def create_waveform_canvas():
-            canvas = FigureCanvas(Figure(figsize=(20, 1)))
+            canvas = FigureCanvas(Figure(figsize=(7, 1)))
             ax = canvas.figure.subplots()
             ax.set_facecolor('black')
             ax.tick_params(axis='x', colors='white')
@@ -330,6 +330,10 @@ class FireworkShowApp(QMainWindow):
                     return
                 self.firework_firing = self.preview_widget.add_time()
                 self.update_firework_show_info()
+                # Immediately update the status bar to reflect the new firing count
+                if hasattr(self, "status_bar") and self.status_bar is not None:
+                    self.status_bar.showMessage(self.firework_show_info)
+                    self.status_bar.repaint()
             btn.clicked.connect(add_firing_and_update_info)
             return btn
 
@@ -788,21 +792,24 @@ class FireworkShowApp(QMainWindow):
             ax.set_xticks([])
             ax.set_yticks([])
         self.waveform_canvas.draw_idle()
-
+        
     def update_firework_show_info(self):
-        #Updates the variable called firework_show_info, not the actual show.
-        # This is just for diplaying information as it changes
+        # Updates the variable called firework_show_info, not the actual show.
+        # This is just for displaying information as it changes
         # Format duration as mm:ss if available
         if self.duration is not None:
             mins, secs = divmod(int(self.duration), 60)
             duration_str = f"{mins:02d}:{secs:02d}"
         else:
             duration_str = "N/A"
+        # Always get the latest firings from the preview widget if possible
+        if hasattr(self, "preview_widget") and hasattr(self.preview_widget, "firework_times"):
+            firing_count = len(self.preview_widget.firework_times) if self.preview_widget.firework_times is not None else 0
         self.firework_show_info = (
             f"Sample Rate: {self.sr if self.sr is not None else 'N/A'} | "
             f"Duration: {duration_str} | "
             f"Segments: {len(self.segment_times) if self.segment_times is not None else 0} | "
-            f"Firework Firings: {len(self.firework_firing) if self.firework_firing is not None else 0}"
+            f"Firework Firings: {firing_count}"
         )
         if hasattr(self, "status_bar") and self.status_bar is not None:
             self.status_bar.showMessage(self.firework_show_info)
