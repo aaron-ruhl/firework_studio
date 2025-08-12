@@ -168,7 +168,7 @@ class FireworkShowApp(QMainWindow):
 
         # Fireworks preview widget
         self.preview_widget = FireworkPreviewWidget()
-        self.preview_widget.setMinimumHeight(90)
+        self.preview_widget.setFixedHeight(90)
         # Enable mouse press tracking for the preview widget
         self.preview_widget.setMouseTracking(True)
 
