@@ -24,20 +24,31 @@ class Firework:
         self.timer.setSingleShot(True)
         self.timer.timeout.connect(self._start_explode_thread)
         self.timer.start()
+        self.frozen = False
+        self._pause_event = threading.Event()
+        self._pause_event.set()
 
+    def pause_explode(self):
+        self.frozen = True
+        self._pause_event.clear()
+        if self.timer.isActive():
+            self._remaining_time = self.timer.remainingTime()
+            self.timer.stop()
+        else:
+            self._remaining_time = 0
+
+    def resume_explode(self):
+        self.frozen = False
+        self._pause_event.set()
+        if not self.timer.isActive() and hasattr(self, '_remaining_time') and self._remaining_time > 0:
+            self.timer.setInterval(self._remaining_time)
+            self.timer.start()
+        
     def _start_explode_thread(self):
         # Run explosion logic in a separate thread to avoid UI blocking
         thread = threading.Thread(target=self.explode)
         thread.start()
 
-    # The current explode method is CPU-bound and uses Python objects for each particle.
-    # To leverage GPU acceleration, you would need to use libraries like CuPy, Numba, or PyOpenCL,
-    # and represent particle data as arrays (not Python objects).
-    # However, since Particle is a custom class and PyQt is used for rendering,
-    # significant refactoring is required to batch-process particle physics on the GPU.
-    # For now, this code cannot directly take advantage of the GPU without major changes.
-    # You could optimize by using numpy arrays for particle data and Numba for JIT compilation,
-    # but full GPU acceleration would require a different architecture.
     def explode(self):
         self.exploded = True
         base_color = self.color
@@ -135,7 +146,7 @@ class Firework:
 
 
     def update(self):
-        if not self.exploded:
+        if not self.exploded and not self.frozen:
             self.y += self.velocity_y
             self.velocity_y += 0.1
             if self.timer.remainingTime() == 0:

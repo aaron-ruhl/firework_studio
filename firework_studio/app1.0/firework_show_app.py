@@ -276,12 +276,16 @@ class FireworkShowApp(QMainWindow):
                 self.play_pause_btn.setText("Pause")
                 self.play_pause_btn.setIcon(QIcon(os.path.join("icons", "pause.png")))
                 self.fireworks_canvas.set_fireworks_enabled(True)
-                self.fireworks_canvas.reset_firings()
+                if hasattr(self.fireworks_canvas, "fireworks"):
+                    for firework in self.fireworks_canvas.fireworks:
+                        firework.resume_explode()
             else:
                 self.play_pause_btn.setText("Play")
                 self.play_pause_btn.setIcon(QIcon(os.path.join("icons", "play.png")))
                 self.fireworks_canvas.set_fireworks_enabled(False)
-                self.fireworks_canvas.reset_firings()
+                if hasattr(self.fireworks_canvas, "fireworks"):
+                    for firework in self.fireworks_canvas.fireworks:
+                        firework.pause_explode()
             self.preview_widget.toggle_play_pause()
 
         self.play_pause_btn = create_play_pause_btn()
