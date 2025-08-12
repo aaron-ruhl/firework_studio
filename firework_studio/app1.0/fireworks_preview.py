@@ -89,11 +89,21 @@ class FireworkPreviewWidget(QWidget):
 
         self.firework_times.append(firing_time)
         self.firework_times.sort()
-        display_number = self.firework_times.index(firing_time) + 1
 
-        handle = FiringHandles(firing_time, color, number_firings=self.number_firings, pattern=self.pattern, display_number=display_number)
+        handle = FiringHandles(
+            firing_time,
+            color,
+            number_firings=self.number_firings,
+            pattern=self.pattern,
+            display_number=0  # temporary, will set below
+        )
         self.fireworks.append(handle)
-        self.fireworks.sort(key=lambda handle: handle.firing_time)
+        self.fireworks.sort(key=lambda h: h.firing_time)
+
+        # Update display_number for all handles to ensure uniqueness and order
+        for i, h in enumerate(self.fireworks):
+            h.display_number = i + 1
+
         self.update()
 
     def advance_preview(self):
