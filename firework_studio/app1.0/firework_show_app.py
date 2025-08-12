@@ -40,6 +40,8 @@ class FireworkshowManager:
         def make_json_serializable(obj):
             if isinstance(obj, QColor):
                 return obj.name()  # Convert QColor to hex string
+            elif isinstance(obj, np.ndarray):
+                return obj.tolist()  # Convert numpy arrays to lists
             elif isinstance(obj, (list, tuple)):
                 return [make_json_serializable(x) for x in obj]
             elif isinstance(obj, dict):
@@ -50,6 +52,7 @@ class FireworkshowManager:
         handles_list = []
         if isinstance(handles, list):
             for handle in handles:
+                # Always convert to list if possible, then recursively make JSON serializable
                 if hasattr(handle, "to_list"):
                     handle_data = handle.to_list()
                 elif isinstance(handle, (list, tuple)):
@@ -59,7 +62,9 @@ class FireworkshowManager:
                         handle_data = list(handle)
                     except Exception:
                         handle_data = [str(handle)]
-                handles_list.append(make_json_serializable(handle_data))
+                # Recursively convert all elements to JSON-serializable types
+                handle_data = make_json_serializable(handle_data)
+                handles_list.append(handle_data)
 
         # Save only the file paths for audio_datas
         show_data = {
@@ -147,6 +152,7 @@ class ShowFileHandler:
             show_saved_toast()
 
     def load_show(self):
+        self.main_window.fireworks_canvas.set_fireworks_enabled(False)
         file_path, _ = QFileDialog.getOpenFileName(
             self.main_window, "Load Firework Show", "", "Firework Show (*.fwshow);;All Files (*)"
         )
@@ -159,7 +165,6 @@ class ShowFileHandler:
             self.main_window.segment_times = segment_times
             self.main_window.duration = duration
             self.main_window.paths = audio_datas and [getattr(a, 'path', a) for a in audio_datas] or []
-            # Try to run the same logic as handle_audio, but with loaded data
             # Set show data in preview_widget
             self.main_window.preview_widget.set_show_data(audio_data, sr, segment_times, firework_times, duration)
             # Plot the waveform
@@ -190,17 +195,31 @@ class ShowFileHandler:
                     try:
                         # Convert color string back to QColor if needed
                         if isinstance(handle, list) and len(handle) > 0:
-                            # If color is at a known index (e.g., index 2), convert it
-                            color_index = 2  # Adjust this index if your handle structure differs
-                            if len(handle) > color_index and isinstance(handle[color_index], str):
-                                from PyQt6.QtGui import QColor
-                                handle[color_index] = QColor(handle[color_index])
+                            # Try to find the color field by type (hex string)
+                            for i, val in enumerate(handle):
+                                if isinstance(val, str) and val.startswith("#") and len(val) in (7, 9):
+                                    from PyQt6.QtGui import QColor
+                                    handle[i] = QColor(val)
                         loaded_handles.append(FiringHandles.from_list(handle) if isinstance(handle, list) else handle)
                     except Exception as e:
                         print(f"Error reconstructing handle: {e}")
                         loaded_handles.append(handle)
             if hasattr(self.main_window.preview_widget, "set_handles"):
                 self.main_window.preview_widget.set_handles(loaded_handles)
+            # --- Ensure fireworks_canvas is updated with loaded handles ---
+            if hasattr(self.main_window.fireworks_canvas, "reset_fireworks"):
+                self.main_window.fireworks_canvas.reset_fireworks()
+            if hasattr(self.main_window.preview_widget, "firework_times"):
+                # This will trigger the preview_widget to update the canvas with the correct handles/colors
+                if hasattr(self.main_window.preview_widget, "update_fireworks_canvas"):
+                    self.main_window.preview_widget.update_fireworks_canvas()
+                else:
+                    # Fallback: manually add fireworks to the canvas using handles
+                    fw_canvas = self.main_window.fireworks_canvas
+                    fw_canvas.reset_fireworks()
+                    for handle in loaded_handles:
+                        if hasattr(fw_canvas, "add_firework"):
+                            fw_canvas.add_firework(handle)
             def show_loaded_toast():
                 toast = ToastDialog("Show loaded!", parent=self.main_window)
                 geo = self.main_window.geometry()
@@ -210,6 +229,9 @@ class ShowFileHandler:
                 toast.show()
                 QTimer.singleShot(2500, toast.close)
             show_loaded_toast()
+            # only enable after it loads so adding the fireworks does not trigger them to fire.
+            self.main_window.fireworks_canvas.reset_fireworks()
+            self.main_window.fireworks_canvas.set_fireworks_enabled(True)
 
     def create_save_btn(self):
         btn = QPushButton("Save Show")

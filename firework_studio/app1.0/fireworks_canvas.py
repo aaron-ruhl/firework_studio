@@ -42,10 +42,16 @@ class FireworksCanvas(QWidget):
     def add_firework(self, handle, x=None):
         margin = 40
         x = random.randint(margin, max(margin, self.width() - margin))
-        firework = Firework(x, self.height(),
-                            handle.firing_color, handle.pattern,
-                            handle.display_number,
-                            self.particle_count)
+        # Use handle.firing_color if set, else use self.firework_color
+        color = getattr(handle, "firing_color", None)
+        if not isinstance(color, QColor):
+            color = QColor(*color) if isinstance(color, (tuple, list)) else QColor(255, 0, 0)
+        firework = Firework(
+            x, self.height(),
+            color, handle.pattern,
+            handle.display_number,
+            self.particle_count
+        )
         self.fireworks.append(firework)
 
     def reset_fireworks(self):

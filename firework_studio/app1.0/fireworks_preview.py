@@ -57,7 +57,12 @@ class FireworkPreviewWidget(QWidget):
         self.fireworks = []
         self.firework_times = []
         for i, handle in enumerate(handles):
-            color = handle.firing_color if hasattr(handle, "firing_color") else QColor(random.randint(50, 255), random.randint(50, 255), random.randint(50, 255))
+            if hasattr(handle, "firing_color") and isinstance(handle.firing_color, QColor):
+                color = handle.firing_color
+            elif hasattr(handle, "firing_color") and isinstance(handle.firing_color, (tuple, list)) and len(handle.firing_color) == 3:
+                color = QColor(*handle.firing_color)
+            else:
+                handle.firing_color = QColor(random.randint(50, 255), random.randint(50, 255), random.randint(50, 255))
             pattern = handle.pattern if hasattr(handle, "pattern") else self.pattern
             number_firings = handle.number_firings if hasattr(handle, "number_firings") else self.number_firings
             firing_time = handle.firing_time
@@ -370,16 +375,21 @@ class FireworkPreviewWidget(QWidget):
             return
 
     def show_firing_context_menu(self, global_pos, idx):
-        menu = QMenu(self)
-        change_color_action = menu.addAction("Change Color")
-        change_time_action = menu.addAction("Change Time")
-        change_pattern_action = menu.addAction("Change Pattern")
-        change_number_action = menu.addAction("Change Number of Firings")
-        delete_action = menu.addAction("Delete Firing")
-        action = menu.exec(global_pos)
         handle = self.fireworks[idx] if 0 <= idx < len(self.fireworks) else None
         if handle is None:
             return
+
+        menu = QMenu(self)
+
+        # Show current values in the menu text
+        change_color_action = menu.addAction(f"Change Color (Current: {handle.firing_color.name() if isinstance(handle.firing_color, QColor) else str(handle.firing_color)})")
+        change_time_action = menu.addAction(f"Change Time (Current: {handle.firing_time:.3f}s)")
+        change_pattern_action = menu.addAction(f"Change Pattern (Current: {handle.pattern})")
+        change_number_action = menu.addAction(f"Change Number of Firings (Current: {handle.number_firings})")
+        delete_action = menu.addAction("Delete Firing")
+
+        action = menu.exec(global_pos)
+
         if action == change_color_action:
             initial_color = handle.firing_color
             if not isinstance(initial_color, QColor):
