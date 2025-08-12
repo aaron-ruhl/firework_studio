@@ -381,15 +381,10 @@ class FireworkPreviewWidget(QWidget):
                 if draw_start <= fw.firing_time <= draw_end:
                     x = left_margin + ((fw.firing_time - draw_start) / zoom_duration) * usable_w
                     is_selected = hasattr(self, 'selected_firing') and self.selected_firing == idx
-                    painter.setBrush(QColor(0, 0, 0, 120))
-                    painter.setPen(Qt.PenStyle.NoPen)
-                    painter.drawEllipse(int(round(x)) - handle_radius, timeline_y - handle_radius + 3, 2 * handle_radius, 2 * handle_radius)
                     painter.setBrush(fw.firing_color)
                     painter.setPen(QColor(255, 255, 0) if is_selected else QColor(220, 220, 220, 180))
                     r = int(handle_radius * (1.3 if is_selected else 1))
-                    painter.drawEllipse(int(round(x)) - r, timeline_y - r, 2 * r, 2 * r)
-                    painter.setPen(QColor(40, 40, 40, 180))
-                    painter.setBrush(Qt.BrushStyle.NoBrush)
+                    painter.drawRect(int(round(x)) - r, timeline_y - r, 2 * r, 2 * r)
                     
                     # Draw firing number from FiringHandles.display_number
                     painter.setPen(QColor(255, 255, 255))

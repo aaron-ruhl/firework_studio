@@ -77,8 +77,6 @@ class ShowFileHandler:
             mw, "Save Firework Show", "", "Firework Show (*.json);;All Files (*)", options=options
         )
         if file_path:
-            bg = getattr(mw.fireworks_canvas, "current_background", None)
-            bg_path = getattr(mw.fireworks_canvas, "custom_background_path", None)
             fireworks_colors = getattr(mw.preview_widget, "fireworks_colors", None)
             audio_data_to_save = (
             mw.audio_data.tolist() if isinstance(mw.audio_data, np.ndarray) else mw.audio_data
