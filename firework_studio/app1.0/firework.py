@@ -31,6 +31,14 @@ class Firework:
         thread = threading.Thread(target=self.explode)
         thread.start()
 
+    # The current explode method is CPU-bound and uses Python objects for each particle.
+    # To leverage GPU acceleration, you would need to use libraries like CuPy, Numba, or PyOpenCL,
+    # and represent particle data as arrays (not Python objects).
+    # However, since Particle is a custom class and PyQt is used for rendering,
+    # significant refactoring is required to batch-process particle physics on the GPU.
+    # For now, this code cannot directly take advantage of the GPU without major changes.
+    # You could optimize by using numpy arrays for particle data and Numba for JIT compilation,
+    # but full GPU acceleration would require a different architecture.
     def explode(self):
         self.exploded = True
         base_color = self.color
@@ -43,18 +51,6 @@ class Firework:
             new_sat = int(hsv.saturation() * 0.55)
             new_val = int(hsv.value() * 0.7)
             return QColor.fromHsv(hsv.hue() if hsv.hue() is not None else 0, new_sat, new_val)
-
-        def add_trail_particle(x, y, angle, speed, color, lifetime):
-            hsv = color.toHsv()
-            trail_hue = hsv.hue() if hsv.hue() is not None else 0
-            trail_sat = int(hsv.saturation() * 0.45)
-            trail_val = int(hsv.value() * 0.55)
-            trail_color = QColor.fromHsv(trail_hue, trail_sat, trail_val, 120)
-            trail_angle = angle + random.uniform(-0.08, 0.08)
-            trail_speed = speed * random.uniform(0.35, 0.55)
-            trail_particle = Particle(x, y, trail_angle, trail_speed, trail_color, lifetime=int(lifetime * 1.3))
-            trail_particle.gravity = 0.07
-            self.particles.append(trail_particle)
 
         if self.pattern == "chrysanthemum":
             for i in range(self.particle_count):
@@ -72,7 +68,6 @@ class Firework:
                     color = QColor.fromHsv(new_hue, sat, val)
                 p = Particle(self.x, self.y, angle, speed, color, lifetime=int(random.randint(130, 155) * fade_factor))
                 self.particles.append(p)
-                add_trail_particle(self.x, self.y, angle, speed, color, lifetime=int(random.randint(130, 155) * fade_factor))
         elif self.pattern == "palm":
             trunks = 8
             for i in range(trunks):
@@ -83,14 +78,12 @@ class Firework:
                 p2 = Particle(self.x, self.y, angle, speed, trunk_color, lifetime=int(100 * fade_factor))
                 self.particles.append(p1)
                 self.particles.append(p2)
-                add_trail_particle(self.x, self.y, angle, speed, trunk_color, lifetime=int(100 * fade_factor))
                 for j in range(4):
                     burst_angle = angle + random.uniform(-0.18, 0.18)
                     burst_speed = speed * random.uniform(0.65, 0.95)
                     burst_color = far_color(QColor(255, 200, 80))
                     p3 = Particle(self.x, self.y, burst_angle, burst_speed, burst_color, lifetime=int(75 * fade_factor))
                     self.particles.append(p3)
-                    add_trail_particle(self.x, self.y, burst_angle, burst_speed, burst_color, lifetime=int(75 * fade_factor))
         elif self.pattern == "willow":
             for i in range(self.particle_count):
                 base_angle = math.pi / 2
@@ -104,7 +97,6 @@ class Firework:
                 p = Particle(self.x, self.y, angle, speed, willow_color, lifetime=int(200 * fade_factor))
                 p.gravity = 0.09
                 self.particles.append(p)
-                add_trail_particle(self.x, self.y, angle, speed, willow_color, lifetime=int(200 * fade_factor))
         elif self.pattern == "peony":
             for i in range(self.particle_count):
                 angle = 2 * math.pi * i / self.particle_count + random.uniform(-0.01, 0.01)
@@ -114,8 +106,6 @@ class Firework:
                 peony_color = far_color(QColor.fromHsv(hue, hsv.saturation(), hsv.value()))
                 p = Particle(self.x, self.y, angle, speed, peony_color, lifetime=int(110 * fade_factor))
                 self.particles.append(p)
-                if i % 3 == 0:
-                    add_trail_particle(self.x, self.y, angle, speed, peony_color, lifetime=int(110 * fade_factor))
         elif self.pattern == "ring":
             for i in range(self.particle_count):
                 angle = 2 * math.pi * i / self.particle_count
@@ -126,8 +116,6 @@ class Firework:
                     ring_color = far_color(QColor(80, 200, 200, 180))
                 p = Particle(self.x, self.y, angle, speed, ring_color, lifetime=int(120 * fade_factor))
                 self.particles.append(p)
-                if abs(math.sin(angle)) > 0.8:
-                    add_trail_particle(self.x, self.y, angle, speed, ring_color, lifetime=int(120 * fade_factor))
         else:
             for i in range(self.particle_count):
                 angle = random.uniform(0, 2 * math.pi)
@@ -138,16 +126,14 @@ class Firework:
                     sparkle_color = far_color(QColor(220, 220, random.randint(180, 220), 180))
                     p = Particle(self.x, self.y, angle, speed * 1.08, sparkle_color, lifetime=int(130 * fade_factor))
                     self.particles.append(p)
-                    add_trail_particle(self.x, self.y, angle, speed * 1.08, sparkle_color, lifetime=int(130 * fade_factor))
                 elif random.random() < 0.08:
                     white_color = far_color(QColor(220, 220, 220, 180))
                     p = Particle(self.x, self.y, angle, speed, white_color, lifetime=int(110 * fade_factor))
                     self.particles.append(p)
-                    add_trail_particle(self.x, self.y, angle, speed, white_color, lifetime=int(110 * fade_factor))
                 else:
                     p = Particle(self.x, self.y, angle, speed, rainbow_color, lifetime=int(random.randint(100, 130) * fade_factor))
                     self.particles.append(p)
-                    add_trail_particle(self.x, self.y, angle, speed, rainbow_color, lifetime=int(random.randint(100, 130) * fade_factor))
+
 
     def update(self):
         if not self.exploded:

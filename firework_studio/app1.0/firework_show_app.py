@@ -23,6 +23,8 @@ from waveform_selection import WaveformSelectionTool
 from PyQt6.QtWidgets import QToolBar, QWidgetAction
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import QLabel
+from PyQt6.QtWidgets import QSpinBox, QGroupBox
+from PyQt6.QtWidgets import QWidgetAction
 
 '''THIS IS THE MAIN WINDOW CLASS FOR THE FIREWORK STUDIO APPLICATION'''
 class FireworkShowApp(QMainWindow):
@@ -381,15 +383,62 @@ class FireworkShowApp(QMainWindow):
                 combo.addItem(label, pattern)
             # Set default pattern
             combo.setCurrentIndex(0)
-            self.fireworks_canvas.choose_firework_pattern(patterns[0][1])
             def on_pattern_changed(index):
                 pattern = combo.itemData(index)
-                self.fireworks_canvas.choose_firework_pattern(pattern)
+                self.preview_widget.set_pattern(pattern)
             combo.currentIndexChanged.connect(on_pattern_changed)
             layout.addWidget(combo)
             return group_box
 
         self.pattern_selector = create_pattern_selector()
+
+        ###########################################################
+        #                                                         #
+        #        Number Wheel for Firework Count                  #
+        #                                                         #
+        ###########################################################
+
+        def create_firework_count_spinner():
+            group_box = QGroupBox("Number of Fireworks")
+            group_box.setStyleSheet("QGroupBox { color: #e0e0e0; font-weight: bold; }")
+            layout = QHBoxLayout()
+            group_box.setLayout(layout)
+            spinner = QSpinBox()
+            spinner.setMinimum(1)
+            spinner.setMaximum(100)
+            spinner.setValue(5)
+            spinner.setStyleSheet(
+                """
+                QSpinBox {
+                    background: #23242b;
+                    color: #e0e0e0;
+                    border: 1px solid #444657;
+                    font-size: 12px;
+                    border-radius: 4px;
+                    padding: 3px 8px;
+                    min-width: 60px;
+                    max-width: 80px;
+                }
+                QSpinBox::up-button, QSpinBox::down-button {
+                    background: #31323a;
+                    border: 1px solid #444657;
+                    width: 16px;
+                }
+                QSpinBox::up-arrow, QSpinBox::down-arrow {
+                    width: 10px;
+                    height: 10px;
+                }
+                """
+            )
+            # Set default firework count
+            def on_count_changed(value):
+                self.preview_widget.set_number_firings(value)
+            spinner.valueChanged.connect(on_count_changed)
+            layout.addWidget(spinner)
+            return group_box
+
+        self.firework_count_spinner_group = create_firework_count_spinner()
+
         ###########################################################
         #                                                         #
         #              Load Audio Button                          #
@@ -639,6 +688,9 @@ class FireworkShowApp(QMainWindow):
         self.media_toolbar.addSeparator()
 
         add_toolbar_widget(self.pattern_selector)
+        self.media_toolbar.addSeparator()
+
+        add_toolbar_widget(self.firework_count_spinner_group)
         self.media_toolbar.addSeparator()
 
         add_toolbar_widget(self.background_btn)

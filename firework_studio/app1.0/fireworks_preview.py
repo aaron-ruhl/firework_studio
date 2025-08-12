@@ -68,6 +68,8 @@ class FireworkPreviewWidget(QWidget):
         self.firework_times = []
         self.delay = 1.8  # 1.8 seconds
         self.fireworks = []
+        self.number_firings = 1
+        self.pattern = "circle"
 
         self.current_time = 0
         self.playhead_time = 0
@@ -116,7 +118,15 @@ class FireworkPreviewWidget(QWidget):
         else:
             self.selected_region = region
         self.update()
-   
+
+    def set_number_firings(self, count):
+        """Set the number of firings for the next firework."""
+        self.number_firings = count
+
+    def set_pattern(self, pattern):
+        """Set the pattern for the next firework."""
+        self.pattern = pattern
+
     def add_time(self):
         # Only add a firework when explicitly called, not automatically by playhead
         if self.audio_data is None or self.sr is None:
@@ -139,7 +149,7 @@ class FireworkPreviewWidget(QWidget):
 
         # create the handle for displaying on preview_widget
         # Store the  firing_time in the handle for consistency
-        handle = FiringHandles(firing_time, color, number_firings=5, pattern="circle", display_number=display_number)
+        handle = FiringHandles(firing_time, color, number_firings=self.number_firings, pattern=self.pattern, display_number=display_number)
         self.fireworks.append(handle)
         self.fireworks.sort(key=lambda handle: handle.firing_time)
         self.update()

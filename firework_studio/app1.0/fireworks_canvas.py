@@ -122,20 +122,28 @@ class FireworksCanvas(QWidget):
             for firework in self.fireworks:
                 for firing_idx in range(getattr(firework, "number_firings", 1)):
                     # Offset each firing horizontally for visual separation
-                    offset = (firing_idx - (firework.number_firings - 1) / 2) * 12
+                    # Increase offset to make launches look more separated
+                    offset = (firing_idx - (firework.number_firings - 1) / 2) * 60
                     fx = firework.x + offset if firework.exploded else firework.x + offset
                     fy = firework.y
                     if not firework.exploded:
                         color = firework.color if firework.color is not None else QColor(255, 0, 0)
                         painter.setPen(QPen(color, 4))
                         painter.drawPoint(int(fx), int(fy))
-                    else:
-                        for particle in firework.particles:
-                            color = particle.get_color()
-                            if color is None:
-                                color = QColor(255, 255, 255)
-                            painter.setPen(QPen(color, 3))
-                            painter.drawPoint(int(particle.x), int(particle.y))
+                    # Reduce particle count if many fireworks are on screen
+                    total_firings = sum(getattr(fw, "number_firings", 1) for fw in self.fireworks)
+                    if total_firings > 20:
+                        firework.particle_count = 15
+                    # Draw each explosion with horizontal offset, just like the launch points
+                    for particle in firework.particles:
+                        # Offset explosion horizontally for each firing
+                        px = particle.x + offset
+                        py = particle.y
+                        color = particle.get_color()
+                        if color is None:
+                            color = QColor(255, 255, 255)
+                        painter.setPen(QPen(color, 3))
+                        painter.drawPoint(int(px), int(py))
 
     def load_custom_background(self, path=None):
         if path:
