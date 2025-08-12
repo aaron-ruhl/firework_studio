@@ -66,8 +66,9 @@ class FireworkTimelineRenderer:
             zoom_duration = max(draw_end - draw_start, 1e-9)
         else:
             draw_start = 0
-            draw_end = widget.duration
-            zoom_duration = widget.duration if widget.duration else 1
+            # Ensure draw_end is never None
+            draw_end = widget.duration if widget.duration is not None else 1.0
+            zoom_duration = draw_end if draw_end > 0 else 1.0
         return draw_start, draw_end, zoom_duration
 
     def _draw_selected_region(self, painter, left_margin, usable_w, timeline_y):
@@ -197,7 +198,7 @@ class FireworkTimelineRenderer:
                     handle_width,
                     handle_height,
                     Qt.AlignmentFlag.AlignCenter,
-                    str(fw.display_number)
+                    str(fw.number_firings)
                 )
                 widget.firing_handles.append((QRect(rect_x, rect_y, handle_width, handle_height), idx))
             painter.setFont(orig_font)

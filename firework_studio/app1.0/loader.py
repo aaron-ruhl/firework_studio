@@ -24,19 +24,28 @@ class AudioLoader():
 
     def load(self):
         for path in self.paths:
-            if path.lower().endswith('.npy'):
-                audio_data = np.load(path)
-                # If .npy file contains sample rate info, handle here (not standard)
-                if self.sr is None:
-                    self.sr = 16000  # Default sample rate if not specified
-            else:
-                if self.sr is None:
-                    self.sr = 16000  # Default sample rate if not specified
-                audio_data, _ = librosa.load(path, sr=self.sr, mono=True)
-            self.audio_datas.append(audio_data)
+            try:
+                # Ensure path is a string
+                path_str = str(path)
+                if path_str.lower().endswith('.npy'):
+                    audio_data = np.load(path_str)
+                    # If .npy file contains sample rate info, handle here (not standard)
+                    if self.sr is None:
+                        self.sr = 16000  # Default sample rate if not specified
+                else:
+                    if self.sr is None:
+                        self.sr = 16000  # Default sample rate if not specified
+                    audio_data, _ = librosa.load(path_str, sr=self.sr, mono=True)
+                self.audio_datas.append(audio_data)
+            except Exception as e:
+                print(f"Error loading audio file {path}: {e}")
+                continue
         # Update self.audio_data after loading
         self.audio_data = np.concatenate(self.audio_datas) if self.audio_datas else None
-        self.duration = librosa.get_duration(y=self.audio_data, sr=self.sr) if self.audio_data is not None else 0.0
+        if self.audio_data is not None and self.sr is not None:
+            self.duration = librosa.get_duration(y=self.audio_data, sr=self.sr)
+        else:
+            self.duration = 0.0
 
     def select_and_load(self, parent=None, figure_canvas=None):
         # Ensure parent is either None or a QWidget, not a bool
@@ -52,11 +61,31 @@ class AudioLoader():
 
         return self.audio_data, self.sr, self.audio_datas, self.duration
 
-    def just_load(self, path):
-        # Ensure path is a string, not a list
-        if isinstance(path, list):
-            self.paths = path
+    def just_load(self, paths):
+        # Handle different input types
+        if isinstance(paths, str):
+            self.paths = [paths]
+        elif isinstance(paths, list):
+            # Ensure all elements are strings (paths)
+            self.paths = []
+            for path in paths:
+                if isinstance(path, str):
+                    self.paths.append(path)
+                elif hasattr(path, 'path'):  # Handle audio data objects with path attribute
+                    self.paths.append(str(path.path))
+                else:
+                    # Skip non-string, non-path objects
+                    print(f"Skipping invalid path: {path} (type: {type(path)})")
         else:
-            self.paths = [path]
+            self.paths = [str(paths)]  # Convert to string as fallback
+        
+        # Clear previous data
+        self.audio_datas = []
+        self.sr = None
+        
+        if not self.paths:
+            print("No valid paths found for audio loading")
+            return None, None, [], 0.0
+            
         self.load()
         return self.audio_data, self.sr, self.audio_datas, self.duration

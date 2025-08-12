@@ -63,10 +63,17 @@ class FireworkPreviewWidget(QWidget):
             elif hasattr(handle, "firing_color") and isinstance(handle.firing_color, (tuple, list)) and len(handle.firing_color) == 3:
                 color = QColor(*handle.firing_color)
             else:
-                handle.firing_color = QColor(random.randint(50, 255), random.randint(50, 255), random.randint(50, 255))
+                color = QColor(random.randint(50, 255), random.randint(50, 255), random.randint(50, 255))
+                handle.firing_color = color
             pattern = handle.pattern if hasattr(handle, "pattern") else self.pattern
             number_firings = handle.number_firings if hasattr(handle, "number_firings") else self.number_firings
             firing_time = handle.firing_time
+            
+            # Ensure all values are the correct Python types
+            firing_time = float(firing_time)
+            number_firings = int(number_firings)
+            pattern = str(pattern)
+            
             fw_handle = FiringHandles(
                 firing_time,
                 color,
@@ -383,12 +390,14 @@ class FireworkPreviewWidget(QWidget):
         menu = QMenu(self)
 
         # Display the firing number at the top as a disabled, bold action
+        from PyQt6.QtGui import QAction
         display_number_text = f"🔥 Firing #{handle.display_number}"
-        display_number_action = menu.addAction(display_number_text)
+        display_number_action = QAction(display_number_text, self)
         font = display_number_action.font()
         font.setBold(True)
         display_number_action.setFont(font)
         display_number_action.setEnabled(False)
+        menu.addAction(display_number_action)
         menu.addSeparator()
 
         # Show color sample as a colored square in the menu
@@ -408,17 +417,18 @@ class FireworkPreviewWidget(QWidget):
             initial_color = handle.firing_color
             if not isinstance(initial_color, QColor):
                 try:
-                    initial_color = QColor(initial_color)
+                    initial_color = QColor(*initial_color) if isinstance(initial_color, (tuple, list)) else QColor(initial_color)
                 except Exception:
                     initial_color = QColor(255, 255, 255)
             color = QColorDialog.getColor(initial_color, self, "Select Firework Color")
             if color.isValid():
-                handle.firing_color = color
+                # Store as tuple for serialization
+                handle.firing_color = (color.red(), color.green(), color.blue())
                 self.update()
         elif action == change_time_action:
             new_time, ok = QInputDialog.getDouble(self, "Change Firing Time", "Time (seconds):", handle.firing_time, 0, self.duration, 3)
             if ok:
-                handle.firing_time = new_time
+                handle.firing_time = float(new_time)  # Ensure it's a Python float
                 self.fireworks.sort(key=lambda h: h.firing_time)
                 self.firework_times = [h.firing_time for h in self.fireworks]
                 for i, h in enumerate(self.fireworks):
@@ -436,12 +446,12 @@ class FireworkPreviewWidget(QWidget):
             current = patterns.index(handle.pattern) if handle.pattern in patterns else 0
             pattern, ok = QInputDialog.getItem(self, "Change Pattern", "Pattern:", patterns, current, False)
             if ok:
-                handle.pattern = pattern
+                handle.pattern = str(pattern)  # Ensure it's a Python string
                 self.update()
         elif action == change_number_action:
             num, ok = QInputDialog.getInt(self, "Change Number of Firings", "Number:", handle.number_firings, 1, 100, 1)
             if ok:
-                handle.number_firings = num
+                handle.number_firings = int(num)  # Ensure it's a Python int
                 self.update()
         elif action == delete_action:
             self.selected_firing = idx

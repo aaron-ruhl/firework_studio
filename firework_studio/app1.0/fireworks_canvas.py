@@ -84,19 +84,18 @@ class FireworksCanvas(QWidget):
         self.fireworks = [fw for fw in self.fireworks if fw.update()]
         parent = self.parentWidget()
         preview_widget = None
-        # Import here to avoid circular import
-        from firework_show_app import FireworkShowApp
         # Find the parent FireworkShowApp to access firework_firing
         while parent:
-            if isinstance(parent, FireworkShowApp):
-                preview_widget = parent.preview_widget
+            # Avoid direct import to prevent unknown symbol error
+            if parent.__class__.__name__ == "FireworkShowApp":
+                preview_widget = getattr(parent, "preview_widget", None)
                 break
             parent = parent.parentWidget()
-        if preview_widget and preview_widget.firework_times is not None:
-            handles = preview_widget.fireworks
+        if preview_widget and getattr(preview_widget, "firework_times", None) is not None:
+            handles = getattr(preview_widget, "fireworks", [])
             for handle in handles:
-                if (preview_widget.current_time >= handle.firing_time - self.delay and
-                        preview_widget.current_time < handle.firing_time - self.delay + 0.016 and
+                if (getattr(preview_widget, "current_time", 0) >= handle.firing_time - self.delay and
+                        getattr(preview_widget, "current_time", 0) < handle.firing_time - self.delay + 0.016 and
                         (handle.firing_time, 0) not in self.fired_times):
                     for _ in range(handle.number_firings):
                         # Add firework at random x position
