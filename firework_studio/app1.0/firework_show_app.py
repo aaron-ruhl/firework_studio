@@ -253,6 +253,21 @@ class FireworkShowApp(QMainWindow):
 
         self.waveform_canvas.mpl_connect("figure_leave_event", on_waveform_leave)
         self.waveform_canvas.leaveEvent = lambda event: self.waveform_time_label.setVisible(False)
+        ###############################################
+        #                                             #
+        #        Reset Firings button                 #
+        #                                             #
+        ###############################################
+
+        def create_reset_btn():
+            btn = QPushButton("Reset Firings")
+            btn.setIcon(QIcon(os.path.join("icons", "refresh.png")))
+            btn.setStyleSheet(button_style)
+            btn.clicked.connect(self.fireworks_canvas.reset_firings)
+            return btn
+
+        self.reset_btn = create_reset_btn()
+        self.reset_btn.setToolTip("Reset all firework firings")
 
         ###############################################
         #                                             #
@@ -269,7 +284,8 @@ class FireworkShowApp(QMainWindow):
             btn.setText("Play")
             btn.setIcon(QIcon(os.path.join("icons", "play.png")))
             btn.setStyleSheet(button_style)
-            return btn    
+            btn.setToolTip("Play/Pause the firework preview")
+            return btn
 
         def toggle_icon(checked):
             if checked:
@@ -413,8 +429,8 @@ class FireworkShowApp(QMainWindow):
             group_box.setLayout(layout)
             spinner = QSpinBox()
             spinner.setMinimum(1)
-            spinner.setMaximum(100)
-            spinner.setValue(5)
+            spinner.setMaximum(20)
+            spinner.setValue(1)
             spinner.setStyleSheet(
                 """
                 QSpinBox {
@@ -681,6 +697,7 @@ class FireworkShowApp(QMainWindow):
 
         add_toolbar_widget(self.play_pause_btn)
         add_toolbar_widget(self.stop_btn)
+        add_toolbar_widget(self.reset_btn)
         self.media_toolbar.addSeparator()
 
         add_toolbar_widget(self.add_firing_btn)

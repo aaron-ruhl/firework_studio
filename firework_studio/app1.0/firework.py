@@ -53,8 +53,8 @@ class Firework:
         self.exploded = True
         base_color = self.color
 
-        distance_factor = 0.3
-        fade_factor = 0.4
+        distance_factor = 0.5
+        fade_factor = 0.8
 
         def far_color(color):
             hsv = color.toHsv()
