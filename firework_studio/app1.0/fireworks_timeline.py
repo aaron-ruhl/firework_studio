@@ -2,10 +2,38 @@ from PyQt6.QtCore import QRect, QPoint, Qt
 from PyQt6.QtGui import QColor
 from PyQt6.QtGui import QVector2D, QVector3D, QVector4D
 import numpy as np
+import random
 
 class FireworkTimelineRenderer:
     def __init__(self, widget):
         self.widget = widget
+        self.handle_colors = [
+            QColor(40, 40, 60),      # Deep blue-gray
+            QColor(60, 30, 60),      # Muted purple
+            QColor(30, 30, 30),      # Charcoal
+            QColor(70, 0, 70),       # Deep plum
+            QColor(50, 0, 40),       # Eggplant
+            QColor(0, 0, 0),         # Black
+            QColor(30, 20, 40),      # Muted indigo
+            QColor(80, 20, 60),      # Dusty rose
+            QColor(55, 0, 40),       # Dark magenta
+            QColor(25, 25, 50),      # Navy blue
+            QColor(45, 45, 70),      # Slate blue
+            QColor(35, 25, 55),      # Grape
+            QColor(20, 20, 35),      # Midnight
+            QColor(65, 35, 55),      # Mauve
+            QColor(15, 10, 25),      # Very dark purple
+            QColor(50, 20, 50),      # Heather
+            QColor(60, 10, 40),      # Burgundy
+            QColor(30, 10, 30),      # Raisin
+            QColor(20, 0, 20),       # Black plum
+            QColor(70, 10, 50),      # Deep rose
+        ]
+
+    def _next_handle_color(self):
+        if not hasattr(self, '_handle_color_stack') or not self._handle_color_stack:
+            self._handle_color_stack = list(self.handle_colors)
+        return self._handle_color_stack.pop()
 
     def draw(self, painter):
         w, h = self.widget.width(), self.widget.height()
@@ -16,9 +44,6 @@ class FireworkTimelineRenderer:
         usable_w = w - left_margin - right_margin
         usable_h = h - top_margin - bottom_margin
         timeline_y = top_margin + usable_h // 2
-
-        grad = QColor(25, 28, 40)
-        painter.fillRect(self.widget.rect(), grad)
 
         # Draw selected region and playhead label
         self._draw_selected_region(painter, left_margin, usable_w, timeline_y)
@@ -136,15 +161,15 @@ class FireworkTimelineRenderer:
                 painter.drawText(x - 12, timeline_y + 22, 24, 14, Qt.AlignmentFlag.AlignCenter, label)
                 painter.setPen(QColor(150, 150, 170))
         painter.setFont(orig_font)
-
+        
     def _draw_firing_handles(self, painter, left_margin, usable_w, timeline_y):
         widget = self.widget
         widget.firing_handles = []
-        handle_radius = 12
+        handle_width = 14
+        handle_height = 15
         draw_start, draw_end, zoom_duration = self._get_draw_region()
         if widget.fireworks is not None and widget.duration:
             orig_font = painter.font()
-            # Use list comprehensions and vector math for handle positions
             indices = [i for i, fw in enumerate(widget.fireworks) if draw_start <= fw.firing_time <= draw_end]
             xs = [
                 left_margin + ((widget.fireworks[i].firing_time - draw_start) / zoom_duration) * usable_w
@@ -153,25 +178,28 @@ class FireworkTimelineRenderer:
             for idx, x in zip(indices, xs):
                 fw = widget.fireworks[idx]
                 is_selected = hasattr(widget, 'selected_firing') and widget.selected_firing == idx
-                painter.setBrush(fw.firing_color)
+                # Use a consistent color for each idx
+                color = self.handle_colors[idx % len(self.handle_colors)]
+                painter.setBrush(color)
                 painter.setPen(QColor(255, 255, 0) if is_selected else QColor(220, 220, 220, 180))
-                r = int(handle_radius * (1.3 if is_selected else 1))
-                painter.drawRoundedRect(int(round(x)) - r, timeline_y - r, 2 * r, 2 * r, 7, 7)
-                painter.setPen(QColor(255, 255, 255))
+                rect_x = int(round(x)) - handle_width // 2
+                rect_y = timeline_y - handle_height // 2
+                painter.drawRoundedRect(rect_x, rect_y, handle_width, handle_height, 5, 5)
+                painter.setPen(QColor(0, 255, 255))  # Bright cyan for high visibility
                 number_font = orig_font
                 number_font = number_font.__class__(number_font)  # Make a copy
                 number_font.setBold(True)
                 number_font.setPointSizeF(orig_font.pointSizeF() * 1.1)
                 painter.setFont(number_font)
                 painter.drawText(
-                    int(round(x)) - handle_radius,
-                    timeline_y - handle_radius + 3,
-                    2 * handle_radius,
-                    2 * handle_radius,
+                    rect_x,
+                    rect_y,
+                    handle_width,
+                    handle_height,
                     Qt.AlignmentFlag.AlignCenter,
                     str(fw.display_number)
                 )
-                widget.firing_handles.append((QRect(int(round(x)) - handle_radius, timeline_y - handle_radius + 3, 2 * handle_radius, 2 * handle_radius), idx))
+                widget.firing_handles.append((QRect(rect_x, rect_y, handle_width, handle_height), idx))
             painter.setFont(orig_font)
 
     def _draw_playhead(self, painter, left_margin, usable_w, timeline_y):
