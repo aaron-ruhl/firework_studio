@@ -5,75 +5,275 @@ import os
 
 from PyQt6.QtWidgets import QPushButton, QFileDialog, QRadioButton
 from PyQt6.QtCore import QTimer
-from PyQt6.QtGui import QColor, QIcon
+from PyQt6.QtGui import QColor
 
+from PyQt6.QtGui import QColor
+from loader import AudioLoader
 from toaster import ToastDialog
 from handles import FiringHandles
 
-class FireworkShowManager:
-    """
-    Handles saving and loading of firework show data (firings, segments, etc.)
-    """
-
+class FireworkshowManager:
     @staticmethod
-    def save_show(filepath, audio_data, firings, segment_times=None, sr=None, duration=None, background=None, background_path=None, fireworks_colors=None, handles=None):
-        """
-        Save the firework show data to a file (JSON format).
-        """
-        # Convert numpy array to list for JSON serialization
-        audio_data_serializable = audio_data.tolist() if isinstance(audio_data, np.ndarray) else audio_data
-        # Serialize handles as list of lists (assume FiringHandles has a to_list() method or similar)
-        handles_serializable = []
-        if handles is not None:
-            for h in handles:
-                # If FiringHandles has a to_list method, use it, else serialize __dict__ values
-                if hasattr(h, "to_list"):
-                    handles_serializable.append(h.to_list())
+    def save_show(file_path, audio_paths, sr, firework_times, segment_times, duration, handles):
+        # Convert handles to a list of lists using to_list() if available, and ensure all elements are JSON serializable
+        def make_json_serializable(obj):
+            import numpy as np
+            if isinstance(obj, QColor):
+                return obj.name()  # Convert QColor to hex string
+            elif isinstance(obj, np.ndarray):
+                return obj.tolist()  # Convert numpy arrays to lists
+            elif isinstance(obj, np.integer):
+                return int(obj)  # Convert numpy integers to Python int
+            elif isinstance(obj, np.floating):
+                return float(obj)  # Convert numpy floats to Python float
+            elif isinstance(obj, (list, tuple)):
+                return [make_json_serializable(x) for x in obj]
+            elif isinstance(obj, dict):
+                return {k: make_json_serializable(v) for k, v in obj.items()}
+            elif hasattr(obj, '__dict__'):
+                # Handle objects with attributes by converting to dict first
+                return make_json_serializable(obj.__dict__)
+            else:
+                # Try to convert to basic Python types
+                try:
+                    # This will catch any remaining numpy types
+                    if hasattr(obj, 'item'):
+                        return obj.item()  # Convert numpy scalars to Python types
+                    return obj
+                except (TypeError, AttributeError):
+                    return str(obj)  # Fallback to string representation
+
+        handles_list = []
+        if isinstance(handles, list):
+            for handle in handles:
+                # Always convert to list if possible, then recursively make JSON serializable
+                if hasattr(handle, "to_list"):
+                    handle_data = handle.to_list()
+                elif isinstance(handle, (list, tuple)):
+                    handle_data = list(handle)
                 else:
-                    handles_serializable.append(list(h.__dict__.values()))
+                    try:
+                        handle_data = list(handle)
+                    except Exception:
+                        handle_data = [str(handle)]
+                # Recursively convert all elements to JSON-serializable types
+                handle_data = make_json_serializable(handle_data)
+                handles_list.append(handle_data)
+        # Recursively ensure all handles are JSON serializable (fix for nested numpy arrays)
+        handles_list = make_json_serializable(handles_list)
+
+        # Save only the file paths for audio_datas
         show_data = {
-            "firings": firings,
-            "segment_times": segment_times if segment_times is not None else [],
-            "sample_rate": sr,
+            "audio_paths": audio_paths,
+            "sr": sr,
+            "firework_times": make_json_serializable(firework_times),
+            "segment_times": make_json_serializable(segment_times),
             "duration": duration,
-            "audio_data": audio_data_serializable,  # Now serializable
-            "background": background,
-            "background_path": background_path,
-            "handles": handles_serializable,
+            "handles": handles_list,
         }
-        with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(show_data, f, ensure_ascii=False, indent=4)
+        
+        # Final pass to ensure everything is serializable
+        show_data = make_json_serializable(show_data)
+        
+        with open(file_path, "w") as f:
+            json.dump(show_data, f, indent=2)
 
     @staticmethod
-    def load_show(filepath):
-        """
-        Load the firework show data from a file (JSON format).
-        Returns: firings, segment_times, sr, duration, audio_data, background, background_path, handles
-        """
-        with open(filepath, "r", encoding="utf-8") as f:
-            show_data = json.load(f)
-        firings = show_data.get("firings", [])
+    def load_show(file_path):
+        import os
+        show_data = {}
+        if not os.path.exists(file_path) or os.path.getsize(file_path) == 0:
+            print(f"File {file_path} does not exist or is empty.")
+            return None, None, [], [], [], None, []
+        try:
+            with open(file_path, "r") as f:
+                show_data = json.load(f)
+        except json.JSONDecodeError as e:
+            print(f"Error decoding JSON from {file_path}: {e}")
+            return None, None, [], [], [], None, []
+        except Exception as e:
+            print(f"Error reading file {file_path}: {e}")
+            return None, None, [], [], [], None, []
+        # Always return the same keys as in save_show
+        audio_paths = show_data.get("audio_paths", [])
+        sr = show_data.get("sr", None)
+        firework_times = show_data.get("firework_times", [])
         segment_times = show_data.get("segment_times", [])
-        sr = show_data.get("sample_rate", None)
         duration = show_data.get("duration", None)
-        audio_data = show_data.get("audio_data", None)
-        background = show_data.get("background", None)
-        background_path = show_data.get("background_path", None)
-        handles_list = show_data.get("handles", [])
-        if audio_data is not None:
-            # Convert audio data from list to numpy array if needed
-            audio_data = np.array(audio_data)
-        # Recreate handles as FiringHandles objects from list of lists
-        handles = []
-        for h in handles_list:
-            # If FiringHandles takes all values as positional args
-            handles.append(FiringHandles(*h))
-        return firings, segment_times, sr, duration, audio_data, background, background_path, handles
+        handles = show_data.get("handles", [])
+
+        # Use AudioLoader to load audio from paths, with error handling
+        audio_loader = AudioLoader()
+        try:
+            print(f"Loading audio from paths: {audio_paths}")
+            print(f"Path types: {[type(p) for p in audio_paths] if audio_paths else 'No paths'}")
+            
+            if not audio_paths:
+                print("No audio paths found in saved show data")
+                audio_data, audio_datas, sr, duration = None, [], None, None
+            else:
+                audio_data, loaded_sr, audio_datas, loaded_duration = audio_loader.just_load(audio_paths)
+                # If sr or duration is missing in file, use loaded values
+                if sr is None:
+                    sr = loaded_sr
+                if duration is None:
+                    duration = loaded_duration
+        except Exception as e:
+            audio_data, audio_datas, sr, duration = None, [], None, None
+            print(f"Error loading audio files: {e}")
+
+        return audio_data, sr, audio_datas, firework_times, segment_times, duration, handles
 
 class ShowFileHandler:
     def __init__(self, main_window, button_style):
         self.main_window = main_window
         self.button_style = button_style
+
+    def save_show(self):
+        if not self.main_window.audio_datas:
+            ToastDialog("No show to save!", parent=self.main_window).show()
+            return
+        file_path, _ = QFileDialog.getSaveFileName(
+            self.main_window, "Save Firework Show", "", "Firework Show (*.fwshow);;All Files (*)"
+        )
+        if file_path:
+            # Get audio paths - try multiple sources
+            audio_paths = self.main_window.paths
+            if not audio_paths and hasattr(self.main_window, 'audio_loader') and self.main_window.audio_loader.paths:
+                audio_paths = self.main_window.audio_loader.paths
+            if not audio_paths:
+                # If we still don't have paths, we can't save the show properly
+                print("Warning: No audio paths available for saving")
+                audio_paths = []
+            
+            sr = self.main_window.sr
+            firework_times = getattr(self.main_window.preview_widget, "firework_times", [])
+            segment_times = self.main_window.segment_times
+            duration = self.main_window.duration
+            handles = []
+            
+            # Debug: Check what audio_paths contains
+            print(f"Saving audio_paths: {audio_paths}")
+            print(f"Audio_paths type: {type(audio_paths)}")
+            print(f"Audio_paths length: {len(audio_paths) if audio_paths else 0}")
+            
+            if hasattr(self.main_window.preview_widget, "get_handles"):
+                raw_handles = self.main_window.preview_widget.get_handles()
+                for handle in raw_handles:
+                    handles.append(handle.to_list())
+            
+            try:
+                FireworkshowManager.save_show(file_path, audio_paths, sr, firework_times, segment_times, duration, handles)
+                def show_saved_toast():
+                    toast = ToastDialog("Show saved!", parent=self.main_window)
+                    geo = self.main_window.geometry()
+                    x = geo.x() + geo.width() - toast.width() - 40
+                    y = geo.y() + geo.height() - toast.height() - 40
+                    toast.move(x, y)
+                    toast.show()
+                    QTimer.singleShot(2500, toast.close)
+                show_saved_toast()
+            except Exception as e:
+                print(f"Error saving show: {e}")
+                print(f"Handle data types: {[type(h) for h in handles]}")
+                if handles:
+                    print(f"First handle: {handles[0]}")
+                ToastDialog(f"Error saving show: {str(e)}", parent=self.main_window).show()
+
+    def load_show(self):
+        self.main_window.fireworks_canvas.set_fireworks_enabled(False)
+        file_path, _ = QFileDialog.getOpenFileName(
+            self.main_window, "Load Firework Show", "", "Firework Show (*.fwshow);;All Files (*)"
+        )
+        if file_path:
+            # Always load all fields as saved by FireworkshowManager.save_show
+            audio_data, sr, audio_datas, firework_times, segment_times, duration, handles = FireworkshowManager.load_show(file_path)
+            self.main_window.audio_data = audio_data
+            self.main_window.sr = sr
+            self.main_window.audio_datas = audio_datas
+            self.main_window.segment_times = segment_times
+            self.main_window.duration = duration
+            
+            # Get the original audio paths from the saved show data
+            with open(file_path, "r") as f:
+                show_data = json.load(f)
+            saved_audio_paths = show_data.get("audio_paths", [])
+            self.main_window.paths = saved_audio_paths if isinstance(saved_audio_paths, list) else []
+            
+            # Also update the audio_loader's paths for consistency
+            if hasattr(self.main_window, 'audio_loader'):
+                self.main_window.audio_loader.paths = self.main_window.paths
+            # clear the show before loading new one
+            self.main_window.clear_show()
+            # Set show data in preview_widget
+            self.main_window.preview_widget.set_show_data(audio_data, sr, segment_times, firework_times, duration)
+            # Plot the waveform
+            self.main_window.plot_waveform()
+            # Show status bar and toast
+            if audio_data is not None:
+                self.main_window.status_bar.showMessage("Generate fireworks show from scratch or use generate show button to get help.")
+                basenames = []
+                if self.main_window.paths:
+                    basenames = [os.path.basename(str(p)) for p in self.main_window.paths if p and isinstance(p, (str, bytes, os.PathLike))]
+                
+                if basenames:
+                    toast = ToastDialog(f"Loaded audio: {', '.join(basenames)}", parent=self.main_window)
+                else:
+                    toast = ToastDialog("Loaded show (audio paths not available)", parent=self.main_window)
+                
+                geo = self.main_window.geometry()
+                x = geo.x() + geo.width() - toast.width() - 40
+                y = geo.y() + geo.height() - toast.height() - 40
+                toast.move(x, y)
+                toast.show()
+                QTimer.singleShot(2500, toast.close)
+                self.main_window.update_firework_show_info()
+            elif audio_data is None:
+                self.main_window.status_bar.showMessage("No audio loaded.")
+
+            # Reconstruct handles before setting show data
+            loaded_handles = []
+            if handles and isinstance(handles, list):
+                for handle in handles:
+                    try:
+                        # Convert color string back to QColor if needed
+                        if isinstance(handle, list) and len(handle) > 0:
+                            # Try to find the color field by type (hex string)
+                            for i, val in enumerate(handle):
+                                if isinstance(val, str) and val.startswith("#") and len(val) in (7, 9):
+                                    handle[i] = QColor(val)
+                        loaded_handles.append(FiringHandles.from_list(handle) if isinstance(handle, list) else handle)
+                    except Exception as e:
+                        print(f"Error reconstructing handle: {e}")
+                        loaded_handles.append(handle)
+            if hasattr(self.main_window.preview_widget, "set_handles"):
+                self.main_window.preview_widget.set_handles(loaded_handles)
+            # --- Ensure fireworks_canvas is updated with loaded handles ---
+            if hasattr(self.main_window.fireworks_canvas, "reset_fireworks"):
+                self.main_window.fireworks_canvas.reset_fireworks()
+            if hasattr(self.main_window.preview_widget, "firework_times"):
+                # This will trigger the preview_widget to update the canvas with the correct handles/colors
+                if hasattr(self.main_window.preview_widget, "update_fireworks_canvas"):
+                    self.main_window.preview_widget.update_fireworks_canvas()
+                else:
+                    # Fallback: manually add fireworks to the canvas using handles
+                    fw_canvas = self.main_window.fireworks_canvas
+                    fw_canvas.reset_fireworks()
+                    for handle in loaded_handles:
+                        if hasattr(fw_canvas, "add_firework"):
+                            fw_canvas.add_firework(handle)
+            def show_loaded_toast():
+                toast = ToastDialog("Show loaded!", parent=self.main_window)
+                geo = self.main_window.geometry()
+                x = geo.x() + geo.width() - toast.width() - 40
+                y = geo.y() + geo.height() - toast.height() - 40
+                toast.move(x, y)
+                toast.show()
+                QTimer.singleShot(2500, toast.close)
+            show_loaded_toast()
+            # only enable after it loads so adding the fireworks does not trigger them to fire.
+            self.main_window.fireworks_canvas.reset_fireworks()
+            self.main_window.fireworks_canvas.set_fireworks_enabled(True)
 
     def create_save_btn(self):
         btn = QPushButton("Save Show")
@@ -86,99 +286,3 @@ class ShowFileHandler:
         btn.setStyleSheet(self.button_style)
         btn.clicked.connect(self.load_show)
         return btn
-
-    def save_show(self):
-        mw = self.main_window
-        options = QFileDialog.Option(0)
-        file_path, _ = QFileDialog.getSaveFileName(
-            mw, "Save Firework Show", "", "Firework Show (*.json);;All Files (*)", options=options
-        )
-        if file_path:
-            fireworks_colors = getattr(mw.preview_widget, "fireworks_colors", None)
-            audio_data_to_save = (
-                mw.audio_data.tolist() if isinstance(mw.audio_data, np.ndarray) else mw.audio_data
-            )
-            firings_to_save = (
-                [float(t) for t in getattr(mw.preview_widget, "firework_firing", [])] if hasattr(mw.preview_widget, "firework_firing") else []
-            )
-            segment_times_to_save = (
-                [float(t) for t in mw.segment_times] if mw.segment_times is not None else []
-            )
-            # Get handles from preview_widget if available
-            handles_to_save = getattr(mw.preview_widget, "handles", None)
-            FireworkShowManager.save_show(
-                file_path,
-                audio_data_to_save,
-                firings_to_save,
-                segment_times_to_save,
-                mw.sr,
-                mw.duration,
-                background=bg,
-                background_path=bg_path,
-                fireworks_colors=fireworks_colors,
-                handles=handles_to_save,
-            )
-            toast = ToastDialog("Show saved!", parent=mw)
-            geo = mw.geometry()
-            x = geo.x() + geo.width() - toast.width() - 40
-            y = geo.y() + geo.height() - toast.height() - 40
-            toast.move(x, y)
-            toast.show()
-            QTimer.singleShot(2000, toast.close)
-
-    def load_show(self):
-        mw = self.main_window
-        options = QFileDialog.Option(0)
-        file_path, _ = QFileDialog.getOpenFileName(
-            mw, "Load Firework Show", "", "Firework Show (*.json);;All Files (*)", options=options
-        )
-        if file_path:
-            firings, segment_times, sr, duration, audio_data_loaded, background, background_path, handles = FireworkShowManager.load_show(file_path)
-            mw.firework_firing = [float(t) for t in firings] if firings is not None else []
-            mw.segment_times = [float(t) for t in segment_times] if segment_times is not None else []
-            mw.sr = int(sr) if sr is not None else None
-            mw.duration = float(duration) if duration is not None else None
-            if isinstance(audio_data_loaded, list):
-                mw.audio_data = np.array(audio_data_loaded, dtype=np.float32)
-            elif isinstance(audio_data_loaded, np.ndarray):
-                mw.audio_data = audio_data_loaded.astype(np.float32)
-            else:
-                mw.audio_data = None
-            mw.plot_waveform()
-            mw.fireworks_colors = [
-                QColor(random.randint(50, 255), random.randint(50, 255), random.randint(50, 255))
-                for _ in mw.firework_firing
-            ]
-            mw.preview_widget.set_fireworks_colors(mw.fireworks_colors)
-            mw.preview_widget.set_show_data(
-                mw.audio_data, mw.sr, mw.segment_times, mw.firework_firing, mw.duration
-            )
-            if hasattr(mw.preview_widget, "firework_firing"):
-                mw.preview_widget.firework_firing = list(mw.firework_firing)
-            # Set handles if set_handles exists and handles were loaded
-            if hasattr(mw.preview_widget, "set_handles") and handles:
-                mw.preview_widget.set_handles(handles)
-            if background:
-                if background == "custom" and background_path:
-                    mw.fireworks_canvas.set_background("custom", background_path)
-                    for btn_radio in mw.background_btn.findChildren(QRadioButton):
-                        if btn_radio.text().lower() == "custom":
-                            btn_radio.setChecked(True)
-                            break
-                else:
-                    mw.fireworks_canvas.set_background(background)
-                    for btn_radio in mw.background_btn.findChildren(QRadioButton):
-                        if btn_radio.text().replace(" ", "").lower() == background.replace(" ", "").lower():
-                            btn_radio.setChecked(True)
-                            break
-            mw.fireworks_canvas.update_animation()
-            mw.update_firework_show_info()
-            mw.preview_widget.update()
-            mw.preview_widget.repaint()
-            toast = ToastDialog("Show loaded!", parent=mw)
-            geo = mw.geometry()
-            x = geo.x() + geo.width() - toast.width() - 40
-            y = geo.y() + geo.height() - toast.height() - 40
-            toast.move(x, y)
-            toast.show()
-            QTimer.singleShot(2000, toast.close)

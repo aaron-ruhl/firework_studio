@@ -21,6 +21,10 @@ class AudioLoader():
         )
         if files:
             self.paths = files
+            return True
+        else:
+            # If cancel is pressed, do not change self.paths
+            return False
 
     def load(self):
         for path in self.paths:
@@ -51,7 +55,10 @@ class AudioLoader():
         # Ensure parent is either None or a QWidget, not a bool
         if isinstance(parent, bool):
             parent = None
-        self.select_files(parent)
+        selected = self.select_files(parent)
+        if not selected:
+            # Cancel was pressed, do nothing
+            return None, None, [], 0.0
         # Store the figure_canvas for plotting
         self.figure_canvas = figure_canvas
         # Clear previous audio data and sample rate before loading new files

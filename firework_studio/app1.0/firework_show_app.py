@@ -1,11 +1,9 @@
 import numpy as np
 import os
-import librosa
-import librosa.display
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
-from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal
+from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -27,289 +25,41 @@ from PyQt6.QtWidgets import QWidgetAction
 
 
 import numpy as np
-import json
 from PyQt6.QtWidgets import QPushButton, QFileDialog, QRadioButton
 from PyQt6.QtGui import QColor
 from toaster import ToastDialog
-from handles import FiringHandles
-
-class FireworkshowManager:
-    @staticmethod
-    def save_show(file_path, audio_paths, sr, firework_times, segment_times, duration, handles):
-        # Convert handles to a list of lists using to_list() if available, and ensure all elements are JSON serializable
-        def make_json_serializable(obj):
-            import numpy as np
-            if isinstance(obj, QColor):
-                return obj.name()  # Convert QColor to hex string
-            elif isinstance(obj, np.ndarray):
-                return obj.tolist()  # Convert numpy arrays to lists
-            elif isinstance(obj, np.integer):
-                return int(obj)  # Convert numpy integers to Python int
-            elif isinstance(obj, np.floating):
-                return float(obj)  # Convert numpy floats to Python float
-            elif isinstance(obj, (list, tuple)):
-                return [make_json_serializable(x) for x in obj]
-            elif isinstance(obj, dict):
-                return {k: make_json_serializable(v) for k, v in obj.items()}
-            elif hasattr(obj, '__dict__'):
-                # Handle objects with attributes by converting to dict first
-                return make_json_serializable(obj.__dict__)
-            else:
-                # Try to convert to basic Python types
-                try:
-                    # This will catch any remaining numpy types
-                    if hasattr(obj, 'item'):
-                        return obj.item()  # Convert numpy scalars to Python types
-                    return obj
-                except (TypeError, AttributeError):
-                    return str(obj)  # Fallback to string representation
-
-        handles_list = []
-        if isinstance(handles, list):
-            for handle in handles:
-                # Always convert to list if possible, then recursively make JSON serializable
-                if hasattr(handle, "to_list"):
-                    handle_data = handle.to_list()
-                elif isinstance(handle, (list, tuple)):
-                    handle_data = list(handle)
-                else:
-                    try:
-                        handle_data = list(handle)
-                    except Exception:
-                        handle_data = [str(handle)]
-                # Recursively convert all elements to JSON-serializable types
-                handle_data = make_json_serializable(handle_data)
-                handles_list.append(handle_data)
-        # Recursively ensure all handles are JSON serializable (fix for nested numpy arrays)
-        handles_list = make_json_serializable(handles_list)
-
-        # Save only the file paths for audio_datas
-        show_data = {
-            "audio_paths": audio_paths,
-            "sr": sr,
-            "firework_times": make_json_serializable(firework_times),
-            "segment_times": make_json_serializable(segment_times),
-            "duration": duration,
-            "handles": handles_list,
-        }
-        
-        # Final pass to ensure everything is serializable
-        show_data = make_json_serializable(show_data)
-        
-        with open(file_path, "w") as f:
-            json.dump(show_data, f, indent=2)
-
-    @staticmethod
-    def load_show(file_path):
-        import os
-        show_data = {}
-        if not os.path.exists(file_path) or os.path.getsize(file_path) == 0:
-            print(f"File {file_path} does not exist or is empty.")
-            return None, None, [], [], [], None, []
-        try:
-            with open(file_path, "r") as f:
-                show_data = json.load(f)
-        except json.JSONDecodeError as e:
-            print(f"Error decoding JSON from {file_path}: {e}")
-            return None, None, [], [], [], None, []
-        except Exception as e:
-            print(f"Error reading file {file_path}: {e}")
-            return None, None, [], [], [], None, []
-        # Always return the same keys as in save_show
-        audio_paths = show_data.get("audio_paths", [])
-        sr = show_data.get("sr", None)
-        firework_times = show_data.get("firework_times", [])
-        segment_times = show_data.get("segment_times", [])
-        duration = show_data.get("duration", None)
-        handles = show_data.get("handles", [])
-
-        # Use AudioLoader to load audio from paths, with error handling
-        audio_loader = AudioLoader()
-        try:
-            print(f"Loading audio from paths: {audio_paths}")
-            print(f"Path types: {[type(p) for p in audio_paths] if audio_paths else 'No paths'}")
-            
-            if not audio_paths:
-                print("No audio paths found in saved show data")
-                audio_data, audio_datas, sr, duration = None, [], None, None
-            else:
-                audio_data, loaded_sr, audio_datas, loaded_duration = audio_loader.just_load(audio_paths)
-                # If sr or duration is missing in file, use loaded values
-                if sr is None:
-                    sr = loaded_sr
-                if duration is None:
-                    duration = loaded_duration
-        except Exception as e:
-            audio_data, audio_datas, sr, duration = None, [], None, None
-            print(f"Error loading audio files: {e}")
-
-        return audio_data, sr, audio_datas, firework_times, segment_times, duration, handles
-
-class ShowFileHandler:
-    def __init__(self, main_window, button_style):
-        self.main_window = main_window
-        self.button_style = button_style
-
-    def save_show(self):
-        if not self.main_window.audio_datas:
-            ToastDialog("No show to save!", parent=self.main_window).show()
-            return
-        file_path, _ = QFileDialog.getSaveFileName(
-            self.main_window, "Save Firework Show", "", "Firework Show (*.fwshow);;All Files (*)"
-        )
-        if file_path:
-            # Get audio paths - try multiple sources
-            audio_paths = self.main_window.paths
-            if not audio_paths and hasattr(self.main_window, 'audio_loader') and self.main_window.audio_loader.paths:
-                audio_paths = self.main_window.audio_loader.paths
-            if not audio_paths:
-                # If we still don't have paths, we can't save the show properly
-                print("Warning: No audio paths available for saving")
-                audio_paths = []
-            
-            sr = self.main_window.sr
-            firework_times = getattr(self.main_window.preview_widget, "firework_times", [])
-            segment_times = self.main_window.segment_times
-            duration = self.main_window.duration
-            handles = []
-            
-            # Debug: Check what audio_paths contains
-            print(f"Saving audio_paths: {audio_paths}")
-            print(f"Audio_paths type: {type(audio_paths)}")
-            print(f"Audio_paths length: {len(audio_paths) if audio_paths else 0}")
-            
-            if hasattr(self.main_window.preview_widget, "get_handles"):
-                raw_handles = self.main_window.preview_widget.get_handles()
-                for handle in raw_handles:
-                    handles.append(handle.to_list())
-            
-            try:
-                FireworkshowManager.save_show(file_path, audio_paths, sr, firework_times, segment_times, duration, handles)
-                def show_saved_toast():
-                    toast = ToastDialog("Show saved!", parent=self.main_window)
-                    geo = self.main_window.geometry()
+from show_file_handler import ShowFileHandler
+'''THIS IS THE MAIN WINDOW CLASS FOR THE FIREWORK STUDIO APPLICATION'''
+class FireworkShowApp(QMainWindow):
+    def clear_show(self):
+            # Only clear if audio is loaded
+            if self.audio_data is not None and self.sr is not None:
+                self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, None, self.duration)
+                self.preview_widget.stop_preview()
+                self.preview_widget.reset_selected_region()  # Reset selected region in preview widget
+                self.fireworks_canvas.update_animation()  # Reset firings displayed
+                self.preview_widget.reset_fireworks()  # Reset fireworks in preview widget
+                self.plot_waveform()  # Update waveform after clearing
+                self.update_firework_show_info()  # Update info after clearing
+                
+                def show_cleared_toast():
+                    toast = ToastDialog("Show cleared!", parent=self)
+                    geo = self.geometry()
                     x = geo.x() + geo.width() - toast.width() - 40
                     y = geo.y() + geo.height() - toast.height() - 40
                     toast.move(x, y)
                     toast.show()
                     QTimer.singleShot(2500, toast.close)
-                show_saved_toast()
-            except Exception as e:
-                print(f"Error saving show: {e}")
-                print(f"Handle data types: {[type(h) for h in handles]}")
-                if handles:
-                    print(f"First handle: {handles[0]}")
-                ToastDialog(f"Error saving show: {str(e)}", parent=self.main_window).show()
+                show_cleared_toast()
+            else:
+                return
+            # Always reset play/pause button state and icon so playback can start again
+            self.play_pause_btn.blockSignals(True)
+            self.play_pause_btn.setChecked(False)
+            self.play_pause_btn.setText("Play")
+            self.play_pause_btn.setIcon(QIcon(os.path.join("icons", "play.png")))
+            self.play_pause_btn.blockSignals(False)
 
-    def load_show(self):
-        self.main_window.fireworks_canvas.set_fireworks_enabled(False)
-        file_path, _ = QFileDialog.getOpenFileName(
-            self.main_window, "Load Firework Show", "", "Firework Show (*.fwshow);;All Files (*)"
-        )
-        if file_path:
-            # Always load all fields as saved by FireworkshowManager.save_show
-            audio_data, sr, audio_datas, firework_times, segment_times, duration, handles = FireworkshowManager.load_show(file_path)
-            self.main_window.audio_data = audio_data
-            self.main_window.sr = sr
-            self.main_window.audio_datas = audio_datas
-            self.main_window.segment_times = segment_times
-            self.main_window.duration = duration
-            
-            # Get the original audio paths from the saved show data
-            with open(file_path, "r") as f:
-                show_data = json.load(f)
-            saved_audio_paths = show_data.get("audio_paths", [])
-            self.main_window.paths = saved_audio_paths if isinstance(saved_audio_paths, list) else []
-            
-            # Also update the audio_loader's paths for consistency
-            if hasattr(self.main_window, 'audio_loader'):
-                self.main_window.audio_loader.paths = self.main_window.paths
-            
-            # Set show data in preview_widget
-            self.main_window.preview_widget.set_show_data(audio_data, sr, segment_times, firework_times, duration)
-            # Plot the waveform
-            self.main_window.plot_waveform()
-            # Show status bar and toast
-            if audio_data is not None:
-                self.main_window.status_bar.showMessage("Generate fireworks show from scratch or use generate show button to get help.")
-                basenames = []
-                if self.main_window.paths:
-                    basenames = [os.path.basename(str(p)) for p in self.main_window.paths if p and isinstance(p, (str, bytes, os.PathLike))]
-                
-                if basenames:
-                    toast = ToastDialog(f"Loaded audio: {', '.join(basenames)}", parent=self.main_window)
-                else:
-                    toast = ToastDialog("Loaded show (audio paths not available)", parent=self.main_window)
-                
-                geo = self.main_window.geometry()
-                x = geo.x() + geo.width() - toast.width() - 40
-                y = geo.y() + geo.height() - toast.height() - 40
-                toast.move(x, y)
-                toast.show()
-                QTimer.singleShot(2500, toast.close)
-                self.main_window.update_firework_show_info()
-            elif audio_data is None:
-                self.main_window.status_bar.showMessage("No audio loaded.")
-
-            # Reconstruct handles before setting show data
-            loaded_handles = []
-            if handles and isinstance(handles, list):
-                for handle in handles:
-                    try:
-                        # Convert color string back to QColor if needed
-                        if isinstance(handle, list) and len(handle) > 0:
-                            # Try to find the color field by type (hex string)
-                            for i, val in enumerate(handle):
-                                if isinstance(val, str) and val.startswith("#") and len(val) in (7, 9):
-                                    from PyQt6.QtGui import QColor
-                                    handle[i] = QColor(val)
-                        loaded_handles.append(FiringHandles.from_list(handle) if isinstance(handle, list) else handle)
-                    except Exception as e:
-                        print(f"Error reconstructing handle: {e}")
-                        loaded_handles.append(handle)
-            if hasattr(self.main_window.preview_widget, "set_handles"):
-                self.main_window.preview_widget.set_handles(loaded_handles)
-            # --- Ensure fireworks_canvas is updated with loaded handles ---
-            if hasattr(self.main_window.fireworks_canvas, "reset_fireworks"):
-                self.main_window.fireworks_canvas.reset_fireworks()
-            if hasattr(self.main_window.preview_widget, "firework_times"):
-                # This will trigger the preview_widget to update the canvas with the correct handles/colors
-                if hasattr(self.main_window.preview_widget, "update_fireworks_canvas"):
-                    self.main_window.preview_widget.update_fireworks_canvas()
-                else:
-                    # Fallback: manually add fireworks to the canvas using handles
-                    fw_canvas = self.main_window.fireworks_canvas
-                    fw_canvas.reset_fireworks()
-                    for handle in loaded_handles:
-                        if hasattr(fw_canvas, "add_firework"):
-                            fw_canvas.add_firework(handle)
-            def show_loaded_toast():
-                toast = ToastDialog("Show loaded!", parent=self.main_window)
-                geo = self.main_window.geometry()
-                x = geo.x() + geo.width() - toast.width() - 40
-                y = geo.y() + geo.height() - toast.height() - 40
-                toast.move(x, y)
-                toast.show()
-                QTimer.singleShot(2500, toast.close)
-            show_loaded_toast()
-            # only enable after it loads so adding the fireworks does not trigger them to fire.
-            self.main_window.fireworks_canvas.reset_fireworks()
-            self.main_window.fireworks_canvas.set_fireworks_enabled(True)
-
-    def create_save_btn(self):
-        btn = QPushButton("Save Show")
-        btn.setStyleSheet(self.button_style)
-        btn.clicked.connect(self.save_show)
-        return btn
-
-    def create_load_show_btn(self):
-        btn = QPushButton("Load Show")
-        btn.setStyleSheet(self.button_style)
-        btn.clicked.connect(self.load_show)
-        return btn
-
-'''THIS IS THE MAIN WINDOW CLASS FOR THE FIREWORK STUDIO APPLICATION'''
-class FireworkShowApp(QMainWindow):
     def __init__(self):
         super().__init__()
         ############################################################
@@ -748,12 +498,18 @@ class FireworkShowApp(QMainWindow):
             # Load audio data
             self.audio_data, self.sr, self.audio_datas, self.duration = self.audio_loader.select_and_load()
             self.paths = self.audio_loader.paths
-            # otherwise pressing play will not play anything because the show data is not set in preview_widget
-            self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, None, self.duration)
-            # Plot the waveform
-            self.plot_waveform()
+
             # If audio data is loaded, start the analysis
             if self.audio_data is not None:
+                # Clear previous show
+                self.clear_show()
+                # set show data
+                self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, None, self.duration)
+                # Plot the waveform
+                self.plot_waveform()
+                # Update status bar
+                self.update_firework_show_info()
+
                 # Show when audio is loaded
                 self.status_bar.showMessage("Generate fireworks show from scratch or use generate show button to get help.")
                 # Show a toast notification with loaded audio file names
@@ -765,7 +521,6 @@ class FireworkShowApp(QMainWindow):
                 toast.move(x, y)
                 toast.show()
                 QTimer.singleShot(2500, toast.close)
-                self.update_firework_show_info()
             elif self.audio_data is None:
                 self.status_bar.showMessage("No audio loaded.")
 
@@ -783,38 +538,7 @@ class FireworkShowApp(QMainWindow):
             btn.setIcon(QIcon(os.path.join("icons", "clear-show.png")))
             btn.setStyleSheet(button_style)
             # Also pause the show if playing
-            def clear_show():
-                # Only clear if audio is loaded
-                if self.audio_data is not None and self.sr is not None:
-                    self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, None, self.duration)
-                    self.preview_widget.stop_preview()
-                    self.preview_widget.reset_selected_region()  # Reset selected region in preview widget
-                    self.fireworks_canvas.update_animation()  # Reset firings displayed
-                    self.preview_widget.reset_fireworks()  # Reset fireworks in preview widget
-                    self.plot_waveform()  # Update waveform after clearing
-                    self.update_firework_show_info()  # Update info after clearing
-                    
-                    def show_cleared_toast():
-                        toast = ToastDialog("Show cleared!", parent=self)
-                        geo = self.geometry()
-                        x = geo.x() + geo.width() - toast.width() - 40
-                        y = geo.y() + geo.height() - toast.height() - 40
-                        toast.move(x, y)
-                        toast.show()
-                        QTimer.singleShot(2500, toast.close)
-                    show_cleared_toast()
-                else:
-                    return
-                # Always reset play/pause button state and icon so playback can start again
-                self.play_pause_btn.blockSignals(True)
-                self.play_pause_btn.setChecked(False)
-                self.play_pause_btn.setText("Play")
-                self.play_pause_btn.setIcon(QIcon(os.path.join("icons", "play.png")))
-                self.play_pause_btn.blockSignals(False)
-            
-
-            btn.clicked.connect(clear_show)
-
+            btn.clicked.connect(self.clear_show)
             return btn
 
         self.clear_btn = create_clear_btn()
@@ -1099,5 +823,8 @@ class FireworkShowApp(QMainWindow):
         if hasattr(self, "status_bar") and self.status_bar is not None:
             self.status_bar.showMessage(self.firework_show_info)
             self.status_bar.repaint()  # Force repaint to ensure update
+
+    
+    
 
    
