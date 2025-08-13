@@ -58,7 +58,6 @@ class FireworkShowApp(QMainWindow):
             # Always reset play/pause button state and icon so playback can start again
             self.play_pause_btn.blockSignals(True)
             self.play_pause_btn.setChecked(False)
-            self.play_pause_btn.setText("Play")
             self.play_pause_btn.setIcon(QIcon(os.path.join("icons", "play.png")))
             self.play_pause_btn.blockSignals(False)
 
@@ -109,7 +108,6 @@ class FireworkShowApp(QMainWindow):
             max-height: 28px;
             padding: 2px 6px;
             margin: 0px;
-            qproperty-alignment: AlignCenter;
             }
             QPushButton:hover {
             background-color: #606874;
@@ -136,7 +134,6 @@ class FireworkShowApp(QMainWindow):
             min-width: 40px;
             max-width: 100px;
             margin: 0px;
-            qproperty-alignment: AlignCenter;
             }
             QComboBox:hover, QComboBox:focus {
             background: #31323a;
@@ -170,7 +167,6 @@ class FireworkShowApp(QMainWindow):
             margin: 0px;
             min-height: 36px;
             max-height: 36px;
-            qproperty-alignment: AlignCenter;
             }
             QGroupBox {
             background-color: #23242b;
@@ -264,7 +260,6 @@ class FireworkShowApp(QMainWindow):
             if event_type == "dragging_playhead":
                 self.play_pause_btn.blockSignals(True)
                 self.play_pause_btn.setChecked(False)
-                self.play_pause_btn.setText("Play")
                 self.play_pause_btn.setIcon(QIcon(os.path.join("icons", "play.png")))
                 self.play_pause_btn.blockSignals(False)
 
