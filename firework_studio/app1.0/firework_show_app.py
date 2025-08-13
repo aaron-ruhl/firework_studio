@@ -4,9 +4,9 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QColor
+from PyQt6.QtGui import QColor, QAction
 from PyQt6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+    QMenu, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QFileDialog, QSizePolicy, QStatusBar,
     QGroupBox, QRadioButton, QButtonGroup, QComboBox
 )
@@ -29,6 +29,7 @@ from PyQt6.QtWidgets import QPushButton, QFileDialog, QRadioButton
 from PyQt6.QtGui import QColor
 from toaster import ToastDialog
 from show_file_handler import ShowFileHandler
+
 '''THIS IS THE MAIN WINDOW CLASS FOR THE FIREWORK STUDIO APPLICATION'''
 class FireworkShowApp(QMainWindow):
     def clear_show(self):
@@ -545,50 +546,59 @@ class FireworkShowApp(QMainWindow):
         #              Background selection                       #
         #                                                         #
         ###########################################################
-        # Create a button to select background
-        def create_background_btn():
-            group_box = QGroupBox("Background")
-            group_box.setStyleSheet("QGroupBox { color: #e0e0e0; font-weight: bold; }")
-            bg_layout = QHBoxLayout()
-            group_box.setLayout(bg_layout)
+
+        # --- Add context menu for fireworks_canvas to select background ---
+        def show_canvas_context_menu(point):
+            menu = QMenu(self.fireworks_canvas)
+            # Add a non-selectable title at the top
+            title_action = QAction("Choose background...", menu)
+            title_action.setEnabled(False)
+            menu.addAction(title_action)
+            menu.addSeparator()
 
             backgrounds = [
-            ("Night Sky", "night"),
-            ("Sunset", "sunset"),
-            ("City", "city"),
-            ("Mountains", "mountains"),
-            ("Custom", "custom"),
+                ("Night Sky", "night"),
+                ("Sunset", "sunset"),
+                ("City", "city"),
+                ("Mountains", "mountains"),
+                ("Custom...", "custom"),
             ]
-            # Create radio buttons for each background option
-            button_group = QButtonGroup(self)
-            radio_buttons = []
+
+            # Track current background to show checked state
+            current_bg = getattr(self.fireworks_canvas, "current_background", "night")
+
+            def set_and_update_background(bg, image_path=None):
+                self.fireworks_canvas.set_background(bg, image_path)
+                # Update the current_background attribute
+                self.fireworks_canvas.current_background = bg
+
             for label, bg_name in backgrounds:
-                radio = QRadioButton(label)
-                radio.setStyleSheet("color: #e0e0e0;")
-                bg_layout.addWidget(radio)
-                button_group.addButton(radio)
-                radio_buttons.append((radio, bg_name))
+                action = QAction(label, menu)
+                action.setCheckable(True)
+                if bg_name == current_bg:
+                    action.setChecked(True)
+                else:
+                    action.setChecked(False)
                 if bg_name != "custom":
                     def make_handler(bg=bg_name):
-                        return lambda checked, bg=bg: self.fireworks_canvas.set_background(bg) if checked else None
-                    radio.toggled.connect(make_handler())
+                        return lambda: set_and_update_background(bg)
+                    action.triggered.connect(make_handler())
                 else:
-                    def on_custom_bg_selected(checked):
-                        if checked:
-                            file_dialog = QFileDialog(self)
-                            file_dialog.setNameFilter("Images (*.png *.jpg *.jpeg *.bmp *.gif)")
-                            if file_dialog.exec():
-                                selected_files = file_dialog.selectedFiles()
-                                if selected_files:
-                                    image_path = selected_files[0]
-                                    self.fireworks_canvas.set_background("custom", image_path)
-                    radio.toggled.connect(on_custom_bg_selected)
-            # Set default selection
-            radio_buttons[0][0].setChecked(True)
-            self.fireworks_canvas.set_background(backgrounds[0][1])
+                    def custom_bg_handler():
+                        file_dialog = QFileDialog(self)
+                        file_dialog.setNameFilter("Images (*.png *.jpg *.jpeg *.bmp *.gif)")
+                        if file_dialog.exec():
+                            selected_files = file_dialog.selectedFiles()
+                            if selected_files:
+                                image_path = selected_files[0]
+                                set_and_update_background("custom", image_path)
+                    action.triggered.connect(custom_bg_handler)
+                menu.addAction(action)
 
-            return group_box
-        self.background_btn = create_background_btn()
+            menu.exec(self.fireworks_canvas.mapToGlobal(point))
+
+        self.fireworks_canvas.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.fireworks_canvas.customContextMenuRequested.connect(show_canvas_context_menu)
 
         ###########################################################
         #                                                         #
@@ -671,7 +681,6 @@ class FireworkShowApp(QMainWindow):
         self.clear_btn.setToolTip("Clear all firings and reset the show")
         self.save_btn.setToolTip("Save the current fireworks show")
         self.load_show_btn.setToolTip("Load a previously saved fireworks show")
-        self.background_btn.setToolTip("Choose the background for the fireworks display")
 
         add_toolbar_widget(self.play_pause_btn)
         add_toolbar_widget(self.stop_btn)
@@ -689,9 +698,6 @@ class FireworkShowApp(QMainWindow):
         
         add_toolbar_widget(self.save_btn)
         add_toolbar_widget(self.load_show_btn)
-        self.media_toolbar.addSeparator()
-
-        add_toolbar_widget(self.background_btn)
         self.media_toolbar.addSeparator()
 
         # Add the toolbar to the main window at the top by default
