@@ -232,22 +232,37 @@ class FireworksCanvas(QWidget):
         painter.drawEllipse(moon_x, moon_y, moon_radius, moon_radius)
         painter.setPen(QColor(230, 230, 210, 220))  # Restore pen
 
-        # Add subtle moon craters (texture)
-        painter.setBrush(QColor(220, 210, 160, 80))
+        # Add subtle moon craters (texture) - cache so craters don't change every frame
+        if not hasattr(self, "_moon_craters_cache") or self._moon_craters_cache is None \
+            or self._moon_craters_cache.get("moon_x") != moon_x \
+            or self._moon_craters_cache.get("moon_y") != moon_y \
+            or self._moon_craters_cache.get("moon_radius") != moon_radius:
+            # Use a deterministic random seed based on moon position and radius
+            seed_str = f"{moon_x},{moon_y},{moon_radius}"
+            rng = random.Random(seed_str)
+            craters = []
+            for _ in range(7):
+                cr_x = moon_x + rng.randint(7, moon_radius - 12)
+                cr_y = moon_y + rng.randint(7, moon_radius - 12)
+                cr_r = rng.randint(3, 7)
+                craters.append((cr_x, cr_y, cr_r))
+            self._moon_craters_cache = {
+                "moon_x": moon_x,
+                "moon_y": moon_y,
+                "moon_radius": moon_radius,
+                "craters": craters
+            }
+        painter.setBrush(QColor(200, 190, 120, 130))  # Brighter, more opaque for visibility
         painter.setPen(Qt.PenStyle.NoPen)
-        for _ in range(7):
-            cr_x = moon_x + random.randint(7, moon_radius-12)
-            cr_y = moon_y + random.randint(7, moon_radius-12)
-            cr_r = random.randint(3, 7)
+        for cr_x, cr_y, cr_r in self._moon_craters_cache["craters"]:
             painter.drawEllipse(cr_x, cr_y, cr_r, cr_r)
-
 
         # --- Draw detailed coastline silhouette in foreground with palm tree ---
 
         coastline_height = int(self.height() * 0.15)
         coastline_y = self.height() - coastline_height
 
-        # Draw detailed coastline silhouette (foreground, black and shorter)
+        # Draw detailed, rough coastline silhouette (foreground, black, jagged and irregular)
         # Cache the coastline path so it doesn't change every frame
         if not hasattr(self, "_coastline_cache") or \
            self._coastline_cache is None or \
@@ -258,13 +273,33 @@ class FireworksCanvas(QWidget):
             path.moveTo(0, self.height())
             # Use a fixed random seed for consistent coastline shape per size
             rng = random.Random(self.width() * 10000 + self.height())
-            for i in range(0, self.width() + 1, 4):
-                wave = (
-                    math.sin(i * 0.025) * 6 +
-                    math.cos(i * 0.012) * 4 +
-                    rng.uniform(-1, 1)
+            # Generate jagged coastline silhouette
+            points = []
+            n_points = max(40, self.width() // 18)
+            for i in range(n_points + 1):
+                x = int(i * self.width() / n_points)
+                # Main base line
+                base_y = coastline_y + 12
+                # Add large-scale jaggedness
+                jag = (
+                    math.sin(i * 0.7) * 18 +
+                    math.cos(i * 0.33) * 11 +
+                    rng.uniform(-10, 10)
                 )
-                path.lineTo(i, coastline_y + 10 + wave)
+                # Add small-scale roughness
+                rough = (
+                    math.sin(i * 2.2) * 4 +
+                    math.cos(i * 1.7) * 3 +
+                    rng.uniform(-3, 3)
+                )
+                y = int(base_y + jag + rough)
+                # Add occasional "rock outcrop" (sharp dip)
+                if i > 2 and rng.random() < 0.09:
+                    y += rng.uniform(18, 38)
+                points.append((x, y))
+            # Draw the jagged coastline
+            for x, y in points:
+                path.lineTo(x, y)
             path.lineTo(self.width(), self.height())
             path.closeSubpath()
             self._coastline_cache = {
@@ -276,36 +311,39 @@ class FireworksCanvas(QWidget):
         black_color = QColor(0, 0, 0, 255)
         painter.setBrush(black_color)
         painter.drawPath(self._coastline_cache["path"])
-        
 
-        # Draw a palm tree silhouette on the left foreground
-        palm_base_x = int(self.width() * 0.13)
-        palm_base_y = int(coastline_y + 18)
-        trunk_height = int(self.height() * 0.18)
-        trunk_width = 9
-        # Draw several palm trees (all black silhouette)
-        palm_color = QColor(0, 0, 0, 255)
-        painter.setPen(QPen(palm_color, trunk_width, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
-        painter.setBrush(Qt.BrushStyle.NoBrush)
-
+        # --- Palm trees with gentle sway ---
+        # Animate sway using time (frame count)
+        if not hasattr(self, "_palm_sway_tick"):
+            self._palm_sway_tick = 0
+        self._palm_sway_tick += 1
+        sway_phase = self._palm_sway_tick / 32.0  # Slow, gentle
         # List of palm tree positions and trunk heights (relative to coastline)
+        palm_vertical_shift = int(self.height() * 0.025)  # Shift all palms down by ~2.5% of height
         palms = [
-            (int(self.width() * 0.13), int(coastline_y + 18), int(self.height() * 0.18)),  # main left
-            (int(self.width() * 0.19), int(coastline_y + 24), int(self.height() * 0.13)),  # right of main
-            (int(self.width() * 0.10), int(coastline_y + 28), int(self.height() * 0.11)),  # left of main
-            (int(self.width() * 0.16), int(coastline_y + 32), int(self.height() * 0.09)),  # short, in front
-            (int(self.width() * 0.09), int(coastline_y + 12), int(self.height() * 0.15)),  # far left
+            (int(self.width() * 0.13), int(coastline_y + 18 + palm_vertical_shift), int(self.height() * 0.18)),  # main left
+            (int(self.width() * 0.19), int(coastline_y + 20 + palm_vertical_shift), int(self.height() * 0.12)),  # right of main
+            (int(self.width() * 0.10), int(coastline_y + 28 + palm_vertical_shift), int(self.height() * 0.11)),  # left of main
+            (int(self.width() * 0.16), int(coastline_y + 32 + palm_vertical_shift), int(self.height() * 0.09)),  # short, in front
+            (int(self.width() * 0.09), int(coastline_y + 12 + palm_vertical_shift), int(self.height() * 0.15)),  # far left
         ]
 
-        for palm_base_x, palm_base_y, trunk_height in palms:
-            # Draw trunk (curved)
+        palm_color = QColor(0, 0, 0, 255)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+
+        for palm_idx, (palm_base_x, palm_base_y, trunk_height) in enumerate(palms):
+            # Sway offset: each palm has a slightly different phase and amplitude
+            sway_amp = 10 + palm_idx * 2
+            sway = math.sin(sway_phase + palm_idx * 0.7) * sway_amp
+            # Draw trunk (curved, swaying)
             trunk_path = QPainterPath()
             trunk_path.moveTo(palm_base_x, palm_base_y)
             trunk_path.cubicTo(
-            palm_base_x + 10, palm_base_y - trunk_height // 3,
-            palm_base_x - 18, palm_base_y - trunk_height * 2 // 3,
-            palm_base_x + 8, palm_base_y - trunk_height
+                palm_base_x + 10 + sway * 0.3, palm_base_y - trunk_height // 3,
+                palm_base_x - 18 + sway * 0.7, palm_base_y - trunk_height * 2 // 3,
+                palm_base_x + 8 + sway, palm_base_y - trunk_height
             )
+            painter.setPen(QPen(palm_color, 9, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
             painter.drawPath(trunk_path)
             # Draw palm leaves (silhouette, 7-8 leaves) - cache per palm so leaves don't change every frame
             if not hasattr(self, "_palm_leaves_cache"):
@@ -315,27 +353,24 @@ class FireworksCanvas(QWidget):
                 # Generate and cache leaf geometry for this palm
                 center_x = palm_base_x + 8
                 center_y = palm_base_y - trunk_height
-                # Fan leaves evenly in a radial pattern (like a real palm)
                 n_leaves = 8
                 leaf_angles = np.linspace(-110, 110, n_leaves)
                 leaves = []
                 for angle in leaf_angles:
                     radians = math.radians(angle)
                     leaf_len = random.randint(54, 62)
-                    # Make leaves more arched and symmetric
                     ctrl1_x = center_x + math.cos(radians) * (leaf_len * 0.33)
                     ctrl1_y = center_y + math.sin(radians) * (leaf_len * 0.33) - 8
                     ctrl2_x = center_x + math.cos(radians) * (leaf_len * 0.66)
                     ctrl2_y = center_y + math.sin(radians) * (leaf_len * 0.66) + 8
                     end_x = center_x + math.cos(radians) * leaf_len
                     end_y = center_y + math.sin(radians) * leaf_len
-                    # Leaflets: short, perpendicular lines, evenly spaced
                     leaflets = []
                     for t in np.linspace(0.18, 0.82, 5):
                         lx = center_x + (end_x - center_x) * t
                         ly = center_y + (end_y - center_y) * t
                         perp_angle = radians + math.pi / 2
-                        leaflet_len = 8 + 2 * math.cos((t - 0.5) * math.pi)  # slightly longer in middle
+                        leaflet_len = 8 + 2 * math.cos((t - 0.5) * math.pi)
                         leaflets.append((
                             int(lx - math.cos(perp_angle) * leaflet_len / 2),
                             int(ly - math.sin(perp_angle) * leaflet_len / 2),
@@ -351,24 +386,119 @@ class FireworksCanvas(QWidget):
                         "center": (center_x, center_y),
                     })
                 self._palm_leaves_cache[palm_id] = leaves
-            # Draw cached leaves
+            # Draw cached leaves, but sway the leaves' base with the trunk
             painter.setPen(QPen(palm_color, 4, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
             for leaf in self._palm_leaves_cache[palm_id]:
                 center_x, center_y = leaf["center"]
+                # Sway the leaf base with the trunk
+                sway_leaf = sway * 0.7
                 ctrl1_x, ctrl1_y = leaf["ctrl1"]
                 ctrl2_x, ctrl2_y = leaf["ctrl2"]
                 end_x, end_y = leaf["end"]
                 leaf_path = QPainterPath()
-                leaf_path.moveTo(center_x, center_y)
-                leaf_path.cubicTo(ctrl1_x, ctrl1_y, ctrl2_x, ctrl2_y, end_x, end_y)
+                leaf_path.moveTo(center_x + sway_leaf, center_y)
+                leaf_path.cubicTo(
+                    ctrl1_x + sway_leaf, ctrl1_y,
+                    ctrl2_x + sway_leaf, ctrl2_y,
+                    end_x + sway_leaf, end_y
+                )
                 painter.drawPath(leaf_path)
                 # Draw leaflets as short lines
                 for lx1, ly1, lx2, ly2 in leaf["leaflets"]:
-                    painter.drawLine(lx1, ly1, lx2, ly2)
+                    painter.drawLine(int(lx1 + sway_leaf), int(ly1), int(lx2 + sway_leaf), int(ly2))
+
+        # --- Seagulls (animated, silhouetted, flying across the screen) ---
+        # Each seagull is a dict: {x, y, speed, wing_phase, direction}
+        if not hasattr(self, "_seagulls"):
+            self._seagulls = []
+        # Occasionally spawn a new seagull (randomly, but not too many)
+        if random.random() < 0.012 and len(self._seagulls) < 2:
+            direction = random.choice(["right", "left"])
+            if direction == "right":
+                x = -40
+                speed = random.uniform(2.0, 3.5)
+            else:
+                x = self.width() + 40
+                speed = -random.uniform(2.0, 3.5)
+            y = random.randint(int(self.height() * 0.18), int(self.height() * 0.45))
+            wing_phase = random.uniform(0, 2 * math.pi)
+            self._seagulls.append({
+                "x": x,
+                "y": y,
+                "speed": speed,
+                "wing_phase": wing_phase,
+                "direction": direction,
+            })
+        # Animate and draw seagulls with more natural movement (flapping, bobbing, slight up/down drift)
+        new_seagulls = []
+        for gull in self._seagulls:
+            # Horizontal movement
+            gull["x"] += gull["speed"]
+            # Wing phase for flapping
+            gull["wing_phase"] += 0.18 + random.uniform(-0.02, 0.02)
+            # Add vertical bobbing and gentle up/down drift
+            if "drift_phase" not in gull:
+                gull["drift_phase"] = random.uniform(0, 2 * math.pi)
+            if "drift_speed" not in gull:
+                gull["drift_speed"] = random.uniform(0.008, 0.018)
+            gull["drift_phase"] += gull["drift_speed"]
+            drift = math.sin(gull["drift_phase"]) * 2.5  # gentle up/down drift
+            # Remove if off screen
+            if -60 < gull["x"] < self.width() + 60:
+                new_seagulls.append(gull)
+                # Draw seagull as a simple "M" shape (two arcs)
+                x = int(gull["x"])
+                y = int(gull["y"] + drift)
+                wing_span = 32 + random.randint(-2, 2)
+                # Flapping: wings go up and down
+                flap = math.sin(gull["wing_phase"])
+                wing_flap = flap * 12  # more pronounced flapping
+                body_y = y + 4 + math.sin(gull["wing_phase"] * 0.7) * 2
+                # Draw left and right wings as arcs, with flapping
+                painter.setPen(QPen(QColor(0, 0, 0, 255), 3, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+                if gull["direction"] == "right":
+                    # Left wing
+                    painter.drawArc(
+                        x - wing_span // 2,
+                        int(body_y - 8 - wing_flap),
+                        wing_span,
+                        18 + int(wing_flap),
+                        200 * 16,
+                        70 * 16
+                    )
+                    # Right wing
+                    painter.drawArc(
+                        x - wing_span // 2,
+                        int(body_y - 8 - wing_flap),
+                        wing_span,
+                        18 + int(wing_flap),
+                        270 * 16,
+                        70 * 16
+                    )
+                else:
+                    # Left wing
+                    painter.drawArc(
+                        x - wing_span // 2,
+                        int(body_y - 8 - wing_flap),
+                        wing_span,
+                        18 + int(wing_flap),
+                        200 * 16,
+                        70 * 16
+                    )
+                    # Right wing
+                    painter.drawArc(
+                        x - wing_span // 2,
+                        int(body_y - 8 - wing_flap),
+                        wing_span,
+                        18 + int(wing_flap),
+                        270 * 16,
+                        70 * 16
+                    )
+        self._seagulls = new_seagulls
 
         # Restore pen
         painter.setPen(QColor(230, 230, 210, 220))
-    # --- Animated Clouds for Sunset Scene ---
+    # --- Animated, Detailed Clouds for Sunset Scene ---
     def _init_sunset_clouds(self):
         # Called once to initialize clouds for sunset background
         self._sunset_clouds = []
@@ -382,6 +512,17 @@ class FireworksCanvas(QWidget):
                 "color_idx": random.randint(0, 3),
                 "speed": random.uniform(0.18, 0.55),
                 "layer": random.choice([0, 1]),  # 0: back, 1: front
+                # Add sub-ellipses for detail
+                "parts": [
+                    {
+                        "dx": random.randint(-20, 20),
+                        "dy": random.randint(-8, 8),
+                        "w": random.uniform(0.5, 1.1),
+                        "h": random.uniform(0.5, 1.1),
+                        "alpha": random.randint(60, 120)
+                    }
+                    for _ in range(random.randint(3, 7))
+                ]
             }
             self._sunset_clouds.append(cloud)
 
@@ -403,6 +544,39 @@ class FireworksCanvas(QWidget):
                 cloud["color_idx"] = random.randint(0, 3)
                 cloud["speed"] = random.uniform(0.18, 0.55)
                 cloud["layer"] = random.choice([0, 1])
+                cloud["parts"] = [
+                    {
+                        "dx": random.randint(-20, 20),
+                        "dy": random.randint(-8, 8),
+                        "w": random.uniform(0.5, 1.1),
+                        "h": random.uniform(0.5, 1.1),
+                        "alpha": random.randint(60, 120)
+                    }
+                    for _ in range(random.randint(3, 7))
+                ]
+
+    # Override: draw detailed clouds in draw_background_sunset
+    def draw_detailed_cloud(self, painter, cloud, cloud_colors):
+        # Draw main ellipse
+        painter.setBrush(cloud_colors[cloud["color_idx"] % len(cloud_colors)])
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawEllipse(
+            int(cloud["x"]),
+            int(cloud["y"]),
+            int(cloud["width"]),
+            int(cloud["height"])
+        )
+        # Draw sub-ellipses for detail
+        for part in cloud.get("parts", []):
+            color = cloud_colors[cloud["color_idx"] % len(cloud_colors)]
+            color = QColor(color.red(), color.green(), color.blue(), part["alpha"])
+            painter.setBrush(color)
+            painter.drawEllipse(
+                int(cloud["x"] + part["dx"] + cloud["width"] * 0.2),
+                int(cloud["y"] + part["dy"] + cloud["height"] * 0.2),
+                int(cloud["width"] * part["w"]),
+                int(cloud["height"] * part["h"])
+            )
 
     def draw_background_sunset(self, painter):
         # Draw background - realistic sunset over water
@@ -506,6 +680,105 @@ class FireworksCanvas(QWidget):
             painter.setPen(Qt.PenStyle.NoPen)
             painter.drawEllipse(reflection_x + i * 3, reflection_y + i * 10, width, 12)
 
+        # 8. Fish fin random event (animated)
+        # Fish fin appears randomly, moves across water, then disappears
+        if not hasattr(self, "_fish_fin"):
+            self._fish_fin = None
+            self._fish_fin_timer = 0
+
+        # Chance to spawn a fish fin if none is present (about once every 8-16 seconds)
+        if self._fish_fin is None and random.random() < 0.001:
+            direction = random.choice(["right", "left"])
+            if direction == "right":
+                start_x = -40
+                dx = random.uniform(2.0, 3.5)
+            else:
+                start_x = self.width() + 40
+                dx = -random.uniform(2.0, 3.5)
+            # Water area: from horizon_y to self.height()
+            water_top = horizon_y + 8
+            water_bottom = self.height() - 12
+            y = random.randint(water_top, water_bottom)
+            self._fish_fin = {
+                "x": start_x,
+                "y": y,
+                "dx": dx,
+                "dy": 0.0,
+                "direction": direction,
+                "timer": 0,
+                "target_dx": dx,
+                "target_dy": 0.0,
+                "change_tick": 0,
+                "life": random.randint(240, 400),  # frames
+            }
+
+        # Animate and draw fish fin if present
+        if self._fish_fin is not None:
+            fin = self._fish_fin
+            # Every 18-36 frames, pick a new random dx/dy target
+            fin["change_tick"] += 1
+            if fin["change_tick"] > random.randint(18, 36):
+                # Randomly adjust dx and dy, but keep general direction
+                if fin["direction"] == "right":
+                    fin["target_dx"] = random.uniform(1.8, 4.0)
+                else:
+                    fin["target_dx"] = -random.uniform(1.8, 4.0)
+                fin["target_dy"] = random.uniform(-1.2, 1.2)
+                fin["change_tick"] = 0
+            # Smoothly approach target dx/dy
+            fin["dx"] += (fin["target_dx"] - fin["dx"]) * 0.18
+            fin["dy"] += (fin["target_dy"] - fin["dy"]) * 0.18
+
+            # Move fin
+            fin["x"] += fin["dx"]
+            fin["y"] += fin["dy"]
+            fin["timer"] += 1
+            fin["life"] -= 1
+
+            # Keep fin within water area
+            water_top = horizon_y + 8
+            water_bottom = self.height() - 12
+            if fin["y"] < water_top:
+                fin["y"] = water_top
+                fin["dy"] = abs(fin["dy"])
+                fin["target_dy"] = abs(fin["target_dy"])
+            elif fin["y"] > water_bottom:
+                fin["y"] = water_bottom
+                fin["dy"] = -abs(fin["dy"])
+                fin["target_dy"] = -abs(fin["target_dy"])
+
+            # Draw fish fin (triangle)
+            base_x = int(fin["x"])
+            base_y = int(fin["y"])
+            width = 22
+            height = 18
+            painter.setBrush(QColor(60, 60, 70, 220))
+            painter.setPen(Qt.PenStyle.NoPen)
+            if fin["direction"] == "right":
+                points = [
+                    QPointF(base_x, base_y),
+                    QPointF(base_x + width, base_y),
+                    QPointF(base_x + width // 2, base_y - height + int(math.sin(fin["timer"] * 0.18) * 3)),
+                ]
+            else:
+                points = [
+                    QPointF(base_x, base_y),
+                    QPointF(base_x - width, base_y),
+                    QPointF(base_x - width // 2, base_y - height + int(math.sin(fin["timer"] * 0.18) * 3)),
+                ]
+            painter.drawPolygon(*points)
+            # Draw a subtle wake behind the fin
+            painter.setBrush(QColor(255, 255, 255, 60))
+            if fin["direction"] == "right":
+                painter.drawEllipse(base_x - 10, base_y + 2, 16, 4)
+            else:
+                painter.drawEllipse(base_x - 6, base_y + 2, 16, 4)
+            # Remove if off screen or life expired
+            if (fin["direction"] == "right" and fin["x"] > self.width() + 40) or \
+               (fin["direction"] == "left" and fin["x"] < -40) or \
+               fin["life"] <= 0:
+                self._fish_fin = None
+
     # Ensure sunset clouds are initialized on resize or show
     def resizeEvent(self, event):
         if self.background == "sunset":
@@ -558,14 +831,15 @@ class FireworksCanvas(QWidget):
                 self._city_window_states.append(states)
             self._city_window_ticks = 0
         else:
-            # Slowly update a few windows at random every ~6 seconds
+            # Slowly update only one random window in one random building every ~6 seconds
             if not hasattr(self, "_city_window_ticks"):
                 self._city_window_ticks = 0
             self._city_window_ticks += 1
             if self._city_window_ticks > 360:  # ~6 seconds at 60 FPS
                 self._city_window_ticks = 0
-                for states in self._city_window_states:
-                    # Flip a single random window per building
+                if self._city_window_states:
+                    bidx = random.randint(0, len(self._city_window_states) - 1)
+                    states = self._city_window_states[bidx]
                     if states.size > 0:
                         col = random.randint(0, states.shape[0] - 1)
                         row = random.randint(0, states.shape[1] - 1)
@@ -614,44 +888,132 @@ class FireworksCanvas(QWidget):
         painter.setBrush(QColor(32, 32, 60, 0))
         painter.drawEllipse(moon_x + 8, moon_y, moon_radius, moon_radius)
 
-        # --- Plane flyby event ---
+        # --- Plane flyby event with waving banner ---
         # Plane flies slowly from left to right near the top of the screen with a flashing red light
-        if not hasattr(self, "_plane_flyby"):
-            # Initialize plane state: x position, flash tick, flash state
-            self._plane_flyby = {
-                "x": -40,
-                "y": int(self.height() * 0.09),
-                "speed": max(1, self.width() // 900),  # Slow, scales with width
-                "flash_tick": 0,
-                "flash_on": True,
-            }
-        plane = self._plane_flyby
-        # Move plane
-        plane["x"] += plane["speed"]
-        if plane["x"] > self.width() + 40:
-            # Reset to left, randomize y a bit
-            plane["x"] = -40
-            plane["y"] = int(self.height() * 0.07) + random.randint(0, int(self.height() * 0.05))
-        # Flashing logic: flash every ~0.7s (about 44 frames at 16ms)
-        plane["flash_tick"] += 1
-        if plane["flash_tick"] > 44:
-            plane["flash_tick"] = 0
-            plane["flash_on"] = not plane["flash_on"]
-        # Draw the plane as a tiny dark shape with a flashing red light
-        px = int(plane["x"])
-        py = int(plane["y"])
-        # Plane body (tiny, dark gray)
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QColor(80, 80, 90, 180))
-        painter.drawEllipse(px, py, 16, 4)
-        # Plane tail (vertical stabilizer)
-        painter.setBrush(QColor(60, 60, 70, 180))
-        painter.drawRect(px + 12, py - 2, 3, 6)
-        # Flashing red light (on top of plane)
-        if plane["flash_on"]:
-            painter.setBrush(QColor(255, 40, 40, 230))
-            painter.setPen(Qt.PenStyle.NoPen)
-            painter.drawEllipse(px + 14, py + 1, 4, 4)
+        # Now: plane appears much less frequently, and carries a waving banner
+
+        # Plane spawn logic: only spawn a new plane if none is present, and with low probability
+        if not hasattr(self, "_plane_flyby") or self._plane_flyby is None:
+            if not hasattr(self, "_plane_flyby_cooldown"):
+                self._plane_flyby_cooldown = random.randint(0, 1)  # 20-36 seconds at 60 FPS
+            if self._plane_flyby_cooldown > 0:
+                self._plane_flyby_cooldown -= 1
+            else:
+                # Spawn plane
+                self._plane_flyby = {
+                    "x": -60,
+                    "y": int(self.height() * 0.09) + random.randint(-10, 10),
+                    "speed": max(0.5, self.width() / 4000),  # Much slower plane
+                    "flash_tick": 0,
+                    "flash_on": True,
+                    "banner_wave_tick": 0,
+                }
+                self._plane_flyby_cooldown = random.randint(1200, 2200)  # Reset cooldown
+        plane = getattr(self, "_plane_flyby", None)
+        if plane is not None:
+            # Move plane
+            plane["x"] += plane["speed"]
+            if plane["x"] > self.width() + 200:
+            # Remove plane when off screen
+                self._plane_flyby = None
+            else:
+                # Flashing logic: flash every ~0.7s (about 44 frames at 16ms)
+                plane["flash_tick"] += 1
+                if plane["flash_tick"] > 44:
+                    plane["flash_tick"] = 0
+                    plane["flash_on"] = not plane["flash_on"]
+                px = int(plane["x"])
+                py = int(plane["y"])
+
+                # --- Draw waving banner advertising Firework Studio ---
+                banner_text = "FIREWORK STUDIO"
+                banner_length = 120
+                banner_height = 18
+                n_points = 18
+                wave_amplitude = 8
+                plane["banner_wave_tick"] += 1
+                t_wave = plane["banner_wave_tick"]
+
+                # The banner should start behind the plane, so the cable attaches to the back of the banner.
+                # The cable attaches at (px + 8, py + 3), so set banner_x0 to be at the far end of the banner.
+                banner_x0 = px - 80 - banner_length
+                banner_y0 = py + 3 - banner_height // 2
+
+                banner_points = []
+                for i in range(n_points):
+                    x = banner_x0 + i * (banner_length / (n_points - 1))
+                    phase = (i / (n_points - 1)) * math.pi * 2
+                    # Make the wave much slower by reducing the multiplier on t_wave
+                    y = banner_y0 + math.sin(phase + t_wave * 0.045) * (wave_amplitude * 0.7)
+                    banner_points.append(QPointF(x, y))
+                # Draw the string/rope connecting plane to banner (drawn after banner, so in front of banner but behind plane)
+                painter.setPen(QPen(QColor(90, 90, 90, 180), 2))
+                painter.drawLine(px + 8, py + 3, banner_x0, banner_y0 + banner_height // 2)
+
+                # Plane body (tiny, dark gray) - drawn after cable so plane is in front
+                painter.setPen(Qt.PenStyle.NoPen)
+                painter.setBrush(QColor(80, 80, 90, 180))
+                painter.drawEllipse(px, py, 16, 4)
+                # Plane tail (vertical stabilizer)
+                painter.setBrush(QColor(60, 60, 70, 180))
+                painter.drawRect(px + 12, py - 2, 3, 6)
+                # Flashing red light (on top of plane)
+                if plane["flash_on"]:
+                    painter.setBrush(QColor(255, 40, 40, 230))
+                    painter.setPen(Qt.PenStyle.NoPen)
+                    painter.drawEllipse(px + 14, py + 1, 4, 4)
+                    
+                # Draw banner background as a polygon (top and bottom)
+                top_points = banner_points
+                bottom_points = [QPointF(p.x(), p.y() + banner_height) for p in reversed(banner_points)]
+                banner_polygon = top_points + bottom_points
+                painter.setBrush(QColor(255, 255, 230, 230))
+                painter.setPen(QPen(QColor(180, 180, 180, 180), 2))
+                painter.drawPolygon(*banner_polygon)
+                # Draw banner outline
+                painter.setPen(QPen(QColor(120, 120, 120, 180), 2))
+                painter.drawPolyline(*top_points)
+                painter.drawPolyline(*bottom_points)
+
+                # Draw text on banner (each letter follows the wave)
+                painter.setPen(QColor(80, 40, 0, 255))
+                font = painter.font()
+                font.setBold(True)
+                font.setPointSize(10)
+                painter.setFont(font)
+                text = banner_text
+                n_letters = len(text)
+                # Only draw if there is enough room
+                if n_letters > 1 and len(banner_points) >= n_letters:
+                    # Place letters evenly along the banner's actual length, with a small margin
+                    margin = 7  # pixels margin at each end
+                    usable_points = banner_points
+                    usable_len = len(usable_points)
+                    for i, ch in enumerate(text):
+                        # Compute the proportional position along the banner, with margin
+                        t = (i + 0.5) / n_letters  # center letters, avoid cut-off
+                        idx_f = margin / banner_length + t * (1 - 2 * margin / banner_length)
+                        idx_f = idx_f * (usable_len - 1)
+                        idx = int(idx_f)
+                        frac = idx_f - idx
+                        if idx < usable_len - 1:
+                            pt1 = usable_points[idx]
+                            pt2 = usable_points[idx + 1]
+                            x = pt1.x() + (pt2.x() - pt1.x()) * frac
+                            y = pt1.y() + (pt2.y() - pt1.y()) * frac
+                            dx = pt2.x() - pt1.x()
+                            dy = pt2.y() - pt1.y()
+                        else:
+                            x = usable_points[idx].x()
+                            y = usable_points[idx].y()
+                            dx = 1
+                            dy = 0
+                        angle = math.degrees(math.atan2(dy, dx))
+                        painter.save()
+                        painter.translate(x, y + banner_height / 2)
+                        painter.rotate(angle)
+                        painter.drawText(QRectF(-7, -banner_height / 2 + 1, 14, banner_height), Qt.AlignmentFlag.AlignCenter, ch)
+                        painter.restore()
 
     def draw_background_mountains(self, painter):
         # Draw background - mountainous landscape at night with stars and a moon
@@ -703,7 +1065,6 @@ class FireworksCanvas(QWidget):
             ynew = spl(xnew)
             self._mountain_cache["mountain_xnew"] = xnew
             self._mountain_cache["mountain_ynew"] = ynew
-            _coastline_y = int(min(ynew))  # Top of the tallest mountain (unused, so prefix with _)
             star_count = 220
             dynamic_stars = set()
             for _ in range(star_count):
@@ -780,22 +1141,11 @@ class FireworksCanvas(QWidget):
                 },
             ]
 
-            # Cache boulders/rocks in the foreground
-            rng = np.random.default_rng(seed=123)
-            rocks = []
-            for _ in range(8):
-                rx = rng.integers(0, self.width())
-                ry = int(self.height() * 0.92) + rng.integers(-8, 8)
-                rwidth = rng.integers(18, 38)
-                rheight = rng.integers(10, 22)
-                rocks.append((rx, ry, rwidth, rheight))
-            self._mountain_cache["rocks"] = rocks
-
         if not hasattr(self, "_mountain_star_tick"):
             self._mountain_star_tick = 0
         self._mountain_star_tick += 1
-        # Twinkle: every ~2 seconds, remove/add a star
-        if self._mountain_star_tick > 120:
+        # Twinkle: every ~8 seconds, remove/add a star (was 2 seconds)
+        if self._mountain_star_tick > 480:
             self._mountain_star_tick = 0
             dynamic_stars = self._mountain_cache.get("dynamic_stars", set())
             if isinstance(dynamic_stars, set) and len(dynamic_stars) > 0:
@@ -813,7 +1163,7 @@ class FireworksCanvas(QWidget):
         dynamic_stars = self._mountain_cache.get("dynamic_stars", set())
         if isinstance(dynamic_stars, set):
             for sx, sy in dynamic_stars:
-                twinkle = random.randint(0, 10)
+                twinkle = random.randint(0, 100)
                 if twinkle < 2:
                     # Occasional blue or yellowish star
                     if random.random() < 0.5:
@@ -859,18 +1209,90 @@ class FireworksCanvas(QWidget):
             self._mountain_shooting_stars.append({
                 "sx": sx, "sy": sy, "ex": ex, "ey": ey, "life": 24
             })
-        # Draw and update shooting stars
-        for star in list(self._mountain_shooting_stars):
-            grad = QLinearGradient(star["sx"], star["sy"], star["ex"], star["ey"])
-            grad.setColorAt(0.0, QColor(255, 255, 255, 180))
-            grad.setColorAt(1.0, QColor(255, 255, 255, 0))
-            painter.setPen(QPen(grad, 2))
-            painter.drawLine(int(star["sx"]), int(star["sy"]), int(star["ex"]), int(star["ey"]))
-            star["sx"] += (star["ex"] - star["sx"]) / star["life"]
-            star["sy"] += (star["ey"] - star["sy"]) / star["life"]
-            star["life"] -= 1
-            if star["life"] <= 0:
-                self._mountain_shooting_stars.remove(star)
+            # Draw a few shooting stars (above the mountains)
+            xnew = self._mountain_cache.get("mountain_xnew")
+            ynew = self._mountain_cache.get("mountain_ynew")
+            if xnew is not None and ynew is not None:
+                for _ in range(2):
+                    if random.random() < 0.0002:  # Rarely appear
+                        sx = random.randint(int(self.width() * 0.1), int(self.width() * 0.9))
+                        idx = int((sx / self.width()) * (len(xnew) - 1))
+                        mountain_y_at_x = int(ynew[idx])
+                        sy = random.randint(10, max(10, mountain_y_at_x - 30))
+                        length = random.randint(30, 60)
+                        angle = random.uniform(-0.3, 0.3)
+                        ex = sx + int(length * math.cos(angle))
+                        ey = sy + int(length * math.sin(angle))
+                        grad = QLinearGradient(sx, sy, ex, ey)
+                        grad.setColorAt(0.0, QColor(255, 255, 255, 180))
+                        grad.setColorAt(1.0, QColor(255, 255, 255, 0))
+                        painter.setPen(QPen(grad, 2))
+                        painter.drawLine(sx, sy, ex, ey)
+        # Draw a large waxing moon with texture and slightly yellow tint
+        moon_radius = 76  # Larger moon
+        moon_x = int(self.width() * 0.8)
+        moon_y = int(self.height() * 0.13)
+        moon_color = QColor(245, 235, 180, 230)  # Slightly yellowish
+
+        # Draw full moon base
+        painter.setBrush(moon_color)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawEllipse(moon_x, moon_y, moon_radius, moon_radius)
+
+        # Subtle radial gradient for moon shading
+        grad = QRadialGradient(
+            moon_x + moon_radius // 2, moon_y + moon_radius // 2, moon_radius
+        )
+        grad.setColorAt(0.0, QColor(255, 255, 230, 200))
+        grad.setColorAt(0.7, QColor(230, 230, 210, 120))
+        grad.setColorAt(1.0, QColor(180, 180, 170, 80))
+        painter.setBrush(grad)
+        painter.drawEllipse(moon_x, moon_y, moon_radius, moon_radius)
+
+        # Add more detailed moon craters (texture) - cache so craters don't change every frame
+        if not hasattr(self, "_moon_craters_cache") or self._moon_craters_cache is None \
+            or self._moon_craters_cache.get("moon_x") != moon_x \
+            or self._moon_craters_cache.get("moon_y") != moon_y \
+            or self._moon_craters_cache.get("moon_radius") != moon_radius:
+            # Use a deterministic random seed based on moon position and radius
+            seed_str = f"{moon_x},{moon_y},{moon_radius}"
+            rng = random.Random(seed_str)
+            craters = []
+            n_main_craters = 18
+            n_small_craters = 22
+            # Main craters (larger, more visible)
+            for _ in range(n_main_craters):
+                cr_x = moon_x + rng.randint(10, moon_radius - 22)
+                cr_y = moon_y + rng.randint(10, moon_radius - 22)
+                cr_r = rng.randint(6, 13)
+                craters.append((cr_x, cr_y, cr_r))
+            # Small craters (fine detail)
+            for _ in range(n_small_craters):
+                cr_x = moon_x + rng.randint(6, moon_radius - 10)
+                cr_y = moon_y + rng.randint(6, moon_radius - 10)
+                cr_r = rng.randint(2, 5)
+                craters.append((cr_x, cr_y, cr_r))
+            # Add some crater clusters for realism
+            for _ in range(5):
+                base_x = moon_x + rng.randint(14, moon_radius - 18)
+                base_y = moon_y + rng.randint(14, moon_radius - 18)
+                for _ in range(rng.randint(2, 4)):
+                    cr_x = base_x + rng.randint(-6, 6)
+                    cr_y = base_y + rng.randint(-6, 6)
+                    cr_r = rng.randint(2, 6)
+                    craters.append((cr_x, cr_y, cr_r))
+            self._moon_craters_cache = {
+            "moon_x": moon_x,
+            "moon_y": moon_y,
+            "moon_radius": moon_radius,
+            "craters": craters
+            }
+        painter.setBrush(QColor(200, 190, 120, 130))  # Brighter, more opaque for visibility
+        painter.setPen(Qt.PenStyle.NoPen)
+        for cr_x, cr_y, cr_r in self._moon_craters_cache["craters"]:
+            # Only draw craters that are not fully covered by the shadow (right side of moon)
+            if cr_x > moon_x + moon_radius // 2 - 6:
+                painter.drawEllipse(cr_x, cr_y, cr_r, cr_r)
 
         # --- Random event: flock of ducks in V formation ---
         # Ducks fly above the mountains in a V, appear randomly, animate every 16ms
@@ -892,9 +1314,9 @@ class FireworksCanvas(QWidget):
                 start_x = self.width() + 40
                 dx = -random.uniform(3.0, 4.5)
                 v_angle = -math.radians(25)
-            # Y position: above the highest mountain, but not at the very top, and not above 50% of screen height
+            # Y position: above the highest mountain, but not at the very top, and not above 15% of screen height
             y_min = int(self.height() * 0.13)
-            y_max = int(self.height() * 0.50)
+            y_max = int(self.height() * 0.15)
             start_y = random.randint(y_min, y_max)
             # V formation: point of V faces direction of flight
             ducks = []
@@ -919,74 +1341,50 @@ class FireworksCanvas(QWidget):
                 "direction": direction,
                 "timer": 0,
             }
-        # Animate and draw flock if present
+        # 3. Draw ducks in flock (if present) - black silhouette for night
         if self._duck_flock is not None:
             flock = self._duck_flock
+            # Animate flock movement
             flock["x"] += flock["dx"]
             flock["timer"] += 1
-            # Remove flock if off screen
-            if (flock["direction"] == "right" and flock["x"] - 40 > self.width()) or \
-                (flock["direction"] == "left" and flock["x"] + 40 < 0):
+            # Remove flock if it moves off screen
+            if (flock["direction"] == "right" and flock["x"] > self.width() + 40) or \
+               (flock["direction"] == "left" and flock["x"] < -40):
                 self._duck_flock = None
             else:
-                # Draw each duck (smaller size)
                 for duck in flock["ducks"]:
                     duck_x = int(flock["x"] + duck["offset_x"])
                     duck_y = int(flock["y"] + duck["offset_y"])
-                    # Clamp duck_y to not go above 50% of screen height
-                    duck_y = max(int(self.height() * 0.13), min(duck_y, int(self.height() * 0.50)))
-                    # Duck body: small ellipse, brownish
-                    painter.setBrush(QColor(120, 90, 60, 220))
+                    duck_y = max(int(self.height() * 0.13), min(duck_y, int(self.height() * 0.30)))
+                    # All black silhouette for night
+                    painter.setBrush(QColor(0, 0, 0, 230))
                     painter.setPen(Qt.PenStyle.NoPen)
-                    painter.drawEllipse(duck_x, duck_y, 8, 4)
-                    # Duck head: smaller ellipse, darker
-                    painter.setBrush(QColor(80, 60, 40, 220))
-                    painter.drawEllipse(duck_x + 5 if flock["dx"] > 0 else duck_x - 3, duck_y + 1, 3, 3)
-                    # Duck beak: small triangle, orange
-                    painter.setBrush(QColor(220, 140, 40, 220))
+                    painter.drawEllipse(duck_x, duck_y, 8, 4)  # body
+                    painter.drawEllipse(duck_x + 5 if flock["dx"] > 0 else duck_x - 3, duck_y + 1, 3, 3)  # head
+                    # Beak (black, blends in)
                     if flock["dx"] > 0:
                         beak = [
                             QPointF(duck_x + 10, duck_y + 2),
                             QPointF(duck_x + 13, duck_y + 2.5),
                             QPointF(duck_x + 10, duck_y + 4),
                         ]
+                        painter.drawPolygon(*beak)
                     else:
                         beak = [
                             QPointF(duck_x - 1, duck_y + 2),
                             QPointF(duck_x - 4, duck_y + 2.5),
                             QPointF(duck_x - 1, duck_y + 4),
                         ]
-                    painter.drawPolygon(*beak)
-                    # Duck wing: arc or ellipse, slightly lighter
-                    painter.setBrush(QColor(160, 120, 80, 180))
+                        painter.drawPolygon(*beak)
+                    # Wing (black, silhouette)
                     painter.drawEllipse(duck_x + 1, duck_y + 1, 5, 2)
-                    # Optionally, animate wing up/down (flap) using timer
                     if ((flock["timer"] // 6) % 2) == 0:
                         painter.drawEllipse(duck_x + 1, duck_y - 1, 5, 2)
                     else:
                         painter.drawEllipse(duck_x + 1, duck_y + 3, 5, 2)
-
-        # 4. Draw the moon (above mountains, not touching peaks)
-        # Place moon before drawing ridges so it appears behind the peaks
-        moon_radius = 38
-        moon_x = int(self.width() * 0.78)
-        moon_y = int(self.height() * 0.13)  # Move moon higher so it doesn't overlap peaks
-        moon_color = QColor(245, 235, 200, 220)
-        painter.setBrush(moon_color)
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.drawEllipse(moon_x, moon_y, moon_radius, moon_radius)
-        # Subtle radial gradient for moon shading
-        grad = QRadialGradient(
-            moon_x + moon_radius // 2, moon_y + moon_radius // 2, moon_radius
-        )
-        grad.setColorAt(0.0, QColor(255, 255, 230, 180))
-        grad.setColorAt(0.7, QColor(230, 230, 210, 80))
-        grad.setColorAt(1.0, QColor(180, 180, 170, 40))
-        painter.setBrush(grad)
-        painter.drawEllipse(moon_x, moon_y, moon_radius, moon_radius)
-        painter.setBrush(Qt.BrushStyle.NoBrush)
-        painter.setPen(QColor(230, 230, 210, 220))
-        painter.setPen(moon_color)
+                        
+        
+        # Draw ridges in the foreground
         ridges = self._mountain_cache.get("ridges")
         if isinstance(ridges, list):
             for idx, ridge_info in enumerate(ridges):
@@ -1038,10 +1436,3 @@ class FireworksCanvas(QWidget):
                     QPointF(tx + tree_width // 2, ty),
                 ]
                 painter.drawPolygon(*points)
-
-        # Draw cached boulders/rocks in the foreground
-        for rx, ry, rwidth, rheight in self._mountain_cache["rocks"]:
-            rock_color = QColor(30, 32, 38, 255)
-            painter.setBrush(rock_color)
-            painter.setPen(QColor(18, 18, 22, 200))
-            painter.drawEllipse(int(rx), int(ry), int(rwidth), int(rheight))
