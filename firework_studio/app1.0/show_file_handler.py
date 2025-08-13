@@ -138,11 +138,10 @@ class ShowFileHandler:
         )
         if file_path:
             # Get audio paths - try multiple sources
-            audio_paths = self.main_window.paths
+            audio_paths = self.main_window.audio_loader.paths
             if not audio_paths and hasattr(self.main_window, 'audio_loader') and self.main_window.audio_loader.paths:
                 audio_paths = self.main_window.audio_loader.paths
             if not audio_paths:
-                # If we still don't have paths, we can't save the show properly
                 print("Warning: No audio paths available for saving")
                 audio_paths = []
             
@@ -152,7 +151,6 @@ class ShowFileHandler:
             duration = self.main_window.duration
             handles = []
             
-            # Debug: Check what audio_paths contains
             print(f"Saving audio_paths: {audio_paths}")
             print(f"Audio_paths type: {type(audio_paths)}")
             print(f"Audio_paths length: {len(audio_paths) if audio_paths else 0}")
@@ -188,6 +186,28 @@ class ShowFileHandler:
         if file_path:
             # Always load all fields as saved by FireworkshowManager.save_show
             audio_data, sr, audio_datas, firework_times, segment_times, duration, handles = FireworkshowManager.load_show(file_path)
+
+            # Set the original audio paths from the saved show data
+            with open(file_path, "r") as f:
+                show_data = json.load(f)
+            saved_audio_paths = show_data.get("audio_paths", [])
+            self.main_window.paths = saved_audio_paths if isinstance(saved_audio_paths, list) else []
+
+            # --- MODIFICATION: Concatenate multiple audio files if present ---
+            # If more than one audio file, concatenate them (clip together)
+            if audio_datas and isinstance(audio_datas, list) and len(audio_datas) > 1:
+                try:
+                    # Ensure all audio_datas are numpy arrays and same dtype
+                    dtype = audio_datas[0].dtype
+                    audio_datas = [np.asarray(a, dtype=dtype) for a in audio_datas]
+                    audio_data = np.concatenate(audio_datas)
+                    duration = audio_data.shape[0] / sr if sr else None
+                except Exception as e:
+                    print(f"Error concatenating audio files: {e}")
+                    audio_data = audio_datas[0] if audio_datas else None
+            elif audio_datas and len(audio_datas) == 1:
+                audio_data = audio_datas[0]
+
             self.main_window.audio_data = audio_data
             self.main_window.sr = sr
             self.main_window.audio_datas = audio_datas

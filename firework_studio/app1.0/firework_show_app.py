@@ -492,41 +492,10 @@ class FireworkShowApp(QMainWindow):
         # Create a button to load audio files
         self.load_btn = QPushButton("Load Audio")
         self.load_btn.setIcon(QIcon(os.path.join("icons", "upload.png")))
-        self.audio_loader = AudioLoader()
+        self.audio_loader = AudioLoader(self)
         self.load_btn.setStyleSheet(button_style)
-        self.load_btn.clicked.connect(lambda: self.generate_btn.setVisible(True))
 
-        def handle_audio():
-            # Load audio data
-            self.audio_data, self.sr, self.audio_datas, self.duration = self.audio_loader.select_and_load()
-            self.paths = self.audio_loader.paths
-
-            # If audio data is loaded, start the analysis
-            if self.audio_data is not None:
-                # Clear previous show
-                self.clear_show()
-                # set show data
-                self.preview_widget.set_show_data(self.audio_data, self.sr, self.segment_times, None, self.duration)
-                # Plot the waveform
-                self.plot_waveform()
-                # Update status bar
-                self.update_firework_show_info()
-
-                # Show when audio is loaded
-                self.status_bar.showMessage("Generate fireworks show from scratch or use generate show button to get help.")
-                # Show a toast notification with loaded audio file names
-                basenames = [os.path.basename(p) for p in self.audio_loader.paths]
-                toast = ToastDialog(f"Loaded audio: {', '.join(basenames)}", parent=self)
-                geo = self.geometry()
-                x = geo.x() + geo.width() - toast.width() - 40
-                y = geo.y() + geo.height() - toast.height() - 40
-                toast.move(x, y)
-                toast.show()
-                QTimer.singleShot(2500, toast.close)
-            elif self.audio_data is None:
-                self.status_bar.showMessage("No audio loaded.")
-
-        self.load_btn.clicked.connect(lambda: handle_audio())
+        self.load_btn.clicked.connect(lambda: self.audio_loader.handle_audio())
 
         ###########################################################
         #                                                         #

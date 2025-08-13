@@ -1,16 +1,90 @@
+import os
 import librosa
 from PyQt6.QtWidgets import QFileDialog
-from matplotlib.backends.backend_qt import NavigationToolbar2QT
+from PyQt6.QtCore import QTimer
+
 import numpy as np
+from toaster import ToastDialog
+from PyQt6.QtCore import QThread, pyqtSignal
+class AudioLoaderThread(QThread):
+    finished = pyqtSignal(object, object, list, float, list, list)  # audio_data, sr, audio_datas, duration, paths, segment_times
+
+    def __init__(self, paths, sr=None):
+        super().__init__()
+        self.paths = paths
+        self.sr = sr
+        self.audio_datas = []
+        self.audio_data = None
+        self.duration = 0.0
+
+    def run(self):
+        audio_datas = []
+        sr = self.sr
+        for path in self.paths:
+            try:
+                path_str = str(path)
+                if path_str.lower().endswith('.npy'):
+                    audio_data = np.load(path_str)
+                    if sr is None:
+                        sr = 16000
+                else:
+                    if sr is None:
+                        sr = 16000
+                    audio_data, _ = librosa.load(path_str, sr=sr, mono=True)
+                audio_datas.append(audio_data)
+            except Exception as e:
+                print(f"Error loading audio file {path}: {e}")
+                continue
+        audio_data = np.concatenate(audio_datas) if audio_datas else None
+        duration = librosa.get_duration(y=audio_data, sr=sr) if audio_data is not None and sr is not None else 0.0
+        self.finished.emit(audio_data, sr, audio_datas, duration, self.paths, [])
 
 class AudioLoader():
-    
-    def __init__(self):
+    def __init__(self, main_window=None):
         self.paths = []
         self.audio_datas = []
         self.sr = None
         self.audio_data = None
         self.duration = 0.0
+        self.main_window = main_window
+        self.segment_times = []
+        self.thread = None
+
+    def handle_audio(self):
+        # Start thread to load audio
+        selected = self.select_files(self.main_window)
+        if not selected:
+            self.main_window.status_bar.showMessage("No audio loaded.")
+            return
+
+        self.thread = AudioLoaderThread(self.paths)
+        self.thread.finished.connect(self.on_audio_loaded)
+        self.thread.start()
+
+    def on_audio_loaded(self, audio_data, sr, audio_datas, duration, paths, segment_times):
+        self.main_window.audio_data = audio_data
+        self.main_window.sr = sr
+        self.main_window.audio_datas = audio_datas
+        self.main_window.duration = duration
+        self.main_windowpaths = paths
+        self.segment_times = segment_times
+
+        if audio_data is not None:
+            self.main_window.clear_show()
+            self.main_window.preview_widget.set_show_data(audio_data, sr, segment_times, None, duration)
+            self.main_window.plot_waveform()
+            self.main_window.update_firework_show_info()
+            self.main_window.status_bar.showMessage("Generate fireworks show from scratch or use generate show button to get help.")
+            basenames = [os.path.basename(p) for p in paths]
+            toast = ToastDialog(f"Loaded audio: {', '.join(basenames)}", parent=self.main_window)
+            geo = self.main_window.geometry()
+            x = geo.x() + geo.width() - toast.width() - 40
+            y = geo.y() + geo.height() - toast.height() - 40
+            toast.move(x, y)
+            toast.show()
+            QTimer.singleShot(2500, toast.close)
+        else:
+            self.main_window.status_bar.showMessage("No audio loaded.")
 
     def select_files(self, parent=None):
         files, _ = QFileDialog.getOpenFileNames(
@@ -23,76 +97,46 @@ class AudioLoader():
             self.paths = files
             return True
         else:
-            # If cancel is pressed, do not change self.paths
             return False
 
-    def load(self):
-        for path in self.paths:
-            try:
-                # Ensure path is a string
-                path_str = str(path)
-                if path_str.lower().endswith('.npy'):
-                    audio_data = np.load(path_str)
-                    # If .npy file contains sample rate info, handle here (not standard)
-                    if self.sr is None:
-                        self.sr = 16000  # Default sample rate if not specified
-                else:
-                    if self.sr is None:
-                        self.sr = 16000  # Default sample rate if not specified
-                    audio_data, _ = librosa.load(path_str, sr=self.sr, mono=True)
-                self.audio_datas.append(audio_data)
-            except Exception as e:
-                print(f"Error loading audio file {path}: {e}")
-                continue
-        # Update self.audio_data after loading
-        self.audio_data = np.concatenate(self.audio_datas) if self.audio_datas else None
-        if self.audio_data is not None and self.sr is not None:
-            self.duration = librosa.get_duration(y=self.audio_data, sr=self.sr)
-        else:
-            self.duration = 0.0
-
-    def select_and_load(self, parent=None, figure_canvas=None):
-        # Ensure parent is either None or a QWidget, not a bool
-        if isinstance(parent, bool):
-            parent = None
-        selected = self.select_files(parent)
-        if not selected:
-            # Cancel was pressed, do nothing
-            return None, None, [], 0.0
-        # Store the figure_canvas for plotting
-        self.figure_canvas = figure_canvas
-        # Clear previous audio data and sample rate before loading new files
-        self.audio_datas = []
-        self.sr = None
-        self.load()
-
-        return self.audio_data, self.sr, self.audio_datas, self.duration
-
     def just_load(self, paths):
-        # Handle different input types
         if isinstance(paths, str):
             self.paths = [paths]
         elif isinstance(paths, list):
-            # Ensure all elements are strings (paths)
             self.paths = []
             for path in paths:
                 if isinstance(path, str):
                     self.paths.append(path)
-                elif hasattr(path, 'path'):  # Handle audio data objects with path attribute
+                elif hasattr(path, 'path'):
                     self.paths.append(str(path.path))
                 else:
-                    # Skip non-string, non-path objects
                     print(f"Skipping invalid path: {path} (type: {type(path)})")
         else:
-            self.paths = [str(paths)]  # Convert to string as fallback
-        
-        # Clear previous data
+            self.paths = [str(paths)]
         self.audio_datas = []
         self.sr = None
-        
         if not self.paths:
             print("No valid paths found for audio loading")
             return None, None, [], 0.0
-            
-        self.load()
-        return self.audio_data, self.sr, self.audio_datas, self.duration
+
+        # Synchronous load for non-UI usage
+        audio_datas = []
+        sr = self.sr
+        for path in self.paths:
+            try:
+                path_str = str(path)
+                if path_str.lower().endswith('.npy'):
+                    audio_data = np.load(path_str)
+                    if sr is None:
+                        sr = 16000
+                else:
+                    if sr is None:
+                        sr = 16000
+                    audio_data, _ = librosa.load(path_str, sr=sr, mono=True)
+                audio_datas.append(audio_data)
+            except Exception as e:
+                print(f"Error loading audio file {path}: {e}")
+                continue
+        audio_data = np.concatenate(audio_datas) if audio_datas else None
+        duration = librosa.get_duration(y=audio_data, sr=sr) if audio_data is not None and sr is not None else 0.0
+        return audio_data, sr, audio_datas, duration
