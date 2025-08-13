@@ -29,6 +29,7 @@ from PyQt6.QtWidgets import QPushButton, QFileDialog, QRadioButton
 from PyQt6.QtGui import QColor
 from toaster import ToastDialog
 from show_file_handler import ShowFileHandler
+from PyQt6.QtGui import QShortcut, QKeySequence
 
 '''THIS IS THE MAIN WINDOW CLASS FOR THE FIREWORK STUDIO APPLICATION'''
 class FireworkShowApp(QMainWindow):
@@ -104,11 +105,11 @@ class FireworkShowApp(QMainWindow):
             font-size: 12px;
             font-weight: 500;
             min-width: 36px;
-            min-height: 20px;
+            min-height: 28px;
             max-width: 80px;
             max-height: 28px;
             padding: 2px 6px;
-            margin: 1px;
+            margin: 0px;
             }
             QPushButton:hover {
             background-color: #606874;
@@ -134,7 +135,7 @@ class FireworkShowApp(QMainWindow):
             padding: 3px 16px 3px 6px;
             min-width: 70px;
             max-width: 100px;
-            margin: 1px;
+            margin: 0px;
             }
             QComboBox:hover, QComboBox:focus {
             background: #31323a;
@@ -163,8 +164,11 @@ class FireworkShowApp(QMainWindow):
             QToolBar {
             background: #23242b;
             border: none;
-            spacing: 2px;
-            padding: 2px;
+            spacing: 0px;
+            padding: 0px;
+            margin: 0px;
+            min-height: 36px;
+            max-height: 36px;
             }
         """
 
@@ -299,7 +303,6 @@ class FireworkShowApp(QMainWindow):
             btn = QPushButton()
             btn.setFixedSize(40, 40)
             btn.setCheckable(True)
-            btn.setText("Play")
             btn.setIcon(QIcon(os.path.join("icons", "play.png")))
             btn.setStyleSheet(button_style)
             return btn
@@ -309,7 +312,6 @@ class FireworkShowApp(QMainWindow):
                 if self.audio_data is None:
                     self.play_pause_btn.setChecked(False)
                     return
-                self.play_pause_btn.setText("Pause")
                 self.play_pause_btn.setIcon(QIcon(os.path.join("icons", "pause.png")))
                 self.fireworks_canvas.set_fireworks_enabled(True)
                 self.fireworks_canvas.reset_firings()  # Reset firings to ensure they are displayed correctly
@@ -317,7 +319,6 @@ class FireworkShowApp(QMainWindow):
                     for firework in self.fireworks_canvas.fireworks:
                         firework.resume_explode()
             else:
-                self.play_pause_btn.setText("Play")
                 self.play_pause_btn.setIcon(QIcon(os.path.join("icons", "play.png")))
                 self.fireworks_canvas.set_fireworks_enabled(False)
                 if hasattr(self.fireworks_canvas, "fireworks"):
@@ -336,7 +337,7 @@ class FireworkShowApp(QMainWindow):
 
         # Create a stop button to stop the preview and reset fireworks
         def create_stop_btn():
-            btn = QPushButton("Stop")
+            btn = QPushButton()
             btn.setIcon(QIcon(os.path.join("icons", "stop.png")))
             btn.setFixedSize(40, 40)
             btn.setStyleSheet(button_style)
@@ -347,7 +348,6 @@ class FireworkShowApp(QMainWindow):
                 btn_parent.blockSignals(True)
                 if btn_parent.isChecked():
                     btn_parent.setChecked(False)
-                btn_parent.setText("Play")
                 btn_parent.setIcon(QIcon(os.path.join("icons", "play.png")))
                 btn_parent.blockSignals(False)
             btn.clicked.connect(reset_play_pause)
@@ -363,7 +363,7 @@ class FireworkShowApp(QMainWindow):
 
         # Create a button to add a new firework firing time
         def create_add_firing_btn():
-            btn = QPushButton("Add Firing")
+            btn = QPushButton()
             btn.setIcon(QIcon(os.path.join("icons", "plus.png")))
             btn.setStyleSheet(button_style)
             def add_firing_and_update_info():
@@ -388,7 +388,7 @@ class FireworkShowApp(QMainWindow):
 
         # Create a button to delete the selected firing
         def create_delete_firing_btn():
-            btn = QPushButton("Delete Firing")
+            btn = QPushButton()
             btn.setIcon(QIcon(os.path.join("icons", "delete.png")))
             btn.setStyleSheet(button_style)
             def remove_firing_and_update_info():
@@ -408,7 +408,7 @@ class FireworkShowApp(QMainWindow):
         ###########################################################
 
         def create_pattern_selector():
-            group_box = QGroupBox("Explosion Pattern")
+            group_box = QGroupBox()
             group_box.setStyleSheet("QGroupBox { color: #e0e0e0; font-weight: bold; }")
             layout = QHBoxLayout()
             group_box.setLayout(layout)
@@ -444,7 +444,7 @@ class FireworkShowApp(QMainWindow):
         ###########################################################
 
         def create_firework_count_spinner():
-            group_box = QGroupBox("Number of Fireworks")
+            group_box = QGroupBox()
             group_box.setStyleSheet("QGroupBox { color: #e0e0e0; font-weight: bold; }")
             layout = QHBoxLayout()
             group_box.setLayout(layout)
@@ -491,7 +491,7 @@ class FireworkShowApp(QMainWindow):
         ###########################################################
 
         # Create a button to load audio files
-        self.load_btn = QPushButton("Load Audio")
+        self.load_btn = QPushButton()
         self.load_btn.setIcon(QIcon(os.path.join("icons", "upload.png")))
         self.audio_loader = AudioLoader(self)
         self.load_btn.setStyleSheet(button_style)
@@ -506,7 +506,7 @@ class FireworkShowApp(QMainWindow):
 
         # Create a button to clear the show
         def create_clear_btn():
-            btn = QPushButton("Clear Show")
+            btn = QPushButton()
             btn.setIcon(QIcon(os.path.join("icons", "clear-show.png")))
             btn.setStyleSheet(button_style)
             # Also pause the show if playing
@@ -533,11 +533,23 @@ class FireworkShowApp(QMainWindow):
         #                                                               #
         #################################################################
 
+        def create_save_btn():
+            btn = QPushButton()
+            btn.setStyleSheet(button_style)
+            btn.clicked.connect(self.show_file_handler.save_show)
+            return btn
+
+        def create_load_show_btn():
+            btn = QPushButton()
+            btn.setStyleSheet(button_style)
+            btn.clicked.connect(self.show_file_handler.load_show)
+            return btn
+        
         # Instantiate and use the handler
         self.show_file_handler = ShowFileHandler(self, button_style)
-        self.save_btn = self.show_file_handler.create_save_btn()
+        self.save_btn = create_save_btn()
         self.save_btn.setIcon(QIcon(os.path.join("icons", "save.png")))
-        self.load_show_btn = self.show_file_handler.create_load_show_btn()
+        self.load_show_btn = create_load_show_btn()
         self.load_show_btn.setIcon(QIcon(os.path.join("icons", "load.png")))
         # Add a spacer after save/load buttons for better layout
 
@@ -652,7 +664,9 @@ class FireworkShowApp(QMainWindow):
         # Note: QToolBar does not support setFloating in PyQt6, so this line is intentionally commented out.
         self.media_toolbar.setAllowedAreas(
             Qt.ToolBarArea.TopToolBarArea |
-            Qt.ToolBarArea.BottomToolBarArea 
+            Qt.ToolBarArea.BottomToolBarArea |
+            Qt.ToolBarArea.LeftToolBarArea |
+            Qt.ToolBarArea.RightToolBarArea
         )
         self.media_toolbar.setStyleSheet("""
             QToolBar {
@@ -681,6 +695,16 @@ class FireworkShowApp(QMainWindow):
         self.clear_btn.setToolTip("Clear all firings and reset the show")
         self.save_btn.setToolTip("Save the current fireworks show")
         self.load_show_btn.setToolTip("Load a previously saved fireworks show")
+        # Add global hotkeys using QShortcut so they work when the app is focused
+
+        QShortcut(QKeySequence("Space"), self, activated=self.play_pause_btn.toggle)
+        QShortcut(QKeySequence("S"), self, activated=self.stop_btn.click)
+        QShortcut(QKeySequence("A"), self, activated=self.add_firing_btn.click)
+        QShortcut(QKeySequence("D"), self, activated=self.delete_firing_btn.click)
+        QShortcut(QKeySequence("L"), self, activated=self.load_btn.click)
+        QShortcut(QKeySequence("C"), self, activated=self.clear_btn.click)
+        QShortcut(QKeySequence("Ctrl+S"), self, activated=self.save_btn.click)
+        QShortcut(QKeySequence("Ctrl+O"), self, activated=self.load_show_btn.click)
 
         add_toolbar_widget(self.play_pause_btn)
         add_toolbar_widget(self.stop_btn)

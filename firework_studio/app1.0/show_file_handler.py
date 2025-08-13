@@ -294,15 +294,3 @@ class ShowFileHandler:
             # only enable after it loads so adding the fireworks does not trigger them to fire.
             self.main_window.fireworks_canvas.reset_fireworks()
             self.main_window.fireworks_canvas.set_fireworks_enabled(True)
-
-    def create_save_btn(self):
-        btn = QPushButton("Save Show")
-        btn.setStyleSheet(self.button_style)
-        btn.clicked.connect(self.save_show)
-        return btn
-
-    def create_load_show_btn(self):
-        btn = QPushButton("Load Show")
-        btn.setStyleSheet(self.button_style)
-        btn.clicked.connect(self.load_show)
-        return btn
