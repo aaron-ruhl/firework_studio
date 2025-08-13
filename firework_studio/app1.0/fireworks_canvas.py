@@ -41,6 +41,14 @@ class FireworksCanvas(QWidget):
 
     def add_firework(self, handle, x=None):
         margin = 40
+        # Reduce particle count if too many fireworks are being drawn
+        if len(self.fireworks) >= 20:
+            self.particle_count = 5
+        elif len(self.fireworks) >= 10:
+            self.particle_count = 15
+        else:
+            self.particle_count = 50
+        
         x = random.randint(margin, max(margin, self.width() - margin))
         # Use handle.firing_color if set, else use self.firework_color
         color = getattr(handle, "firing_color", None)

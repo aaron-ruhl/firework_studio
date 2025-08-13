@@ -183,6 +183,12 @@ class FireworkTimelineRenderer:
                 color = self.handle_colors[idx % len(self.handle_colors)]
                 painter.setBrush(color)
                 painter.setPen(QColor(255, 255, 0) if is_selected else QColor(220, 220, 220, 180))
+                if is_selected:
+                    # Draw a vertical line through the center of the handle, above and below the handle for visibility
+                    center_x = int(round(x))
+                    painter.setPen(QColor(255, 255, 0))
+                    # Draw line slightly longer than handle for visibility
+                    painter.drawLine(center_x, timeline_y - handle_height, center_x, timeline_y + handle_height)
                 rect_x = int(round(x)) - handle_width // 2
                 rect_y = timeline_y - handle_height // 2
                 painter.drawRoundedRect(rect_x, rect_y, handle_width, handle_height, 5, 5)

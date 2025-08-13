@@ -391,7 +391,7 @@ class FireworkPreviewWidget(QWidget):
 
         # Display the firing number at the top as a disabled, bold action
         from PyQt6.QtGui import QAction
-        display_number_text = f"🔥 Firing #{handle.display_number}"
+        display_number_text = f"🔥 -- Firing #{handle.display_number} -- 🔥"
         display_number_action = QAction(display_number_text, self)
         font = display_number_action.font()
         font.setBold(True)
