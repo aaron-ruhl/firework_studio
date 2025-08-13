@@ -275,12 +275,41 @@ class FireworkPreviewWidget(QWidget):
                 self.selected_firing = idx
                 self.dragging_firing = True
                 self.drag_offset = event.position().x() - rect.center().x()
-                self.setCursor(Qt.CursorShape.SplitHCursor)
+                self.setCursor(Qt.CursorShape.ClosedHandCursor)
                 self.update()
                 if event.button() == Qt.MouseButton.RightButton:
                     self.show_firing_context_menu(event.globalPosition().toPoint(), idx)
                     self.dragging_firing = False
                 return
+
+        # If click is not on playhead or firing handle, clear selection
+        self.selected_firing = None
+        self.update()
+
+    def mouseDoubleClickEvent(self, event):
+        # Add firing at double-clicked position
+        w = self.width()
+        left_margin = 40
+        right_margin = 40
+        usable_w = w - left_margin - right_margin
+
+        if self.selected_region and len(self.selected_region) == 2 and self.duration:
+            draw_start, draw_end = self.selected_region
+            zoom_duration = max(draw_end - draw_start, 1e-6)
+        else:
+            draw_start = 0
+            draw_end = self.duration
+            zoom_duration = self.duration if self.duration else 1
+
+        x = event.position().x()
+        x = max(left_margin, min(x, w - right_margin))
+        new_time = (x - left_margin) / usable_w * zoom_duration + draw_start
+        new_time = max(0, min(new_time, self.duration))
+        saved_time = self.current_time
+        self.current_time = new_time
+        self.add_time()
+        self.current_time = saved_time
+        self.update()
 
     def mouseMoveEvent(self, event):
         w = self.width()
@@ -346,7 +375,7 @@ class FireworkPreviewWidget(QWidget):
     def mouseReleaseEvent(self, event):
         if hasattr(self, 'dragging_firing') and self.dragging_firing:
             self.dragging_firing = False
-            self.setCursor(Qt.CursorShape.ArrowCursor)
+            self.setCursor(Qt.CursorShape.ClosedHandCursor)
             self.update()
             return
 
