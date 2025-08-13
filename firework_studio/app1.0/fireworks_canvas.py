@@ -120,15 +120,27 @@ class FireworksCanvas(QWidget):
 
     def draw_fireworks(self, painter):
         # Draw fireworks
-        if self._fireworks_enabled:
-            for firework in self.fireworks:
-                # Draw the firework launch point if not exploded
-                if not firework.exploded:
-                    color = firework.color if isinstance(firework.color, QColor) else QColor(255, 0, 0)
-                    painter.setPen(QPen(color, 4))
-                    painter.drawPoint(int(firework.x), int(firework.y))
-                # Draw the explosion particles
+        for firework in self.fireworks:
+            # Draw the firework launch point if not exploded
+            if not firework.exploded:
+                color = firework.color if isinstance(firework.color, QColor) else QColor(255, 0, 0)
+                painter.setPen(QPen(color, 4))
+                painter.drawPoint(int(firework.x), int(firework.y))
+            # Draw the explosion particles
+            if self._fireworks_enabled:
                 for particle in firework.particles:
+                    particle.resume()
+                    px = particle.x
+                    py = particle.y
+                    color = particle.get_color()
+                    if not isinstance(color, QColor):
+                        color = QColor(255, 255, 255)
+                    painter.setPen(QPen(color, 3))
+                    painter.drawPoint(int(px), int(py))
+            else:
+                # Freeze frame: draw particles at their last positions
+                for particle in firework.particles:
+                    particle.freeze()
                     px = particle.x
                     py = particle.y
                     color = particle.get_color()

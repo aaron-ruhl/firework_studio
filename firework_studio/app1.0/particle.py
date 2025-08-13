@@ -15,13 +15,24 @@ class Particle:
         self.velocity_x = math.cos(angle) * speed
         self.velocity_y = math.sin(angle) * speed
 
+    def freeze(self):
+        self._frozen = True
+
+    def resume(self):
+        self._frozen = False
+
+    def is_frozen(self):
+        return getattr(self, '_frozen', False)
+
     def update(self):
+        if self.is_frozen():
+            return self.current_life > 0
         self.velocity_y += self.gravity
         self.x += self.velocity_x
         self.y += self.velocity_y
         self.current_life -= 1
         return self.current_life > 0
-
+    
     def get_color(self):
         fade = self.current_life / self.lifetime
         return QColor(
