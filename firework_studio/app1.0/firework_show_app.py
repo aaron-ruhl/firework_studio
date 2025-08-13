@@ -301,11 +301,13 @@ class FireworkShowApp(QMainWindow):
             btn.setText("Play")
             btn.setIcon(QIcon(os.path.join("icons", "play.png")))
             btn.setStyleSheet(button_style)
-            btn.setToolTip("Play/Pause the firework preview")
             return btn
 
         def toggle_icon(checked):
             if checked:
+                if self.audio_data is None:
+                    self.play_pause_btn.setChecked(False)
+                    return
                 self.play_pause_btn.setText("Pause")
                 self.play_pause_btn.setIcon(QIcon(os.path.join("icons", "pause.png")))
                 self.fireworks_canvas.set_fireworks_enabled(True)
@@ -624,6 +626,7 @@ class FireworkShowApp(QMainWindow):
         #              Fireworks show generator button            #
         #                                                         #
         ###########################################################
+        '''
         # Create a button to generate fireworks show
         def create_generate_btn():
             btn = QPushButton("Generate Show")
@@ -656,7 +659,7 @@ class FireworkShowApp(QMainWindow):
             return btn
 
         self.generate_btn = create_generate_btn()
-
+        '''
         ############################################################
         #                                                          #
         #        Media playback controls                           #
@@ -688,6 +691,19 @@ class FireworkShowApp(QMainWindow):
             action.setDefaultWidget(widget)
             self.media_toolbar.addAction(action)
 
+        # Add tooltips to all toolbar widgets
+        self.play_pause_btn.setToolTip("Play or pause the fireworks preview")
+        self.stop_btn.setToolTip("Stop playback and reset fireworks")
+        self.add_firing_btn.setToolTip("Add a firework firing at the current time")
+        self.delete_firing_btn.setToolTip("Delete the selected firework firing")
+        self.pattern_selector.setToolTip("Select the explosion pattern for fireworks")
+        self.firework_count_spinner_group.setToolTip("Set the number of fireworks per firing")
+        self.load_btn.setToolTip("Load an audio file for the show")
+        self.clear_btn.setToolTip("Clear all firings and reset the show")
+        self.save_btn.setToolTip("Save the current fireworks show")
+        self.load_show_btn.setToolTip("Load a previously saved fireworks show")
+        self.background_btn.setToolTip("Choose the background for the fireworks display")
+
         add_toolbar_widget(self.play_pause_btn)
         add_toolbar_widget(self.stop_btn)
         self.media_toolbar.addSeparator()
@@ -708,8 +724,6 @@ class FireworkShowApp(QMainWindow):
 
         add_toolbar_widget(self.background_btn)
         self.media_toolbar.addSeparator()
-
-        add_toolbar_widget(self.generate_btn)
 
         # Add the toolbar to the main window at the top by default
         self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self.media_toolbar)
