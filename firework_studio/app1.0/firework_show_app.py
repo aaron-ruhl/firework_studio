@@ -83,7 +83,7 @@ class FireworkShowApp(QMainWindow):
         self.duration = None
         self.segment_times = []
         self.firework_firing = []
-        self.firework_show_info = "No audio loaded. Load audio to get started."
+        self.firework_show_info = "No audio loaded. Load audio to get started. Use the arrow keys to change what firework(s) you add."
         self.start = None
         self.end = None
         self.fireworks_colors = []
