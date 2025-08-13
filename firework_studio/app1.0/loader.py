@@ -73,8 +73,6 @@ class AudioLoader():
             self.main_window.clear_show()
             self.main_window.preview_widget.set_show_data(audio_data, sr, segment_times, None, duration)
             self.main_window.plot_waveform()
-            self.main_window.update_firework_show_info()
-            self.main_window.status_bar.showMessage("Generate fireworks show from scratch or use generate show button to get help.")
             basenames = [os.path.basename(p) for p in paths]
             toast = ToastDialog(f"Loaded audio: {', '.join(basenames)}", parent=self.main_window)
             geo = self.main_window.geometry()

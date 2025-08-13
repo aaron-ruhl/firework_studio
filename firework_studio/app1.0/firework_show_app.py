@@ -95,7 +95,6 @@ class FireworkShowApp(QMainWindow):
         #        Style buttons                                      #
         #                                                          #
         #############################################################
-
         button_style = """
             QPushButton {
             background-color: #49505a;
@@ -110,6 +109,7 @@ class FireworkShowApp(QMainWindow):
             max-height: 28px;
             padding: 2px 6px;
             margin: 0px;
+            qproperty-alignment: AlignCenter;
             }
             QPushButton:hover {
             background-color: #606874;
@@ -133,9 +133,10 @@ class FireworkShowApp(QMainWindow):
             font-size: 12px;
             border-radius: 4px;
             padding: 3px 16px 3px 6px;
-            min-width: 70px;
+            min-width: 40px;
             max-width: 100px;
             margin: 0px;
+            qproperty-alignment: AlignCenter;
             }
             QComboBox:hover, QComboBox:focus {
             background: #31323a;
@@ -159,7 +160,7 @@ class FireworkShowApp(QMainWindow):
             color: #e0e0e0;
             selection-background-color: #31323a;
             selection-color: #ffd700;
-            outline: none;
+            outline: ;
             }
             QToolBar {
             background: #23242b;
@@ -169,12 +170,61 @@ class FireworkShowApp(QMainWindow):
             margin: 0px;
             min-height: 36px;
             max-height: 36px;
+            qproperty-alignment: AlignCenter;
+            }
+            QGroupBox {
+            background-color: #23242b;
+            border: 1px solid #444657;
+            border-radius: 6px;
+            color: #ffd700;
+            font-size: 13px;
+            font-weight: bold;
+            }
+            QGroupBox:title {
+            subcontrol-origin: margin;
+            subcontrol-position: top left;
+            padding: 0 4px;
+            color: #ffd700;
+            font-size: 13px;
+            font-weight: bold;
+            }
+            QSpinBox {
+                background-color: #23242b;
+                color: #ffd700;
+                border: 1px solid #444657;
+                border-radius: 4px;
+                font-size: 13px;
+                font-weight: bold;
+                min-width: 40px;
+                max-width: 60px;
+                padding: 2px 8px;
+                margin: 0px;
+                qproperty-alignment: AlignCenter;
+            }
+            QSpinBox::up-button, QSpinBox::down-button {
+                background: #31323a;
+                border: 1px solid #444657;
+                border-radius: 2px;
+                width: 16px;
+                height: 14px;
+            }
+            QSpinBox::up-arrow, QSpinBox::down-arrow {
+                width: 10px;
+                height: 10px;
+            }
+            QSpinBox::up-button:hover, QSpinBox::down-button:hover {
+                background: #ffd700;
+                border: 1.2px solid #ffd700;
+            }
+            QSpinBox:focus {
+                border: 1.2px solid #ffd700;
+                color: #ffd700;
             }
         """
 
         #############################################################
         #                                                          #
-        #        Fireworks Display Screen                     #
+        #        Fireworks Display Screen                          #
         #                                                          #
         #############################################################
 
@@ -409,21 +459,19 @@ class FireworkShowApp(QMainWindow):
 
         def create_pattern_selector():
             group_box = QGroupBox()
-            group_box.setStyleSheet("QGroupBox { color: #e0e0e0; font-weight: bold; }")
+            group_box.setStyleSheet(button_style)
             layout = QHBoxLayout()
             group_box.setLayout(layout)
             patterns = [
                 ("Circle", "circle"),
-                ("Chrysanthemum", "chrysanthemum"),
+                ("Chrys", "chrysanthemum"),
                 ("Palm", "palm"),
                 ("Willow", "willow"),
                 ("Peony", "peony"),
                 ("Ring", "ring"),
             ]
             combo = QComboBox()
-            combo.setStyleSheet(
-                button_style
-            )
+            combo.setStyleSheet(button_style)
             for label, pattern in patterns:
                 combo.addItem(label, pattern)
             # Set default pattern
@@ -431,8 +479,10 @@ class FireworkShowApp(QMainWindow):
             def on_pattern_changed(index):
                 pattern = combo.itemData(index)
                 self.preview_widget.set_pattern(pattern)
+                self.update_firework_show_info()
             combo.currentIndexChanged.connect(on_pattern_changed)
             layout.addWidget(combo)
+            group_box.setVisible(False)
             return group_box
 
         self.pattern_selector = create_pattern_selector()
@@ -445,41 +495,21 @@ class FireworkShowApp(QMainWindow):
 
         def create_firework_count_spinner():
             group_box = QGroupBox()
-            group_box.setStyleSheet("QGroupBox { color: #e0e0e0; font-weight: bold; }")
+            group_box.setStyleSheet(button_style)
             layout = QHBoxLayout()
             group_box.setLayout(layout)
             spinner = QSpinBox()
             spinner.setMinimum(1)
             spinner.setMaximum(20)
             spinner.setValue(1)
-            spinner.setStyleSheet(
-                """
-                QSpinBox {
-                    background: #23242b;
-                    color: #e0e0e0;
-                    border: 1px solid #444657;
-                    font-size: 12px;
-                    border-radius: 4px;
-                    padding: 3px 8px;
-                    min-width: 60px;
-                    max-width: 80px;
-                }
-                QSpinBox::up-button, QSpinBox::down-button {
-                    background: #31323a;
-                    border: 1px solid #444657;
-                    width: 16px;
-                }
-                QSpinBox::up-arrow, QSpinBox::down-arrow {
-                    width: 10px;
-                    height: 10px;
-                }
-                """
-            )
+            spinner.setStyleSheet(button_style)
             # Set default firework count
             def on_count_changed(value):
                 self.preview_widget.set_number_firings(value)
+                self.update_firework_show_info()
             spinner.valueChanged.connect(on_count_changed)
             layout.addWidget(spinner)
+            spinner.setVisible(False)
             return group_box
 
         self.firework_count_spinner_group = create_firework_count_spinner()
@@ -497,6 +527,7 @@ class FireworkShowApp(QMainWindow):
         self.load_btn.setStyleSheet(button_style)
 
         self.load_btn.clicked.connect(lambda: self.audio_loader.handle_audio())
+        self.load_btn.clicked.connect(self.update_firework_show_info)
 
         ###########################################################
         #                                                         #
@@ -695,34 +726,45 @@ class FireworkShowApp(QMainWindow):
         self.clear_btn.setToolTip("Clear all firings and reset the show")
         self.save_btn.setToolTip("Save the current fireworks show")
         self.load_show_btn.setToolTip("Load a previously saved fireworks show")
-        # Add global hotkeys using QShortcut so they work when the app is focused
 
-        QShortcut(QKeySequence("Space"), self, activated=self.play_pause_btn.toggle)
-        QShortcut(QKeySequence("S"), self, activated=self.stop_btn.click)
-        QShortcut(QKeySequence("A"), self, activated=self.add_firing_btn.click)
-        QShortcut(QKeySequence("D"), self, activated=self.delete_firing_btn.click)
-        QShortcut(QKeySequence("L"), self, activated=self.load_btn.click)
-        QShortcut(QKeySequence("C"), self, activated=self.clear_btn.click)
-        QShortcut(QKeySequence("Ctrl+S"), self, activated=self.save_btn.click)
-        QShortcut(QKeySequence("Ctrl+O"), self, activated=self.load_show_btn.click)
+        # Add global hotkeys using QShortcut so they work when the app is focused
+        # Pylance ignore comments for shortcut lines
+        QShortcut(QKeySequence("Space"), self, activated=self.play_pause_btn.toggle)  # type: ignore
+        QShortcut(QKeySequence("S"), self, activated=self.stop_btn.click)  # type: ignore
+        QShortcut(QKeySequence("A"), self, activated=self.add_firing_btn.click)  # type: ignore
+        QShortcut(QKeySequence("D"), self, activated=self.delete_firing_btn.click)  # type: ignore
+        QShortcut(QKeySequence("X"), self, activated=self.load_btn.click)  # type: ignore
+        QShortcut(QKeySequence("C"), self, activated=self.clear_btn.click)  # type: ignore
+        QShortcut(QKeySequence("Ctrl+S"), self, activated=self.save_btn.click)  # type: ignore
+        QShortcut(QKeySequence("Ctrl+O"), self, activated=self.load_show_btn.click)  # type: ignore
+        QShortcut(QKeySequence("Up"), self, activated=lambda: self.firework_count_spinner_group.findChild(QSpinBox).stepUp())  # type: ignore
+        QShortcut(QKeySequence("Down"), self, activated=lambda: self.firework_count_spinner_group.findChild(QSpinBox).stepDown())  # type: ignore
+        QShortcut(QKeySequence("Left"), self, activated=lambda: self.pattern_selector.findChild(QComboBox).setCurrentIndex(
+            max(0, self.pattern_selector.findChild(QComboBox).currentIndex() - 1)
+        ))  # type: ignore
+        QShortcut(QKeySequence("Right"), self, activated=lambda: self.pattern_selector.findChild(QComboBox).setCurrentIndex(
+            min(self.pattern_selector.findChild(QComboBox).count() - 1, self.pattern_selector.findChild(QComboBox).currentIndex() + 1)
+        ))  # type: ignore
+        # Shortcut to cycle backgrounds (excluding "custom") using the Home key
+        def cycle_background():
+            backgrounds = ["night", "sunset", "city", "mountains"]
+            current_bg = getattr(self.fireworks_canvas, "current_background", "night")
+            idx = backgrounds.index(current_bg) if current_bg in backgrounds else 0
+            next_idx = (idx + 1) % len(backgrounds)
+            self.fireworks_canvas.set_background(backgrounds[next_idx])
+            self.fireworks_canvas.current_background = backgrounds[next_idx]
+        QShortcut(QKeySequence("Home"), self, activated=cycle_background)  # type: ignore
 
         add_toolbar_widget(self.play_pause_btn)
         add_toolbar_widget(self.stop_btn)
-        self.media_toolbar.addSeparator()
-
         add_toolbar_widget(self.add_firing_btn)
         add_toolbar_widget(self.delete_firing_btn)
         add_toolbar_widget(self.pattern_selector)
         add_toolbar_widget(self.firework_count_spinner_group)
-        self.media_toolbar.addSeparator()
-
         add_toolbar_widget(self.load_btn)
         add_toolbar_widget(self.clear_btn)
-        self.media_toolbar.addSeparator()
-        
         add_toolbar_widget(self.save_btn)
         add_toolbar_widget(self.load_show_btn)
-        self.media_toolbar.addSeparator()
 
         # Add the toolbar to the main window at the top by default
         self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self.media_toolbar)
@@ -827,11 +869,29 @@ class FireworkShowApp(QMainWindow):
         # Always get the latest firings from the preview widget if possible
         if hasattr(self, "preview_widget") and hasattr(self.preview_widget, "firework_times"):
             firing_count = len(self.preview_widget.firework_times) if self.preview_widget.firework_times is not None else 0
+
+        # Get current pattern from pattern_selector
+        pattern = "N/A"
+        if hasattr(self, "pattern_selector"):
+            combo = self.pattern_selector.findChild(QComboBox)
+            if combo is not None:
+                pattern = combo.currentText()
+
+        # Get number of firings from firework_count_spinner_group
+        number_firings = "N/A"
+        if hasattr(self, "firework_count_spinner_group"):
+            spinner = self.firework_count_spinner_group.findChild(QSpinBox)
+            if spinner is not None:
+                number_firings = spinner.value()
+        # Build info string for status bar (single line, spaced, with separators)
         self.firework_show_info = (
-            f"Sample Rate: {self.sr if self.sr is not None else 'N/A'} | "
+            f"🎆 Pattern: {pattern} | "
+            f"Amount: {number_firings} | "
+            f"Firings: {firing_count} 🎆"
+            f"   🎵 SR: {self.sr if self.sr is not None else 'N/A'} | "
             f"Duration: {duration_str} | "
-            f"Segments: {len(self.segment_times) if self.segment_times is not None else 0} | "
-            f"Firework Firings: {firing_count}"
+            f"Segments: {len(self.segment_times) if self.segment_times is not None else 0} "
+            f"🎵"
         )
         if hasattr(self, "status_bar") and self.status_bar is not None:
             self.status_bar.showMessage(self.firework_show_info)
