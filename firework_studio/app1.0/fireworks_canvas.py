@@ -79,8 +79,6 @@ class FireworksCanvas(QWidget):
         self._fireworks_enabled = enabled
     
     def update_animation(self):
-        if not self._fireworks_enabled:
-            return
         self.fireworks = [fw for fw in self.fireworks if fw.update()]
         parent = self.parentWidget()
         preview_widget = None
@@ -91,7 +89,7 @@ class FireworksCanvas(QWidget):
                 preview_widget = getattr(parent, "preview_widget", None)
                 break
             parent = parent.parentWidget()
-        if preview_widget and getattr(preview_widget, "firework_times", None) is not None:
+        if preview_widget and getattr(preview_widget, "firework_times", None) is not None and self._fireworks_enabled:
             handles = getattr(preview_widget, "fireworks", [])
             for handle in handles:
                 if (getattr(preview_widget, "current_time", 0) >= handle.firing_time - self.delay and
@@ -867,13 +865,13 @@ class FireworksCanvas(QWidget):
             grad.setColorAt(0.0, QColor(255, 255, 255, 180))
             grad.setColorAt(1.0, QColor(255, 255, 255, 0))
             painter.setPen(QPen(grad, 2))
-            painter.drawLine(star["sx"], star["sy"], star["ex"], star["ey"])
+            painter.drawLine(int(star["sx"]), int(star["sy"]), int(star["ex"]), int(star["ey"]))
             star["sx"] += (star["ex"] - star["sx"]) / star["life"]
             star["sy"] += (star["ey"] - star["sy"]) / star["life"]
             star["life"] -= 1
             if star["life"] <= 0:
                 self._mountain_shooting_stars.remove(star)
-                
+
         # --- Random event: flock of ducks in V formation ---
         # Ducks fly above the mountains in a V, appear randomly, animate every 16ms
         if not hasattr(self, "_duck_flock"):
