@@ -831,7 +831,7 @@ class FireworkShowApp(QMainWindow):
                             return  # Stop fading if fade is cancelled
                         if opacity > 0:
                             dialog.setWindowOpacity(opacity)
-                            QTimer.singleShot(50, lambda: fade_step(opacity - 0.08))
+                            QTimer.singleShot(50, lambda: fade_step(opacity - 0.04))
                         else:
                             dialog.close()
                             dialog.setWindowOpacity(1.0)
@@ -850,7 +850,7 @@ class FireworkShowApp(QMainWindow):
                     def on_leave(event):
                         QTimer.singleShot(4000, start_fade)
 
-                    QTimer.singleShot(1000, start_fade)  # Increased from 2500ms to 4000ms
+                    QTimer.singleShot(400, start_fade)  # Increased from 2500ms to 4000ms
                     dialog.enterEvent = on_enter
                     dialog.leaveEvent = on_leave #type: ignore
                     dialog.show()

@@ -56,10 +56,10 @@ class Firework:
         distance_factor = 0.5
         fade_factor = 0.8
 
-        def far_color(color):
+        def vibrant_color(color):
             hsv = color.toHsv()
-            new_sat = int(hsv.saturation() * 0.55)
-            new_val = int(hsv.value() * 0.7)
+            new_sat = min(255, int(hsv.saturation() * 1.2) + 40)
+            new_val = min(255, int(hsv.value() * 1.15) + 30)
             return QColor.fromHsv(hsv.hue() if hsv.hue() is not None else 0, new_sat, new_val)
 
         if self.pattern == "chrysanthemum":
@@ -68,13 +68,13 @@ class Firework:
                 speed = random.uniform(4.2, 5.0) * distance_factor
                 if i % 7 == 0:
                     speed *= 1.18
-                    color = far_color(QColor(220, 220, 220, 180))
+                    color = vibrant_color(QColor(255, 255, 255, 220))
                 else:
                     hsv = base_color.toHsv()
                     hue_shift = random.randint(-18, 18)
                     new_hue = (hsv.hue() + hue_shift) % 360 if hsv.hue() is not None else 0
-                    sat = min(255, int(hsv.saturation() * 0.55) + random.randint(-10, 18))
-                    val = min(255, int(hsv.value() * 0.7) + random.randint(-10, 10))
+                    sat = min(255, int(hsv.saturation() * 1.2) + random.randint(20, 40))
+                    val = min(255, int(hsv.value() * 1.15) + random.randint(20, 40))
                     color = QColor.fromHsv(new_hue, sat, val)
                 p = Particle(self.x, self.y, angle, speed, color, lifetime=int(random.randint(130, 155) * fade_factor))
                 self.particles.append(p)
@@ -83,15 +83,15 @@ class Firework:
             for i in range(trunks):
                 angle = 2 * math.pi * i / trunks + random.uniform(-0.08, 0.08)
                 speed = random.uniform(4.5, 5.5) * distance_factor
-                trunk_color = far_color(QColor(60, 255, 120))
-                p1 = Particle(self.x, self.y, angle, speed * 0.7, far_color(QColor(220, 220, 180, 180)), lifetime=int(45 * fade_factor))
+                trunk_color = vibrant_color(QColor(60, 255, 120))
+                p1 = Particle(self.x, self.y, angle, speed * 0.7, vibrant_color(QColor(255, 255, 180, 220)), lifetime=int(45 * fade_factor))
                 p2 = Particle(self.x, self.y, angle, speed, trunk_color, lifetime=int(100 * fade_factor))
                 self.particles.append(p1)
                 self.particles.append(p2)
                 for j in range(4):
                     burst_angle = angle + random.uniform(-0.18, 0.18)
                     burst_speed = speed * random.uniform(0.65, 0.95)
-                    burst_color = far_color(QColor(255, 200, 80))
+                    burst_color = vibrant_color(QColor(255, 200, 80))
                     p3 = Particle(self.x, self.y, burst_angle, burst_speed, burst_color, lifetime=int(75 * fade_factor))
                     self.particles.append(p3)
         elif self.pattern == "willow":
@@ -101,9 +101,9 @@ class Firework:
                 angle = base_angle - spread / 2 + spread * (i / (self.particle_count - 1)) + random.uniform(-0.03, 0.03)
                 speed = random.uniform(3.2, 3.8) * distance_factor
                 if i % 10 == 0:
-                    willow_color = far_color(QColor(240, 230, 180, 180))
+                    willow_color = vibrant_color(QColor(255, 255, 180, 220))
                 else:
-                    willow_color = far_color(QColor(220, 200, 120, 180))
+                    willow_color = vibrant_color(QColor(255, 220, 120, 220))
                 p = Particle(self.x, self.y, angle, speed, willow_color, lifetime=int(200 * fade_factor))
                 p.gravity = 0.09
                 self.particles.append(p)
@@ -113,7 +113,7 @@ class Firework:
                 speed = random.uniform(4.0, 4.5) * distance_factor
                 hsv = base_color.toHsv()
                 hue = (hsv.hue() + random.randint(-10, 10)) % 360 if hsv.hue() is not None else 0
-                peony_color = far_color(QColor.fromHsv(hue, hsv.saturation(), hsv.value()))
+                peony_color = vibrant_color(QColor.fromHsv(hue, hsv.saturation(), hsv.value()))
                 p = Particle(self.x, self.y, angle, speed, peony_color, lifetime=int(110 * fade_factor))
                 self.particles.append(p)
         elif self.pattern == "ring":
@@ -121,9 +121,9 @@ class Firework:
                 angle = 2 * math.pi * i / self.particle_count
                 speed = 4.2 * distance_factor
                 if i % 8 == 0:
-                    ring_color = far_color(QColor(220, 220, 220, 180))
+                    ring_color = vibrant_color(QColor(255, 255, 255, 220))
                 else:
-                    ring_color = far_color(QColor(80, 200, 200, 180))
+                    ring_color = vibrant_color(QColor(80, 255, 255, 220))
                 p = Particle(self.x, self.y, angle, speed, ring_color, lifetime=int(120 * fade_factor))
                 self.particles.append(p)
         else:
@@ -131,19 +131,18 @@ class Firework:
                 angle = random.uniform(0, 2 * math.pi)
                 speed = random.uniform(3.5, 4.2) * distance_factor
                 hue = int(360 * i / self.particle_count)
-                rainbow_color = far_color(QColor.fromHsv(hue, 140, 180))
+                rainbow_color = vibrant_color(QColor.fromHsv(hue, 220, 255))
                 if random.random() < 0.18:
-                    sparkle_color = far_color(QColor(220, 220, random.randint(180, 220), 180))
+                    sparkle_color = vibrant_color(QColor(255, 255, random.randint(220, 255), 220))
                     p = Particle(self.x, self.y, angle, speed * 1.08, sparkle_color, lifetime=int(130 * fade_factor))
                     self.particles.append(p)
                 elif random.random() < 0.08:
-                    white_color = far_color(QColor(220, 220, 220, 180))
+                    white_color = vibrant_color(QColor(255, 255, 255, 220))
                     p = Particle(self.x, self.y, angle, speed, white_color, lifetime=int(110 * fade_factor))
                     self.particles.append(p)
                 else:
                     p = Particle(self.x, self.y, angle, speed, rainbow_color, lifetime=int(random.randint(100, 130) * fade_factor))
                     self.particles.append(p)
-
 
     def update(self):
         if not self.exploded and not self.frozen:
