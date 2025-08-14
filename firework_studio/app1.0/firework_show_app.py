@@ -322,13 +322,14 @@ class FireworkShowApp(QMainWindow):
         # Override the preview_widget's mouseMoveEvent to call on_dragging_playhead
         original_mouse_release_event = self.preview_widget.mouseReleaseEvent
         def custom_mouse_release_event(event):
-            on_dragging_playhead("dragging_playhead")
+            if self.preview_widget.dragging_playhead:
+                on_dragging_playhead("dragging_playhead")
             original_mouse_release_event(event)
         self.preview_widget.mouseReleaseEvent = custom_mouse_release_event
 
         ###########################################################
         #                                                         #
-        # Canvas for waveform display                               #
+        #           Canvas for waveform display                   #
         #                                                         #
         ###########################################################
         # Create a canvas for displaying the waveform needed here for loading audio
@@ -883,6 +884,7 @@ class FireworkShowApp(QMainWindow):
         # Add global hotkeys using QShortcut so they work when the app is focused
         # Pylance ignore comments for shortcut lines
         QShortcut(QKeySequence("Space"), self, activated=self.play_pause_btn.toggle)  # type: ignore
+        QShortcut(QKeySequence("S"), self, activated=self.stop_btn.click)  # type: ignore
         QShortcut(QKeySequence("Up"), self, activated=lambda: self.firework_count_spinner_group.findChild(QSpinBox).stepUp())  # type: ignore
         QShortcut(QKeySequence("Down"), self, activated=lambda: self.firework_count_spinner_group.findChild(QSpinBox).stepDown())  # type: ignore
         QShortcut(QKeySequence("Left"), self, activated=lambda: self.pattern_selector.findChild(QComboBox).setCurrentIndex(

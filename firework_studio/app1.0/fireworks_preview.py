@@ -11,8 +11,10 @@ from PyQt6.QtGui import QIcon, QPixmap
 from fireworks_timeline import FireworkTimelineRenderer
 from handles import FiringHandles
 
+
+
 class FireworkPreviewWidget(QWidget):
-    def __init__(self, waveform_selection_tool=None, main_window=None):
+    def __init__(self):
         super().__init__()
         self.setMinimumHeight(200)
         self.setMouseTracking(True)
@@ -36,6 +38,8 @@ class FireworkPreviewWidget(QWidget):
         self.selected_firing = None
         self.selected_region = tuple()
         self.preview_timer = None
+        self.dragging_playhead = False
+        self.dragging_firing = False
 
         self.timeline_renderer = FireworkTimelineRenderer(self)
 
@@ -249,7 +253,6 @@ class FireworkPreviewWidget(QWidget):
         h = self.height()
         usable_h = h - top_margin - bottom_margin
         timeline_y = top_margin + usable_h // 2
-        self.head_move = True
 
         if self.selected_region and len(self.selected_region) == 2 and self.duration:
             draw_start, draw_end = self.selected_region
@@ -262,14 +265,19 @@ class FireworkPreviewWidget(QWidget):
         playhead_time = min(max(self.current_time, 0), self.duration)
         playhead_x = left_margin + usable_w * (playhead_time - draw_start) / zoom_duration if self.duration else 0
         playhead_rect = QRect(int(playhead_x) - 8, timeline_y - 40, 16, 80)
-        if playhead_rect.contains(event.position().toPoint()):
+
+        # Only start dragging playhead if mouse is inside playhead rect and left button is pressed
+        if playhead_rect.contains(event.position().toPoint()) and event.button() == Qt.MouseButton.LeftButton:
             self.dragging_playhead = True
             self.setCursor(Qt.CursorShape.SizeHorCursor)
             return
+
         if not hasattr(self, 'firing_handles'):
             return
+
         self.selected_firing = None
         self.dragging_firing = False
+
         for rect, idx in self.firing_handles:
             if rect.contains(event.position().toPoint()):
                 self.selected_firing = idx
@@ -281,10 +289,6 @@ class FireworkPreviewWidget(QWidget):
                     self.show_firing_context_menu(event.globalPosition().toPoint(), idx)
                     self.dragging_firing = False
                 return
-
-        # If click is not on playhead or firing handle, clear selection
-        self.selected_firing = None
-        self.update()
 
     def mouseDoubleClickEvent(self, event):
         # Add firing at double-clicked position
@@ -373,6 +377,7 @@ class FireworkPreviewWidget(QWidget):
         self.setCursor(Qt.CursorShape.ArrowCursor)
 
     def mouseReleaseEvent(self, event):
+        # Only handle releasing drag actions
         if hasattr(self, 'dragging_firing') and self.dragging_firing:
             self.dragging_firing = False
             self.setCursor(Qt.CursorShape.ClosedHandCursor)
@@ -401,6 +406,7 @@ class FireworkPreviewWidget(QWidget):
             self.dragging_playhead = False
             self.setCursor(Qt.CursorShape.ArrowCursor)
             self.update()
+            # Only stop preview if it was running
             if self.preview_timer and self.preview_timer.isActive():
                 try:
                     if sd.get_stream() is not None:
@@ -408,7 +414,6 @@ class FireworkPreviewWidget(QWidget):
                 except RuntimeError:
                     pass
                 self.preview_timer.stop()
-                return
             return
         
     def show_firing_context_menu(self, global_pos, idx):
