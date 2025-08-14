@@ -762,7 +762,7 @@ class FireworkShowApp(QMainWindow):
         add_toolbar_widget(self.load_show_btn)
 
         # Add the toolbar to the main window at the top by default
-        self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self.media_toolbar)
+        self.addToolBar(Qt.ToolBarArea.RightToolBarArea, self.media_toolbar)
         self.media_controls_widget = self.media_toolbar  # For compatibility with rest of layout code
 
         #############################################################

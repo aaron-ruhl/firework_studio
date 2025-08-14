@@ -58,6 +58,14 @@ class AudioLoader():
             return
 
         self.thread = AudioLoaderThread(self.paths)
+        # Show loading toast with spinner
+        toast = ToastDialog("Loading audio...", parent=self.main_window)
+        geo = self.main_window.geometry()
+        x = geo.x() + geo.width() - toast.width() - 40
+        y = geo.y() + geo.height() - toast.height() - 40
+        toast.move(x, y)
+        toast.show()
+        self.loading_toast = toast
         self.thread.finished.connect(self.on_audio_loaded)
         self.thread.start()
 
