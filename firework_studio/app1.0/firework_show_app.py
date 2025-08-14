@@ -4,11 +4,11 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QColor, QAction
+from PyQt6.QtGui import QColor, QAction, QPalette
 from PyQt6.QtWidgets import (
     QMenu, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QFileDialog, QSizePolicy, QStatusBar,
-    QGroupBox, QRadioButton, QButtonGroup, QComboBox
+    QGroupBox, QComboBox, QMenuBar
 )
 
 from fireworks_canvas import FireworksCanvas
@@ -54,6 +54,7 @@ class FireworkShowApp(QMainWindow):
                     QTimer.singleShot(2500, toast.close)
                 show_cleared_toast()
             else:
+                pass
                 return
             # Always reset play/pause button state and icon so playback can start again
             self.play_pause_btn.blockSignals(True)
@@ -97,7 +98,7 @@ class FireworkShowApp(QMainWindow):
         button_style = """
             QPushButton {
             background-color: #49505a;
-            color: #f0f0f0;
+            color: #ffd700;
             border: 1px solid #444657;
             border-radius: 5px;
             font-size: 12px;
@@ -126,7 +127,7 @@ class FireworkShowApp(QMainWindow):
             }
             QComboBox {
             background: #23242b;
-            color: #e0e0e0;
+            color: #ffd700;
             border: 1px solid #444657;
             font-size: 12px;
             border-radius: 4px;
@@ -154,7 +155,7 @@ class FireworkShowApp(QMainWindow):
             QComboBox QAbstractItemView {
             background: #23242b;
             border: 1px solid #444657;
-            color: #e0e0e0;
+            color: #ffd700;
             selection-background-color: #31323a;
             selection-color: #ffd700;
             outline: ;
@@ -185,36 +186,91 @@ class FireworkShowApp(QMainWindow):
             font-weight: bold;
             }
             QSpinBox {
-                background-color: #23242b;
-                color: #ffd700;
-                border: 1px solid #444657;
-                border-radius: 4px;
-                font-size: 13px;
-                font-weight: bold;
-                min-width: 40px;
-                max-width: 60px;
-                padding: 2px 8px;
-                margin: 0px;
-                qproperty-alignment: AlignCenter;
+            background-color: #23242b;
+            color: #ffd700;
+            border: 1px solid #444657;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: bold;
+            min-width: 40px;
+            max-width: 60px;
+            padding: 2px 8px;
+            margin: 0px;
+            qproperty-alignment: AlignCenter;
             }
             QSpinBox::up-button, QSpinBox::down-button {
-                background: #31323a;
-                border: 1px solid #444657;
-                border-radius: 2px;
-                width: 16px;
-                height: 14px;
+            background: #31323a;
+            border: 1px solid #444657;
+            border-radius: 2px;
+            width: 16px;
+            height: 14px;
             }
             QSpinBox::up-arrow, QSpinBox::down-arrow {
-                width: 10px;
-                height: 10px;
+            width: 10px;
+            height: 10px;
             }
             QSpinBox::up-button:hover, QSpinBox::down-button:hover {
-                background: #ffd700;
-                border: 1.2px solid #ffd700;
+            background: #ffd700;
+            border: 1.2px solid #ffd700;
             }
             QSpinBox:focus {
-                border: 1.2px solid #ffd700;
-                color: #ffd700;
+            border: 1.2px solid #ffd700;
+            color: #ffd700;
+            }
+        """
+
+        menu_style = """
+            QMenu {
+            background-color: #23242b;
+            color: #ffd700;
+            border: 1px solid #444657;
+            border-radius: 6px;
+            font-size: 13px;
+            padding: 4px 0px;
+            min-width: 160px;
+            }
+            QMenu::item {
+            background-color: transparent;
+            color: #ffd700;
+            padding: 6px 24px 6px 24px;
+            border-radius: 4px;
+            font-size: 13px;
+            }
+            QMenu::item:selected {
+            background-color: #31323a;
+            color: #ffd700;
+            }
+            QMenu::separator {
+            height: 1px;
+            background: #444657;
+            margin: 4px 12px 4px 12px;
+            }
+            QMenu::icon {
+            margin-left: 8px;
+            margin-right: 12px;
+            }
+            QMenuBar {
+            background-color: #23242b;
+            color: #ffd700;
+            border: none;
+            font-size: 14px;
+            font-weight: bold;
+            padding: 0px 8px;
+            min-height: 28px;
+            }
+            QMenuBar::item {
+            background: transparent;
+            color: #ffd700;
+            padding: 4px 16px;
+            border-radius: 4px;
+            }
+            QMenuBar::item:selected {
+            background: #31323a;
+            color: #ffd700;
+            }
+            QMenuBar::item:pressed {
+            background: #353a40;
+            color: #ffd700;
             }
         """
 
@@ -489,7 +545,7 @@ class FireworkShowApp(QMainWindow):
         ###########################################################
 
         def create_firework_count_spinner():
-            group_box = QGroupBox()
+            group_box = QGroupBox("Firework Count")
             group_box.setStyleSheet(button_style)
             layout = QHBoxLayout()
             group_box.setLayout(layout)
@@ -504,7 +560,7 @@ class FireworkShowApp(QMainWindow):
                 self.update_firework_show_info()
             spinner.valueChanged.connect(on_count_changed)
             layout.addWidget(spinner)
-            spinner.setVisible(False)
+            group_box.setVisible(False)  # Hide the group box initially
             return group_box
 
         self.firework_count_spinner_group = create_firework_count_spinner()
@@ -546,12 +602,11 @@ class FireworkShowApp(QMainWindow):
         #              Add info status bar                        #
         #                                                         #
         ############################################################
-  
         # Add info label to display audio loading status
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
         self.status_bar.showMessage(self.firework_show_info)
-        self.status_bar.repaint()  # Force repaint to ensure visibility 
+        self.status_bar.repaint()  # Force repaint to ensure visibility
 
         #################################################################
         #                                                               # 
@@ -638,100 +693,196 @@ class FireworkShowApp(QMainWindow):
         self.fireworks_canvas.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.fireworks_canvas.customContextMenuRequested.connect(show_canvas_context_menu)
 
+        ############################################################
+        #                                                          #
+        #                         File menu                        #
+        #                                                          #
         ###########################################################
-        #                                                         #
-        #              Fireworks show generator button            #
-        #                                                         #
-        ###########################################################
-        '''
-        # Create a button to generate fireworks show
-        def create_generate_btn():
-            btn = QPushButton("Generate Show")
-            btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-            ai_button_style = button_style + """
-            QPushButton {
-                background: qlineargradient(
-                x1:0, y1:0, x2:1, y2:0,
-                stop:0 #ff5252, 
-                stop:0.2 #ffeb3b, 
-                stop:0.4 #4caf50, 
-                stop:0.6 #2196f3, 
-                stop:0.8 #8e24aa, 
-                stop:1 #e040fb
-                );
-            }
-            """
-            btn.setStyleSheet(ai_button_style)
-            btn.setCheckable(False)  # Prevent checked/pressed state
-            btn.setAutoDefault(False)
 
-            def generate_and_reset():
-                self.preview_widget.stop_preview()
-                self.play_pause_btn.blockSignals(True)
-                self.play_pause_btn.setChecked(False)
-                self.play_pause_btn.setText("Play")
-                self.play_pause_btn.blockSignals(False)
-            QApplication.processEvents()
-            btn.clicked.connect(generate_and_reset)
-            return btn
+        # Ensure the menu bar exists before adding the File menu
+        if self.menuBar() is None:
+            self.setMenuBar(QMenuBar(self))
+        file_menu = self.menuBar().addMenu("&File") #type: ignore
 
-        self.generate_btn = create_generate_btn()
-        '''
+        if file_menu is not None:
+            # Only set stylesheet for the menu bar
+            self.menuBar().setStyleSheet(menu_style) #type: ignore
+
+            # Save Show action
+            save_action = QAction(QIcon(os.path.join("icons", "save.png")), "Save...", self)
+            save_action.setShortcut("Ctrl+S")
+            save_action.triggered.connect(self.save_btn.click)
+            file_menu.addAction(save_action)
+
+            # Load Show action
+            load_action = QAction(QIcon(os.path.join("icons", "load.png")), "Open...", self)
+            load_action.setShortcut("Ctrl+O")
+            load_action.triggered.connect(self.load_show_btn.click)
+            file_menu.addAction(load_action)
+
+            # Clear Show action
+            clear_action = QAction(QIcon(os.path.join("icons", "clear-show.png")), "Clear Show", self)
+            clear_action.setShortcut("C")
+            clear_action.triggered.connect(self.clear_btn.click)
+            file_menu.addAction(clear_action)
+
+        ############################################################
+        #                                                          #
+        #                         Edit menu                        #
+        #                                                          #
+        ############################################################
+
+        # Ensure the menu bar exists before adding the Edit menu
+        if self.menuBar() is None:
+            self.setMenuBar(QMenuBar(self))
+        edit_menu = self.menuBar().addMenu("&Edit") #type: ignore
+        # Set a dark style for the Edit menu to match the rest of the app
+        if edit_menu is not None:
+
+            # Load Audio action
+            load_audio_action = QAction(QIcon(os.path.join("icons", "upload.png")), "Load Audio...", self)
+            load_audio_action.setShortcut("Ctrl+L")
+            load_audio_action.triggered.connect(self.load_btn.click)
+            edit_menu.addAction(load_audio_action)
+
+            # Add separator
+            edit_menu.addSeparator()
+
+            # Add Firing action
+            add_firing_action = QAction(QIcon(os.path.join("icons", "plus.png")), "Add Firing", self)
+            add_firing_action.setShortcut("A")
+            add_firing_action.triggered.connect(self.add_firing_btn.click)
+            edit_menu.addAction(add_firing_action)
+
+            # Delete Firing action
+            delete_firing_action = QAction(QIcon(os.path.join("icons", "delete.png")), "Delete Firing", self)
+            delete_firing_action.setShortcut("D")
+            delete_firing_action.triggered.connect(self.delete_firing_btn.click)
+            edit_menu.addAction(delete_firing_action)
+
+            # Separator
+            edit_menu.addSeparator()
+
+            # Background selection actions (same as context menu in fireworks_canvas)
+            backgrounds = [
+            ("Night Sky", "night"),
+            ("Sunset", "sunset"),
+            ("City", "city"),
+            ("Mountains", "mountains"),
+            ("Custom...", "custom"),
+            ]
+            for label, bg_name in backgrounds:
+                bg_action = QAction(label, self)
+                if bg_name != "custom":
+                    def make_bg_handler(bg=bg_name):
+                        return lambda: self.fireworks_canvas.set_background(bg)
+                    bg_action.triggered.connect(make_bg_handler())
+                else:
+                    def custom_bg_handler():
+                        file_dialog = QFileDialog(self)
+                        file_dialog.setNameFilter("Images (*.png *.jpg *.jpeg *.bmp *.gif)")
+                        if file_dialog.exec():
+                            selected_files = file_dialog.selectedFiles()
+                            if selected_files:
+                                image_path = selected_files[0]
+                                self.fireworks_canvas.set_background("custom", image_path)
+                    bg_action.triggered.connect(custom_bg_handler)
+                edit_menu.addAction(bg_action)
+                
+        ############################################################
+        #                                                          #
+        #                         Help menu                        #
+        #                                                          #
+        ############################################################
+        # Add Help menu only once
+        menu_bar = self.menuBar()
+        if menu_bar is None:
+            menu_bar = QMenuBar(self)
+            self.setMenuBar(menu_bar)
+        if not any(menu.title() == "&Help" for menu in menu_bar.findChildren(QMenu)):
+            help_menu = menu_bar.addMenu("&Help")
+            if help_menu is not None:
+                help_action = QAction("How to Use Firework Studio", self)
+                help_action.setShortcut("F1")
+                def show_help_dialog():
+                    help_text = (
+                        "<b>How to Load Multiple Audio Files:</b><br>"
+                        "Click the <b>Load Audio</b> button or use <b>Ctrl+L</b> to select and load audio files.<br>"
+                        "You can load more than one file, and it concatenates them in the same order they are displayed in the file dialog window.<br><br>"
+                        "<b>Changing Number of Firings and Pattern:</b><br>"
+                        "Use the <b>Up/Down arrow keys</b> to change the number of fireworks fired at each time.<br>"
+                        "Use the <b>Left/Right arrow keys</b> to change the firework pattern.<br><br>"
+                        "<b>Saving and Loading a Show:</b><br>"
+                        "Click the <b>Save</b> button or use <b>Ctrl+S</b> to save your show.<br>"
+                        "Click the <b>Load</b> button or use <b>Ctrl+O</b> to load a previously saved show.<br><br>"
+                        "<b>Preview Widget:</b><br>"
+                        "The preview widget lets you select a region of the audio by clicking and dragging.<br>"
+                        "Right-click on the preview widget to access context menu options for firings.<br>"
+                    )
+                    dialog = ToastDialog(help_text, parent=self)
+                    dialog.setWindowTitle("Firework Studio Help")
+                    dialog.setMinimumWidth(500)
+                    dialog.setWindowFlags(dialog.windowFlags() | Qt.WindowType.WindowCloseButtonHint)
+                    # Fade out after 4s unless mouse is inside
+                    dialog.fade_active = False  # Track if fade is running #type: ignore
+
+                    def fade_step(opacity):
+                        if not dialog.fade_active: #type: ignore
+                            return  # Stop fading if fade is cancelled
+                        if opacity > 0:
+                            dialog.setWindowOpacity(opacity)
+                            QTimer.singleShot(50, lambda: fade_step(opacity - 0.08))
+                        else:
+                            dialog.close()
+                            dialog.setWindowOpacity(1.0)
+
+                    def cancel_fade(_event=None):
+                        dialog.fade_active = False #type: ignore
+                        dialog.setWindowOpacity(1.0)
+
+                    def start_fade():
+                        dialog.fade_active = True #type: ignore
+                        fade_step(1.0)
+
+                    # Properly override event handlers
+                    def on_enter(event):
+                        cancel_fade(event)
+                    def on_leave(event):
+                        QTimer.singleShot(4000, start_fade)
+
+                    QTimer.singleShot(1000, start_fade)  # Increased from 2500ms to 4000ms
+                    dialog.enterEvent = on_enter
+                    dialog.leaveEvent = on_leave #type: ignore
+                    dialog.show()
+                help_action.triggered.connect(show_help_dialog)
+                help_menu.addAction(help_action)
+
         ############################################################
         #                                                          #
         #        Media playback controls                           #
         #                                                          #                                                        
         ############################################################
-        # Create a toolbar for media controls that can be docked
 
+        # Create a toolbar for media controls that can be docked
         self.media_toolbar = QToolBar("Media Controls", self)
         self.media_toolbar.setMovable(True)
         self.media_toolbar.setFloatable(True)
-        # Note: QToolBar does not support setFloating in PyQt6, so this line is intentionally commented out.
         self.media_toolbar.setAllowedAreas(
             Qt.ToolBarArea.TopToolBarArea |
-            Qt.ToolBarArea.BottomToolBarArea |
-            Qt.ToolBarArea.LeftToolBarArea |
-            Qt.ToolBarArea.RightToolBarArea
-        )
-        self.media_toolbar.setStyleSheet("""
-            QToolBar {
-            background: #23242b;
-            border: 2px solid #444657;
-            border-radius: 8px;
-            padding: 4px;
-            }
-        """)
+            Qt.ToolBarArea.BottomToolBarArea 
+            )
+        self.media_toolbar.setStyleSheet(button_style)
         self.media_toolbar.setIconSize(self.play_pause_btn.size())
-
-        # Helper to add widgets to toolbar using QWidgetAction
-        def add_toolbar_widget(widget):
-            action = QWidgetAction(self)
-            action.setDefaultWidget(widget)
-            self.media_toolbar.addAction(action)
 
         # Add tooltips to all toolbar widgets
         self.play_pause_btn.setToolTip("Play or pause the fireworks preview")
         self.stop_btn.setToolTip("Stop playback and reset fireworks")
         self.add_firing_btn.setToolTip("Add a firework firing at the current time")
         self.delete_firing_btn.setToolTip("Delete the selected firework firing")
-        self.pattern_selector.setToolTip("Select the explosion pattern for fireworks")
-        self.firework_count_spinner_group.setToolTip("Set the number of fireworks per firing")
-        self.load_btn.setToolTip("Load an audio file for the show")
-        self.clear_btn.setToolTip("Clear all firings and reset the show")
-        self.save_btn.setToolTip("Save the current fireworks show")
-        self.load_show_btn.setToolTip("Load a previously saved fireworks show")
 
         # Add global hotkeys using QShortcut so they work when the app is focused
         # Pylance ignore comments for shortcut lines
         QShortcut(QKeySequence("Space"), self, activated=self.play_pause_btn.toggle)  # type: ignore
-        QShortcut(QKeySequence("S"), self, activated=self.stop_btn.click)  # type: ignore
-        QShortcut(QKeySequence("A"), self, activated=self.add_firing_btn.click)  # type: ignore
-        QShortcut(QKeySequence("D"), self, activated=self.delete_firing_btn.click)  # type: ignore
-        QShortcut(QKeySequence("X"), self, activated=self.load_btn.click)  # type: ignore
-        QShortcut(QKeySequence("C"), self, activated=self.clear_btn.click)  # type: ignore
-        QShortcut(QKeySequence("Ctrl+S"), self, activated=self.save_btn.click)  # type: ignore
-        QShortcut(QKeySequence("Ctrl+O"), self, activated=self.load_show_btn.click)  # type: ignore
         QShortcut(QKeySequence("Up"), self, activated=lambda: self.firework_count_spinner_group.findChild(QSpinBox).stepUp())  # type: ignore
         QShortcut(QKeySequence("Down"), self, activated=lambda: self.firework_count_spinner_group.findChild(QSpinBox).stepDown())  # type: ignore
         QShortcut(QKeySequence("Left"), self, activated=lambda: self.pattern_selector.findChild(QComboBox).setCurrentIndex(
@@ -747,22 +898,16 @@ class FireworkShowApp(QMainWindow):
             idx = backgrounds.index(current_bg) if current_bg in backgrounds else 0
             next_idx = (idx + 1) % len(backgrounds)
             self.fireworks_canvas.set_background(backgrounds[next_idx])
-            self.fireworks_canvas.current_background = backgrounds[next_idx]
+            self.fireworks_canvas.current_background = backgrounds[next_idx] #type: ignore
         QShortcut(QKeySequence("Home"), self, activated=cycle_background)  # type: ignore
 
-        add_toolbar_widget(self.play_pause_btn)
-        add_toolbar_widget(self.stop_btn)
-        add_toolbar_widget(self.add_firing_btn)
-        add_toolbar_widget(self.delete_firing_btn)
-        add_toolbar_widget(self.pattern_selector)
-        add_toolbar_widget(self.firework_count_spinner_group)
-        add_toolbar_widget(self.load_btn)
-        add_toolbar_widget(self.clear_btn)
-        add_toolbar_widget(self.save_btn)
-        add_toolbar_widget(self.load_show_btn)
+        self.add_toolbar_widget(self.play_pause_btn, self.media_toolbar)
+        self.add_toolbar_widget(self.stop_btn, self.media_toolbar)
+        self.add_toolbar_widget(self.add_firing_btn, self.media_toolbar)
+        self.add_toolbar_widget(self.delete_firing_btn, self.media_toolbar)
 
         # Add the toolbar to the main window at the top by default
-        self.addToolBar(Qt.ToolBarArea.RightToolBarArea, self.media_toolbar)
+        self.addToolBar(Qt.ToolBarArea.BottomToolBarArea, self.media_toolbar)
         self.media_controls_widget = self.media_toolbar  # For compatibility with rest of layout code
 
         #############################################################
@@ -772,9 +917,10 @@ class FireworkShowApp(QMainWindow):
         #############################################################
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
-
         layout = QVBoxLayout(central_widget)
-        # Add the fireworks canvas (main content)
+        # Add the preview widget and waveform canvas below
+        layout.addWidget(self.preview_widget, stretch=0, alignment=Qt.AlignmentFlag.AlignBottom)
+        layout.addWidget(self.waveform_canvas)
         layout.addWidget(self.fireworks_canvas_container)
         # Add the preview widget and waveform canvas below
         layout.addWidget(self.preview_widget, stretch=0, alignment=Qt.AlignmentFlag.AlignBottom)
@@ -788,7 +934,8 @@ class FireworkShowApp(QMainWindow):
 
         dark_palette = self.palette()
         dark_palette.setColor(self.backgroundRole(), QColor(30, 30, 30))
-        dark_palette.setColor(self.foregroundRole(), QColor(220, 220, 220))
+        dark_palette.setColor(self.foregroundRole(), QColor(255, 215, 0))     # Light gold text
+        dark_palette.setColor(QPalette.ColorRole.Window, QColor(30, 30, 30))
         self.setPalette(dark_palette)
 
     ###############################################################
@@ -892,7 +1039,8 @@ class FireworkShowApp(QMainWindow):
             self.status_bar.showMessage(self.firework_show_info)
             self.status_bar.repaint()  # Force repaint to ensure update
 
-    
-    
-
-   
+    # Helper to add widgets to toolbar using QWidgetAction
+    def add_toolbar_widget(self, widget, toolbar):
+        action = QWidgetAction(self)
+        action.setDefaultWidget(widget)
+        toolbar.addAction(action)
