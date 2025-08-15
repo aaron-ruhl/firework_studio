@@ -30,6 +30,7 @@ from PyQt6.QtGui import QColor
 from toaster import ToastDialog
 from show_file_handler import ShowFileHandler
 from PyQt6.QtGui import QShortcut, QKeySequence
+from PyQt6.QtWidgets import QInputDialog
 
 '''THIS IS THE MAIN WINDOW CLASS FOR THE FIREWORK STUDIO APPLICATION'''
 class FireworkShowApp(QMainWindow):
@@ -89,6 +90,7 @@ class FireworkShowApp(QMainWindow):
         self.fireworks_colors = []
         self.filtered_firings = []
         self.paths = []
+        self.padding = 0
 
         #############################################################
         #                                                          #
@@ -297,7 +299,7 @@ class FireworkShowApp(QMainWindow):
             return container
 
         self.fireworks_canvas_container = create_fireworks_canvas_container()
-        
+        self.fireworks_canvas.setStyleSheet("background-color: #23242b;")  # Set canvas background color
 
         ############################################################
         #                                                          #
@@ -635,65 +637,6 @@ class FireworkShowApp(QMainWindow):
         self.load_show_btn.setIcon(QIcon(os.path.join("icons", "load.png")))
         # Add a spacer after save/load buttons for better layout
 
-        ###########################################################
-        #                                                         #
-        #              Background selection                       #
-        #                                                         #
-        ###########################################################
-
-        # --- Add context menu for fireworks_canvas to select background ---
-        def show_canvas_context_menu(point):
-            menu = QMenu(self.fireworks_canvas)
-            # Add a non-selectable title at the top
-            title_action = QAction("Choose background...", menu)
-            title_action.setEnabled(False)
-            menu.addAction(title_action)
-            menu.addSeparator()
-
-            backgrounds = [
-                ("Night Sky", "night"),
-                ("Sunset", "sunset"),
-                ("City", "city"),
-                ("Mountains", "mountains"),
-                ("Custom...", "custom"),
-            ]
-
-            # Track current background to show checked state
-            current_bg = getattr(self.fireworks_canvas, "current_background", "night")
-
-            def set_and_update_background(bg, image_path=None):
-                self.fireworks_canvas.set_background(bg, image_path)
-                # Update the current_background attribute
-                self.fireworks_canvas.current_background = bg
-
-            for label, bg_name in backgrounds:
-                action = QAction(label, menu)
-                action.setCheckable(True)
-                if bg_name == current_bg:
-                    action.setChecked(True)
-                else:
-                    action.setChecked(False)
-                if bg_name != "custom":
-                    def make_handler(bg=bg_name):
-                        return lambda: set_and_update_background(bg)
-                    action.triggered.connect(make_handler())
-                else:
-                    def custom_bg_handler():
-                        file_dialog = QFileDialog(self)
-                        file_dialog.setNameFilter("Images (*.png *.jpg *.jpeg *.bmp *.gif)")
-                        if file_dialog.exec():
-                            selected_files = file_dialog.selectedFiles()
-                            if selected_files:
-                                image_path = selected_files[0]
-                                set_and_update_background("custom", image_path)
-                    action.triggered.connect(custom_bg_handler)
-                menu.addAction(action)
-
-            menu.exec(self.fireworks_canvas.mapToGlobal(point))
-
-        self.fireworks_canvas.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.fireworks_canvas.customContextMenuRequested.connect(show_canvas_context_menu)
-
         ############################################################
         #                                                          #
         #                         File menu                        #
@@ -726,6 +669,12 @@ class FireworkShowApp(QMainWindow):
             clear_action.setShortcut("C")
             clear_action.triggered.connect(self.clear_btn.click)
             file_menu.addAction(clear_action)
+
+            # Exit action
+            exit_action = QAction(QIcon(os.path.join("icons", "exit.png")), "Exit", self)
+            exit_action.setShortcut("Ctrl+Q")
+            exit_action.triggered.connect(self.close)
+            file_menu.addAction(exit_action)
 
         ############################################################
         #                                                          #
@@ -777,11 +726,12 @@ class FireworkShowApp(QMainWindow):
             # Add a submenu for background selection under Edit menu
             background_menu = QMenu("Background", self)
             backgrounds = [
-                ("Night Sky", "night"),
-                ("Sunset", "sunset"),
-                ("City", "city"),
-                ("Mountains", "mountains"),
-                ("Custom...", "custom"),
+            ("Night Sky", "night"),
+            ("Sunset", "sunset"),
+            ("City", "city"),
+            ("Mountains", "mountains"),
+            ("Desert", "desert"),
+            ("Custom...", "custom"),
             ]
             for label, bg_name in backgrounds:
                 bg_action = QAction(label, self)
@@ -798,10 +748,42 @@ class FireworkShowApp(QMainWindow):
                             if selected_files:
                                 image_path = selected_files[0]
                                 self.fireworks_canvas.set_background("custom", image_path)
-                    bg_action.triggered.connect(custom_bg_handler)
-                background_menu.addAction(bg_action)
+                        bg_action.triggered.connect(custom_bg_handler)
+            background_menu.addAction(bg_action)
             edit_menu.addMenu(background_menu)
-                
+
+            # --- Add Padding submenu ---
+            padding_menu = QMenu("Padding", self)
+            # Store actions so we can update their checked state
+            self.padding_actions = []
+            for pad_value in [5, 10, 15, 20, 25, 30]:
+                pad_action = QAction(f"{pad_value} seconds", self)
+                pad_action.setCheckable(True)
+                pad_action.setChecked(self.padding == pad_value)
+                self.padding_actions.append(pad_action)
+                def make_pad_handler(value=pad_value, action=pad_action):
+                    def handler(checked=False):
+                        self.padding = value  # Ensure self.padding is set
+                        self.audio_loader.set_padding(value)  # Pass to audio_loader
+                        # Uncheck all others, check only this one
+                        for a in self.padding_actions:
+                            a.setChecked(a is action)
+                    return handler
+                pad_action.triggered.connect(make_pad_handler())
+                padding_menu.addAction(pad_action)
+            # Optionally, add a custom padding dialog
+            custom_pad_action = QAction("Custom...", self)
+            def custom_pad_handler():
+                value, ok = QInputDialog.getInt(self, "Set Custom Padding", "Padding (seconds):", value=self.padding, min=0, max=500)
+                if ok:
+                    self.padding = value  # Ensure self.padding is set
+                    self.audio_loader.set_padding(value)  # Pass to audio_loader
+                    # Uncheck all preset actions
+                    for a in self.padding_actions:
+                        a.setChecked(False)
+            custom_pad_action.triggered.connect(custom_pad_handler)
+            padding_menu.addAction(custom_pad_action)
+            edit_menu.addMenu(padding_menu)
         ############################################################
         #                                                          #
         #                         Help menu                        #
@@ -889,7 +871,7 @@ class FireworkShowApp(QMainWindow):
 
         # Shortcut to cycle backgrounds (excluding "custom") using the Home key
         def cycle_background():
-            backgrounds = ["night", "sunset", "city", "mountains"]
+            backgrounds = ["night", "sunset", "city", "mountains", "desert"]
             current_bg = getattr(self.fireworks_canvas, "current_background", "night")
             idx = backgrounds.index(current_bg) if current_bg in backgrounds else 0
             next_idx = (idx + 1) % len(backgrounds)

@@ -6,6 +6,8 @@ from PyQt6.QtCore import QTimer
 import numpy as np
 from toaster import ToastDialog
 from PyQt6.QtCore import QThread, pyqtSignal
+
+
 class AudioLoaderThread(QThread):
     finished = pyqtSignal(object, object, list, float, list, list)  # audio_data, sr, audio_datas, duration, paths, segment_times
 
@@ -16,6 +18,10 @@ class AudioLoaderThread(QThread):
         self.audio_datas = []
         self.audio_data = None
         self.duration = 0.0
+        self.padding = 10
+
+    def set_padding(self, padding):
+        self.padding = padding
 
     def run(self):
         audio_datas = []
@@ -35,7 +41,14 @@ class AudioLoaderThread(QThread):
             except Exception as e:
                 print(f"Error loading audio file {path}: {e}")
                 continue
-        audio_data = np.concatenate(audio_datas) if audio_datas else None
+        # Concatenate all audio data
+        if self.padding and self.padding > 0 and audio_data is not None and sr is not None:
+            pad_samples = int(self.padding * sr)
+            # Add silence at the beginning of each audio segment
+            audio_datas = [np.concatenate([np.zeros(pad_samples, dtype=ad.dtype), ad]) for ad in audio_datas]
+            audio_data = np.concatenate(audio_datas) if audio_datas else None
+        else:
+            audio_data = np.concatenate(audio_datas) if audio_datas else None
         duration = librosa.get_duration(y=audio_data, sr=sr) if audio_data is not None and sr is not None else 0.0
         self.finished.emit(audio_data, sr, audio_datas, duration, self.paths, [])
 
@@ -49,6 +62,10 @@ class AudioLoader():
         self.main_window = main_window
         self.segment_times = []
         self.thread = None
+        self.padding = 10  # Default padding in seconds (int)
+
+    def set_padding(self, padding):
+        self.padding = padding
 
     def handle_audio(self):
         # Start thread to load audio
@@ -58,6 +75,8 @@ class AudioLoader():
             return
 
         self.thread = AudioLoaderThread(self.paths)
+        if self.thread is not None:
+            self.thread.set_padding(self.padding)
         # Show loading toast with spinner
         toast = ToastDialog("Loading audio...", parent=self.main_window)
         geo = self.main_window.geometry()

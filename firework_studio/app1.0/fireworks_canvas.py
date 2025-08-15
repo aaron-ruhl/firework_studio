@@ -119,6 +119,8 @@ class FireworksCanvas(QWidget):
         elif self.background == "city":
             self.draw_background_city(painter)
         elif self.background == "mountains":
+            self.draw_background_mountains(painter)
+        elif self.background == "desert":
             self.draw_background_desert(painter)
         elif self.background == "custom":
             if self._custom_bg_pixmap:
