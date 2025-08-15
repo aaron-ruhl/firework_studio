@@ -87,9 +87,18 @@ class FireworksCanvas(QWidget):
         self._fireworks_enabled = enabled
     
     def update_animation(self):
-        self.fireworks = [fw for fw in self.fireworks if fw.update()]
         parent = self.parentWidget()
         preview_widget = None
+        current_time = 0
+        # Find the parent FireworkShowApp to access firework_firing
+        while parent:
+            if parent.__class__.__name__ == "FireworkShowApp":
+                preview_widget = getattr(parent, "preview_widget", None)
+                break
+            parent = parent.parentWidget()
+        if preview_widget and hasattr(preview_widget, "current_time"):
+            current_time = getattr(preview_widget, "current_time", 0)
+        self.fireworks = [fw for fw in self.fireworks if fw.update(current_time)]
         # Find the parent FireworkShowApp to access firework_firing
         while parent:
             # Avoid direct import to prevent unknown symbol error
@@ -134,6 +143,8 @@ class FireworksCanvas(QWidget):
             # Draw the firework launch point if not exploded
             if not firework.exploded:
                 color = firework.color if isinstance(firework.color, QColor) else QColor(255, 0, 0)
+                rgb = (color.red() / 255.0, color.green() / 255.0, color.blue() / 255.0)
+                # Example usage: glColor3f(*rgb)
                 painter.setPen(QPen(color, 4))
                 painter.drawPoint(int(firework.x), int(firework.y))
             # Draw the explosion particles

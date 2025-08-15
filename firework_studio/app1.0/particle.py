@@ -14,6 +14,7 @@ class Particle:
         self.gravity = 0.1
         self.velocity_x = math.cos(angle) * speed
         self.velocity_y = math.sin(angle) * speed
+        self.fade = 1.0
 
     def freeze(self):
         self._frozen = True

@@ -2,36 +2,26 @@ import numpy as np
 import os
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
+from matplotlib.backends.backend_qt import NavigationToolbar2QT
 
 from PyQt6.QtCore import Qt, QTimer, QSize
-from PyQt6.QtGui import QColor, QAction, QPalette
+from PyQt6.QtGui import (
+    QColor, QAction, QPalette, QIcon, QShortcut, 
+    QKeySequence
+)
 from PyQt6.QtWidgets import (
-    QMenu, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QPushButton, QLabel, QFileDialog, QSizePolicy, QStatusBar,
-    QGroupBox, QComboBox, QMenuBar
+    QMenu, QMainWindow, QWidget, QVBoxLayout, 
+    QHBoxLayout, QPushButton, QLabel, QFileDialog, 
+    QSizePolicy, QStatusBar, QGroupBox, QComboBox,
+    QMenuBar, QWidgetAction, QSpinBox, QInputDialog
 )
 
-from fireworks_canvas import FireworksCanvas
+from firework_canvas_2 import FireworksCanvas
 from fireworks_preview import FireworkPreviewWidget
-from analysis import AudioAnalysis
 from loader import AudioLoader
 from toaster import ToastDialog
 from waveform_selection import WaveformSelectionTool
-from PyQt6.QtWidgets import QWidgetAction
-from PyQt6.QtGui import QIcon
-from PyQt6.QtWidgets import QLabel
-from PyQt6.QtWidgets import QSpinBox, QGroupBox
-from PyQt6.QtWidgets import QWidgetAction
-
-
-import numpy as np
-from PyQt6.QtWidgets import QPushButton, QFileDialog, QRadioButton
-from PyQt6.QtGui import QColor
-from toaster import ToastDialog
 from show_file_handler import ShowFileHandler
-from PyQt6.QtGui import QShortcut, QKeySequence
-from PyQt6.QtWidgets import QInputDialog
-from matplotlib.backends.backend_qt import NavigationToolbar2QT
 
 '''THIS IS THE MAIN WINDOW CLASS FOR THE FIREWORK STUDIO APPLICATION'''
 class FireworkShowApp(QMainWindow):
