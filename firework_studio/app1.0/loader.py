@@ -99,18 +99,26 @@ class AudioLoader():
         self.thread.finished.connect(self.on_audio_loaded)
         self.thread.start()
 
-    def on_audio_loaded(self, audio_data, sr, audio_datas, duration, paths, segment_times):
+    def on_audio_loaded(self, audio_data, sr, audio_datas, duration, paths):
         self.main_window.audio_data = audio_data #type: ignore
         self.main_window.sr = sr #type: ignore
         self.main_window.audio_datas = audio_datas #type: ignore
         self.main_window.duration = duration #type: ignore
         self.main_windowpaths = paths
-        self.segment_times = segment_times
 
         if audio_data is not None:
             self.main_window.clear_show() #type: ignore
-            self.main_window.preview_widget.set_show_data(audio_data, sr, segment_times, None, duration) #type: ignore
+            self.main_window.preview_widget.set_show_data(audio_data, sr, self.segment_times, None, duration) #type: ignore
             self.main_window.plot_waveform() #type: ignore
+            self.main_window.analyzer = AudioAnalysis(audio_datas, sr)
+            if hasattr(self.main_window, "handle_segments"):
+                self.main_window.analyzer.segments_ready.connect(self.main_window.handle_segments)
+            if hasattr(self.main_window, "handle_interesting_points"):
+                self.main_window.analyzer.interesting_points_ready.connect(self.main_window.handle_interesting_points)
+            if hasattr(self.main_window, "handle_onsets"):
+                self.main_window.analyzer.onsets_ready.connect(self.main_window.handle_onsets)
+            #if hasattr(self.main_window, "handle_beats"):
+            #    self.analyzer.beats_ready.connect(self.main_window.handle_beats)
             basenames = [os.path.basename(p) for p in paths]
             toast = ToastDialog(f"Loaded audio: {', '.join(basenames)}", parent=self.main_window)
             geo = self.main_window.geometry() #type: ignore
