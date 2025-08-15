@@ -7,6 +7,8 @@ import numpy as np
 from toaster import ToastDialog
 from PyQt6.QtCore import QThread, pyqtSignal
 
+from analysis import AudioAnalysis
+
 
 class AudioLoaderThread(QThread):
     finished = pyqtSignal(object, object, list, float, list, list)  # audio_data, sr, audio_datas, duration, paths, segment_times
@@ -81,14 +83,14 @@ class AudioLoader():
         if not reload:
             selected = self.select_files(self.main_window)
             if not selected:
-                self.main_window.status_bar.showMessage("No audio loaded.")
+                self.main_window.status_bar.showMessage("No audio loaded.") #type: ignore
                 return
         self.thread = AudioLoaderThread(self.paths)
         if self.thread is not None:
             self.thread.set_padding(self.padding)
         # Show loading toast with spinner
         toast = ToastDialog("Loading audio...", parent=self.main_window)
-        geo = self.main_window.geometry()
+        geo = self.main_window.geometry() #type: ignore
         x = geo.x() + geo.width() - toast.width() - 40
         y = geo.y() + geo.height() - toast.height() - 40
         toast.move(x, y)
@@ -98,27 +100,27 @@ class AudioLoader():
         self.thread.start()
 
     def on_audio_loaded(self, audio_data, sr, audio_datas, duration, paths, segment_times):
-        self.main_window.audio_data = audio_data
-        self.main_window.sr = sr
-        self.main_window.audio_datas = audio_datas
-        self.main_window.duration = duration
+        self.main_window.audio_data = audio_data #type: ignore
+        self.main_window.sr = sr #type: ignore
+        self.main_window.audio_datas = audio_datas #type: ignore
+        self.main_window.duration = duration #type: ignore
         self.main_windowpaths = paths
         self.segment_times = segment_times
 
         if audio_data is not None:
-            self.main_window.clear_show()
-            self.main_window.preview_widget.set_show_data(audio_data, sr, segment_times, None, duration)
-            self.main_window.plot_waveform()
+            self.main_window.clear_show() #type: ignore
+            self.main_window.preview_widget.set_show_data(audio_data, sr, segment_times, None, duration) #type: ignore
+            self.main_window.plot_waveform() #type: ignore
             basenames = [os.path.basename(p) for p in paths]
             toast = ToastDialog(f"Loaded audio: {', '.join(basenames)}", parent=self.main_window)
-            geo = self.main_window.geometry()
+            geo = self.main_window.geometry() #type: ignore
             x = geo.x() + geo.width() - toast.width() - 40
             y = geo.y() + geo.height() - toast.height() - 40
             toast.move(x, y)
             toast.show()
             QTimer.singleShot(2500, toast.close)
         else:
-            self.main_window.status_bar.showMessage("No audio loaded.")
+            self.main_window.status_bar.showMessage("No audio loaded.") #type: ignore
 
     def select_files(self, parent=None):
         files, _ = QFileDialog.getOpenFileNames(

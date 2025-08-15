@@ -2,139 +2,63 @@ from PyQt6.QtCore import QThread, pyqtSignal
 import numpy as np
 import librosa
 
+class AudioAnalysis(QThread):
+    segments_found = pyqtSignal(list)
+    interesting_points_found = pyqtSignal(list)
+    onset_points_found = pyqtSignal(list)
+    beat_points_found = pyqtSignal(list)
 
-class SimpleBeatSampleThread(QThread):
-        finished = pyqtSignal(object)
-
-        def __init__(self, audio_data, sr, segment_times):
-            super().__init__()
-            self.audio_data = audio_data
-            self.sr = sr
-            self.segment_times = segment_times
-
-        def run(self):
-            _, beats = librosa.beat.beat_track(y=self.audio_data, sr=self.sr)
-            beat_times = librosa.frames_to_time(beats, sr=self.sr)
-
-            beat_interval = 5  # target seconds between sampled beats
-            cluster_window = 2 # seconds for clustering
-
-            firework_firing = []
-            for i in range(len(self.segment_times) - 1):
-                seg_start = self.segment_times[i]
-                seg_end = self.segment_times[i + 1]
-                beats_in_seg = beat_times[(beat_times >= seg_start) & (beat_times < seg_end)]
-                if len(beats_in_seg) > 0:
-                    last_time = seg_start
-                    for bt in beats_in_seg:
-                        if bt - last_time >= beat_interval or len(firework_firing) == 0:
-                            firework_firing.append(bt)
-                            last_time = bt
-                    seg_center = (seg_start + seg_end) / 2
-                    clustered = beats_in_seg[(np.abs(beats_in_seg - seg_center) < cluster_window)]
-                    for bt in clustered:
-                        if bt not in firework_firing:
-                            firework_firing.append(bt)
-            firework_firing = np.sort(np.array(firework_firing))
-            self.finished.emit(firework_firing)
-
-class SegmenterThread(QThread):
-    segments_ready = pyqtSignal(list, object)
-
-    def __init__(self, audio_datas, sr):
-        super().__init__()
-        self.audio_datas = audio_datas
+    def __init__(self, audio_data, sr, parent=None):
+        super().__init__(parent)
+        self.audio_data = audio_data
         self.sr = sr
 
-    def run(self):
-        all_periods_info = []
-        all_segment_times = []
-        offset = 0.0
-        for idx, y in enumerate(self.audio_datas):
-            duration = librosa.get_duration(y=y, sr=self.sr)
-            # Set number of segments: 1 per 10 seconds, min 2, max 20
-            k = max(2, min(20, int(duration // 10) + 1))
-            chroma = librosa.feature.chroma_cqt(y=y, sr=self.sr)
-            recurrence = librosa.segment.recurrence_matrix(chroma, mode='affinity', sym=True)
-            segments = librosa.segment.agglomerative(recurrence, k=k)
-            segment_times = librosa.frames_to_time(segments, sr=self.sr)
-            segment_times_offset = segment_times + offset
-            for i in range(len(segment_times_offset) - 1):
-                start_min, start_sec = divmod(int(segment_times_offset[i]), 60)
-                end_min, end_sec = divmod(int(segment_times_offset[i+1]), 60)
-                all_periods_info.append({
-                    'start': f"{start_min:02d}:{start_sec:02d}",
-                    'end': f"{end_min:02d}:{end_sec:02d}",
-                    'segment_id': len(all_periods_info)
-                })
-            if idx == 0:
-                all_segment_times.extend(segment_times_offset)
-            else:
-                all_segment_times.extend(segment_times_offset[1:])
-            offset += duration
-        self.segments_ready.emit(all_periods_info, np.array(all_segment_times))
+    def find_segments(self, audio_data, sr):
+        # Use librosa's feature extraction and similarity to segment the audio
+        # Compute MFCCs as features
+        mfcc = librosa.feature.mfcc(y=audio_data, sr=sr, n_mfcc=13)
+        # Compute self-similarity matrix
+        similarity = np.dot(mfcc.T, mfcc)
+        # Normalize similarity matrix
+        similarity = similarity / np.max(similarity)
+        # Use librosa's agglomerative segmentation
+        segment_boundaries = librosa.segment.agglomerative(similarity, k=6)  # k = number of segments (can be tuned)
+        # Convert boundaries to times
+        segment_times = librosa.frames_to_time(segment_boundaries, sr=sr)
+        # Pair up start/end times
+        segments = [(segment_times[i], segment_times[i+1]) for i in range(len(segment_times)-1)]
+        print(f"Found segments: {segments}")
+        return segments
+    
+    def find_interesting_points(self, audio_data, sr):
+        # Use spectral centroid as an example of "interesting" points
+        centroids = librosa.feature.spectral_centroid(y=audio_data, sr=sr)[0]
+        times = librosa.times_like(centroids, sr=sr)
+        # Pick local maxima as interesting points
+        peaks = librosa.util.peak_pick(centroids, pre_max=3, post_max=3, pre_avg=3, post_avg=5, delta=0.5, wait=5)
+        interesting_points = [times[p] for p in peaks]
+        # Select only the top N most prominent points (e.g., 10)
+        N = 10
+        if len(peaks) > 0:
+            # Sort peaks by centroid value (descending), pick top N
+            top_indices = np.argsort(centroids[peaks])[::-1][:N]
+            interesting_points = [times[peaks[i]] for i in top_indices]
+        return interesting_points
+    
+    def find_onsets(self, audio_data, sr):
+        # Use librosa.onset.onset_detect to find onset events
+        onset_frames = librosa.onset.onset_detect(y=audio_data, sr=sr)
+        onset_times = librosa.frames_to_time(onset_frames, sr=sr)
+        # Sample a subset of onsets (e.g., evenly spaced, max 20)
+        max_onsets = 20
+        if len(onset_times) > max_onsets:
+            indices = np.linspace(0, len(onset_times) - 1, max_onsets, dtype=int)
+            sampled_onsets = [onset_times[i] for i in indices]
+            return sampled_onsets
+        return onset_times.tolist()
 
-class AudioAnalyzer:
-    def __init__(self, audio_datas, sr):
-        self.audio_datas = audio_datas
-        self.sr = sr
-        self.filtered_firings = []
-
-    def analyze_firework_firings(self):
-        firework_firings = []
-        offset = 0.0
-        for audio_file in self.audio_datas:
-            # Segment audio and get segment times
-            periods_info, segment_times = AudioAnalyzer([audio_file], self.sr).segment_audio()
-            # Use periods_info to find interesting points (e.g., onsets)
-            interesting_points = []
-            if isinstance(periods_info, dict) and "onsets" in periods_info:
-                interesting_points = periods_info["onsets"]
-            # Get beat times
-            beat_times, _ = AudioAnalyzer([audio_file], self.sr).beat_sample()
-            # Cluster beats near segment centers, sample at intervals, and prioritize interesting points
-            beat_interval = 5  # seconds between sampled beats
-            cluster_window = 2 # seconds for clustering
-            firing = []
-            for i in range(len(segment_times) - 1):
-                seg_start = segment_times[i]
-                seg_end = segment_times[i + 1]
-                beats_in_seg = beat_times[(beat_times >= seg_start) & (beat_times < seg_end)]
-                if len(beats_in_seg) > 0:
-                    last_time = seg_start
-                    for bt in beats_in_seg:
-                        if bt - last_time >= beat_interval or len(firing) == 0:
-                            firing.append(bt)
-                            last_time = bt
-                    seg_center = (seg_start + seg_end) / 2
-                    clustered = beats_in_seg[(np.abs(beats_in_seg - seg_center) < cluster_window)]
-                    for bt in clustered:
-                        if bt not in firing:
-                            firing.append(bt)
-                # Add beats that are close to interesting points (e.g., onsets)
-                for ip in interesting_points:
-                    if seg_start <= ip < seg_end:
-                        # Find the closest beat to this interesting point
-                        if len(beats_in_seg) > 0:
-                            closest_beat = beats_in_seg[np.argmin(np.abs(beats_in_seg - ip))]
-                            if closest_beat not in firing:
-                                firing.append(closest_beat)
-            firing = np.sort(np.array(firing)) + offset
-            firework_firings.extend(firing)
-            offset += librosa.get_duration(y=audio_file, sr=self.sr)
-        return firework_firings
-
-    def segment_audio(self):
-        # Example segmentation using librosa onset detection
-        audio = np.concatenate(self.audio_datas)
-        onset_env = librosa.onset.onset_strength(y=audio, sr=self.sr)
-        segments = librosa.onset.onset_detect(onset_envelope=onset_env, sr=self.sr)
-        segment_times = librosa.frames_to_time(segments, sr=self.sr)
-        periods_info = {"onsets": segment_times}
-        return periods_info, segment_times
-
-    def beat_sample(self):
-        audio = np.concatenate(self.audio_datas)
-        tempo, beats = librosa.beat.beat_track(y=audio, sr=self.sr)
-        beat_times = librosa.frames_to_time(beats, sr=self.sr)
-        return beat_times, tempo
+    def find_beats(self, audio_data, sr):
+        # Use librosa.beat.beat_track to find beat positions
+        tempo, beat_frames = librosa.beat.beat_track(y=audio_data, sr=sr)
+        beat_times = librosa.frames_to_time(beat_frames, sr=sr)
+        return beat_times.tolist()

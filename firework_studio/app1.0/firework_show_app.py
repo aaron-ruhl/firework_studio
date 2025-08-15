@@ -13,11 +13,11 @@ from PyQt6.QtWidgets import (
 
 from fireworks_canvas import FireworksCanvas
 from fireworks_preview import FireworkPreviewWidget
-from analysis import AudioAnalyzer
+from analysis import AudioAnalysis
 from loader import AudioLoader
 from toaster import ToastDialog
 from waveform_selection import WaveformSelectionTool
-from PyQt6.QtWidgets import QToolBar, QWidgetAction
+from PyQt6.QtWidgets import QWidgetAction
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import QLabel
 from PyQt6.QtWidgets import QSpinBox, QGroupBox
@@ -91,6 +91,7 @@ class FireworkShowApp(QMainWindow):
         self.filtered_firings = []
         self.paths = []
         self.padding = 0
+        self.analyzer = None  # Initialize analyzer attribute
 
         #############################################################
         #                                                          #
@@ -727,21 +728,32 @@ class FireworkShowApp(QMainWindow):
             # Add a submenu for background selection under Edit menu
             background_menu = QMenu("Background", self)
             backgrounds = [
-            ("Night Sky", "night"),
-            ("Sunset", "sunset"),
-            ("City", "city"),
-            ("Mountains", "mountains"),
-            ("Desert", "desert"),
-            ("Custom...", "custom"),
+                ("Night Sky", "night"),
+                ("Sunset", "sunset"),
+                ("City", "city"),
+                ("Mountains", "mountains"),
+                ("Desert", "desert"),
+                ("Custom...", "custom"),
             ]
+            self.background_actions = []
             for label, bg_name in backgrounds:
                 bg_action = QAction(label, self)
+                bg_action.setCheckable(bg_name != "custom")
+                # Set checked if current background matches
                 if bg_name != "custom":
-                    def make_bg_handler(bg=bg_name):
-                        return lambda: self.fireworks_canvas.set_background(bg)
+                    bg_action.setChecked(getattr(self.fireworks_canvas, "current_background", "night") == bg_name)
+                    self.background_actions.append(bg_action)
+                    def make_bg_handler(bg=bg_name, action=bg_action):
+                        def handler():
+                            self.fireworks_canvas.set_background(bg)
+                            self.fireworks_canvas.current_background = bg
+                            # Uncheck all others, check only this one
+                            for a in self.background_actions:
+                                a.setChecked(a is action)
+                        return handler
                     bg_action.triggered.connect(make_bg_handler())
                 else:
-                    def custom_bg_handler():
+                    def custom_bg_handler(action=bg_action):
                         file_dialog = QFileDialog(self)
                         file_dialog.setNameFilter("Images (*.png *.jpg *.jpeg *.bmp *.gif)")
                         if file_dialog.exec():
@@ -749,8 +761,13 @@ class FireworkShowApp(QMainWindow):
                             if selected_files:
                                 image_path = selected_files[0]
                                 self.fireworks_canvas.set_background("custom", image_path)
-                        bg_action.triggered.connect(custom_bg_handler)
-            background_menu.addAction(bg_action)
+                                self.fireworks_canvas.current_background = "custom"
+                                # Uncheck all preset actions
+                                for a in self.background_actions:
+                                    a.setChecked(False)
+                        # Custom is not checkable
+                    bg_action.triggered.connect(lambda: custom_bg_handler())
+                background_menu.addAction(bg_action)
             edit_menu.addMenu(background_menu)
 
             # --- Add Padding submenu ---
@@ -806,6 +823,85 @@ class FireworkShowApp(QMainWindow):
             custom_pad_action.triggered.connect(custom_pad_handler)
             padding_menu.addAction(custom_pad_action)
             edit_menu.addMenu(padding_menu)
+            ############################################################
+            #                                                          #
+            #                         Analysis menu                    #
+            #                                                          #
+            ############################################################
+
+            # Ensure the menu bar exists before adding the Analysis menu
+            menu_bar = self.menuBar()
+            if menu_bar is None:
+                menu_bar = QMenuBar(self)
+                self.setMenuBar(menu_bar)
+            analysis_menu = None
+            # Find existing Analysis menu or create it
+            for menu in menu_bar.findChildren(QMenu):
+                if menu.title() == "&Analysis":
+                    analysis_menu = menu
+                    break
+            if analysis_menu is None:
+                analysis_menu = menu_bar.addMenu("&Analysis")
+            
+            # Segment Audio action
+            segment_action = QAction("Segment Audio", self)
+            segment_action.setShortcut("Ctrl+M")
+            def segment_audio():
+                if self.audio_data is not None and self.sr is not None:
+                    self.analyzer = AudioAnalysis(self.audio_data, self.sr)
+                    self.segment_times = self.analyzer.find_segments(self.audio_data, self.sr)
+                    # Plot segment lines on waveform (like interesting points)
+                    ax = self.waveform_canvas.figure.axes[0]
+                    for t in self.segment_times:
+                        # Ensure t is a scalar value before plotting
+                        if isinstance(t, (int, float)) and np.isscalar(t):
+                            ax.axvline(x=t, color="#ffd700", linestyle="--", linewidth=1.2, alpha=0.9)
+                        elif isinstance(t, (np.ndarray, list, tuple)):
+                            for tt in np.atleast_1d(t):
+                                if isinstance(tt, (int, float)) and np.isscalar(tt):
+                                    ax.axvline(x=tt, color="#ffd700", linestyle="--", linewidth=1.2, alpha=0.9)
+                    self.waveform_canvas.draw_idle()
+                    self.update_firework_show_info()
+                    toast = ToastDialog("Audio segmented!", parent=self)
+                    toast.show()
+            segment_action.triggered.connect(segment_audio)
+            if analysis_menu is not None:
+                analysis_menu.addAction(segment_action)
+
+            # Interesting Points action
+            interesting_points_action = QAction("Find Interesting Points", self)
+            interesting_points_action.setShortcut("Ctrl+I")
+            def find_interesting_points():
+                if self.audio_data is not None and self.sr is not None:
+                    self.analyzer = AudioAnalysis(self.audio_data, self.sr)
+                    points = self.analyzer.find_interesting_points(self.audio_data, self.sr)
+                    # Optionally, mark these points on the waveform
+                    ax = self.waveform_canvas.figure.axes[0]
+                    for t in points:
+                        ax.axvline(x=t, color="#ff6f00", linestyle=":", linewidth=1.5, alpha=0.8)
+                    self.waveform_canvas.draw_idle()
+                    toast = ToastDialog(f"Found {len(points)} interesting points!", parent=self)
+                    toast.show()
+            interesting_points_action.triggered.connect(find_interesting_points)
+            analysis_menu.addAction(interesting_points_action)
+
+            # Onsets action
+            onsets_action = QAction("Find Onsets", self)
+            onsets_action.setShortcut("Ctrl+N")
+            def find_onsets():
+                if self.audio_data is not None and self.sr is not None:
+                    self.analyzer = AudioAnalysis(self.audio_data, self.sr)
+                    onsets = self.analyzer.find_onsets(self.audio_data, self.sr)
+                    # Optionally, mark these onsets on the waveform
+                    ax = self.waveform_canvas.figure.axes[0]
+                    for t in onsets:
+                        ax.axvline(x=t, color="#00ff6f", linestyle="-.", linewidth=1.5, alpha=0.8)
+                    self.waveform_canvas.draw_idle()
+                    toast = ToastDialog(f"Found {len(onsets)} onsets!", parent=self)
+                    toast.show()
+            onsets_action.triggered.connect(find_onsets)
+            analysis_menu.addAction(onsets_action)
+
 
         ############################################################
         #                                                          #
@@ -967,12 +1063,12 @@ class FireworkShowApp(QMainWindow):
                 ax.plot(times, self.audio_data, color="#8fb9bd", linewidth=1.2, alpha=0.95, antialiased=True)
             ax.set_facecolor('#181a20')
             ax.tick_params(axis='y', colors='white')
-            ax.set_title("Waveform with Segments", color='white')
-            # Plot segment times in subtle gray
-            if self.segment_times is not None and isinstance(self.segment_times, (list, tuple, np.ndarray)):
+            # Plot segment times in gold
+            if self.segment_times is not None and isinstance(self.segment_times, (list, tuple)):
                 for t in self.segment_times:
-                    if t is not None and np.isfinite(t):
-                        ax.axvline(x=t, color="#e3bd13", linestyle="--", linewidth=1.2, alpha=0.7)
+                    if t is not None and isinstance(t, (int, float)) and np.isfinite(t):
+                        ax.axvline(x=t, color="#ffd700", linestyle="--", linewidth=1.2, alpha=0.9)
+            self.waveform_canvas.draw_idle()  # Ensure segment lines are drawn
             if self.duration is not None and self.sr is not None:
                 ax.set_xlim(0, self.duration)
             elif self.audio_data is not None and self.sr is not None:
