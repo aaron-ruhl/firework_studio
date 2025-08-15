@@ -354,6 +354,20 @@ class FireworkShowApp(QMainWindow):
         # Add NavigationToolbar for zoom/pan (does not disrupt custom selection tool)
         self.waveform_toolbar = NavigationToolbar2QT(self.waveform_canvas, self)
         self.waveform_toolbar.setVisible(True)
+        # Ensure "Home" button always resets the waveform view, even after selection
+        def reset_waveform_view():
+            # Also clear selection tool region if needed
+            if hasattr(self.waveform_selector, "clear_selection"):
+                self.waveform_selector.clear_selection(redraw=False)
+            self.plot_waveform()
+
+        # Patch the NavigationToolbar "home" button to call our reset
+        for action in self.waveform_toolbar.actions():
+            if hasattr(action, "text") and action.text() == "Home":
+                action.triggered.disconnect()
+                action.triggered.connect(reset_waveform_view)
+                break
+
         # Style the waveform toolbar for better responsiveness and appearance
         self.waveform_toolbar.setStyleSheet("""
             QToolBar {

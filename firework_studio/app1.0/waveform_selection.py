@@ -1,7 +1,6 @@
 from matplotlib.widgets import SpanSelector
 from toaster import ToastDialog
 from PyQt6.QtCore import QTimer
-
 class WaveformSelectionTool:
     # Add a waveform panning/selection tool using matplotlib's SpanSelector
     def __init__(self, canvas, main_window=None):
@@ -18,15 +17,27 @@ class WaveformSelectionTool:
         )
         self.selected_region = None
         self.main_window = main_window
+        self._original_xlim = self.ax.get_xlim()
+
+    def clear_selection(self, redraw=True):
+        # Remove the highlighted selection area and restore original limits
+        self.selected_region = None
+        self.span.set_active(True)  # Ensure the span selector remains enabled
+        # Remove the selection visual by deactivating and then reactivating the span selector
+        self.span.set_active(False)
+        self.ax.set_xlim(self._original_xlim)
+        if redraw:
+            self.canvas.draw_idle()
+        if self.main_window and hasattr(self.main_window, "preview_widget"):
+            self.main_window.preview_widget.reset_selected_region()
+            self.main_window.preview_widget.update()
+        if self.main_window and hasattr(self.main_window, "status_bar"):
+            self.main_window.status_bar.showMessage(self.main_window.firework_show_info)
+        # Reactivate the span selector for new selections
+        self.span.set_active(True)
 
     def on_select(self, xmin, xmax):
-        # If the region is too narrow (e.g., a click, not a drag), reset selection
-        if abs(xmax - xmin) < 1e-3:
-            self.selected_region = None
-            if self.main_window and hasattr(self.main_window, "preview_widget"):
-                self.main_window.preview_widget.reset_selected_region()
-                self.main_window.preview_widget.update()
-                self.main_window.status_bar.showMessage(self.main_window.firework_show_info)
+        if abs(xmax - xmin) < 0.05:
             return
         self.selected_region = (xmin, xmax)
         # Update status bar and filter segments/firings if main_window is provided
@@ -45,8 +56,5 @@ class WaveformSelectionTool:
             # Only update the selected region for visual feedback, do not filter or add firings
             self.main_window.preview_widget.set_selected_region((xmin, xmax))
             self.main_window.preview_widget.update()
-
-    def clear_selection(self):
-        self.selected_region = None
-        self.span.set_visible(False)
-        self.canvas.draw_idle()
+            self.ax.set_xlim(xmin, xmax)
+            self.canvas.draw_idle()
