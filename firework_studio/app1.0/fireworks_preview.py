@@ -263,7 +263,8 @@ class FireworkPreviewWidget(QWidget):
             zoom_duration = self.duration if self.duration else 1
 
         playhead_time = min(max(self.current_time, 0), self.duration)
-        playhead_x = left_margin + usable_w * (playhead_time - draw_start) / zoom_duration if self.duration else 0
+        playhead_x = left_margin + usable_w * (playhead_time - draw_start) / zoom_duration if self.duration else left_margin
+        playhead_x = max(left_margin, min(playhead_x, w - right_margin))  # Ensure playhead stays within timeline
         playhead_rect = QRect(int(playhead_x) - 8, timeline_y - 40, 16, 80)
 
         # Only start dragging playhead if mouse is inside playhead rect and left button is pressed
@@ -278,6 +279,7 @@ class FireworkPreviewWidget(QWidget):
         self.selected_firing = None
         self.dragging_firing = False
 
+        handle_clicked = False
         for rect, idx in self.firing_handles:
             if rect.contains(event.position().toPoint()):
                 self.selected_firing = idx
@@ -288,7 +290,28 @@ class FireworkPreviewWidget(QWidget):
                 if event.button() == Qt.MouseButton.RightButton:
                     self.show_firing_context_menu(event.globalPosition().toPoint(), idx)
                     self.dragging_firing = False
+                handle_clicked = True
                 return
+
+        # If right click and not on a handle, move playhead to clicked position
+        if event.button() == Qt.MouseButton.RightButton and not handle_clicked:
+            x = event.position().x()
+            x = max(left_margin, min(x, w - right_margin))
+            new_time = (x - left_margin) / usable_w * zoom_duration + draw_start
+            new_time = max(0, min(new_time, self.duration))
+            self.current_time = new_time
+            self.dragging_playhead = False
+            self.setCursor(Qt.CursorShape.ArrowCursor)
+            self.update()
+            # Only stop preview if it was running
+            if self.preview_timer and self.preview_timer.isActive():
+                try:
+                    if sd.get_stream() is not None:
+                        sd.stop(ignore_errors=True)
+                except RuntimeError:
+                    pass
+                self.preview_timer.stop()
+            self.update()
 
     def mouseDoubleClickEvent(self, event):
         # Add firing at double-clicked position
@@ -366,12 +389,13 @@ class FireworkPreviewWidget(QWidget):
             for rect, idx in self.firing_handles:
                 if rect.contains(event.position().toPoint()):
                     self.setCursor(Qt.CursorShape.OpenHandCursor)
-                    return
         playhead_time = min(max(self.current_time, 0), self.duration)
-        playhead_x = left_margin + usable_w * (playhead_time - draw_start) / zoom_duration if self.duration else 0
+        playhead_x = left_margin + usable_w * (playhead_time - draw_start) / zoom_duration if self.duration else left_margin
+        playhead_x = max(left_margin, min(playhead_x, w - right_margin))
         playhead_rect = QRect(int(playhead_x) - 8, timeline_y - 40, 16, 80)
         if playhead_rect.contains(event.position().toPoint()):
             self.setCursor(Qt.CursorShape.SizeHorCursor)
+            return
             return
 
         self.setCursor(Qt.CursorShape.ArrowCursor)

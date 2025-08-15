@@ -1,8 +1,7 @@
 from PyQt6.QtCore import QRect, QPoint, Qt
 from PyQt6.QtGui import QColor
-from PyQt6.QtGui import QVector2D, QVector3D, QVector4D
+from PyQt6.QtGui import QVector2D
 import numpy as np
-import random
 
 class FireworkTimelineRenderer:
     def __init__(self, widget):

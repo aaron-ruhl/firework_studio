@@ -3,7 +3,7 @@ import os
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer, QSize
 from PyQt6.QtGui import QColor, QAction, QPalette
 from PyQt6.QtWidgets import (
     QMenu, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -344,14 +344,55 @@ class FireworkShowApp(QMainWindow):
             ax.set_facecolor('black')
             ax.tick_params(axis='x', colors='white')
             ax.tick_params(axis='y', colors='white')
+            # Remove left/right margin workaround
             canvas.figure.subplots_adjust(left=0, right=1, top=1, bottom=0)
             return canvas
         self.waveform_canvas = create_waveform_canvas()
         self.waveform_canvas.setFixedHeight(60)
+        self.waveform_canvas.setContentsMargins(0, 0, 0, 0)  # No margin
 
         # Add NavigationToolbar for zoom/pan (does not disrupt custom selection tool)
         self.waveform_toolbar = NavigationToolbar2QT(self.waveform_canvas, self)
         self.waveform_toolbar.setVisible(True)
+        # Style the waveform toolbar for better responsiveness and appearance
+        self.waveform_toolbar.setStyleSheet("""
+            QToolBar {
+            background: #23242b;
+            border: none;
+            min-height: 36px;
+            max-height: 36px;
+            padding: 0px;
+            margin: 0px;
+            }
+            QToolButton {
+            background: #31323a;
+            color: #ffd700;
+            border: 1px solid #444657;
+            border-radius: 4px;
+            font-size: 13px;
+            min-width: 32px;
+            min-height: 28px;
+            margin: 2px;
+            padding: 2px 8px;
+            }
+            QToolButton:hover {
+            background: #49505a;
+            color: #ffd700;
+            border: 1.2px solid #ffd700;
+            }
+            QToolButton:pressed {
+            background: rgba(255, 215, 0, 0.7); /* Light gold, slightly opaque */
+            color: #23242b;
+            border: 1.2px solid #ffd700;
+            }
+            QToolButton:checked {
+            background: rgba(255, 215, 0, 0.7); /* Light gold, slightly opaque */
+            color: #23242b;
+            border: 1.2px solid #ffd700;
+            }
+        """)
+        self.waveform_toolbar.setMovable(False)
+        self.waveform_toolbar.setIconSize(QSize(22, 22))
 
         # Add mouse hover event to show time label at cursor 
         self.waveform_time_label = QLabel(self.waveform_canvas)
@@ -376,7 +417,7 @@ class FireworkShowApp(QMainWindow):
                     ax = event.inaxes
                     # Get pixel position of mouse in widget
                     x_disp, y_disp = canvas.figure.transFigure.inverted().transform(
-                        canvas.figure.transFigure.transform((event.x, event.y))
+                    canvas.figure.transFigure.transform((event.x, event.y))
                     )
                     # Use event.x, event.y (pixels) relative to canvas widget
                     label_width = self.waveform_time_label.sizeHint().width()
@@ -988,8 +1029,17 @@ class FireworkShowApp(QMainWindow):
 
         layout = QVBoxLayout(central_widget)
         # Add the preview widget and waveform canvas below
-        layout.addWidget(self.waveform_toolbar)
-        layout.addWidget(self.waveform_canvas)
+
+        # Create a container for the waveform toolbar and canvas with black background
+        waveform_container = QWidget()
+        waveform_container.setStyleSheet("background-color: #181a20;")  # Match plot background
+        waveform_layout = QVBoxLayout(waveform_container)
+        waveform_layout.setContentsMargins(40, 0, 40, 0)  # Left/right gap
+        waveform_layout.setSpacing(0)
+        waveform_layout.addWidget(self.waveform_toolbar)
+        waveform_layout.addWidget(self.waveform_canvas)
+        layout.addWidget(waveform_container)
+
         layout.addWidget(self.preview_widget, stretch=0, alignment=Qt.AlignmentFlag.AlignBottom)
         layout.addWidget(self.fireworks_canvas_container)
         
