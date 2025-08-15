@@ -1,7 +1,7 @@
-from email.mime import audio
 from PyQt6.QtCore import QThread, pyqtSignal
 import numpy as np
 import librosa
+from PyQt6.QtWidgets import QMessageBox
 
 class AudioAnalysis(QThread):
     segments_ready = pyqtSignal(list)
@@ -60,8 +60,6 @@ class AudioAnalysis(QThread):
             segment_times = librosa.frames_to_time(segment_boundaries, sr=self.sr)
             segments = [(segment_times[i], segment_times[i+1]) for i in range(len(segment_times)-1)]
             results.extend(segments)
-
-        print(f"Found {len(results)} segments")
         return results
 
     def find_interesting_points(self):

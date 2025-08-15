@@ -85,6 +85,8 @@ class FireworkShowApp(QMainWindow):
         self.sr = None
         self.duration = None
         self.segment_times = []
+        self.points = []
+        self.onsets = []
         self.firework_firing = []
         self.firework_show_info = "No audio loaded. Load audio to get started. Use the arrow keys to change what firework(s) you add."
         self.start = None
@@ -354,12 +356,14 @@ class FireworkShowApp(QMainWindow):
         # Add NavigationToolbar for zoom/pan (does not disrupt custom selection tool)
         self.waveform_toolbar = NavigationToolbar2QT(self.waveform_canvas, self)
         self.waveform_toolbar.setVisible(True)
+
         # Ensure "Home" button always resets the waveform view, even after selection
         def reset_waveform_view():
             # Also clear selection tool region if needed
             if hasattr(self.waveform_selector, "clear_selection"):
                 self.waveform_selector.clear_selection(redraw=False)
-            self.plot_waveform()
+            legend = self.waveform_canvas.figure.axes[0].get_legend()
+            self.plot_waveform(current_legend=legend)
 
         # Patch the NavigationToolbar "home" button to call our reset
         for action in self.waveform_toolbar.actions():
@@ -750,7 +754,18 @@ class FireworkShowApp(QMainWindow):
         segment_action.setShortcut("Ctrl+M")
         def segment_audio():
             if self.analyzer is not None:
+                # Only show toast the first time segments are found
                 self.analyzer.analyze_segments()
+                self._segments_toast_shown = False
+
+                # Display a toast/loading dialog while processing segments
+                toast = ToastDialog("Analyzing segments...")
+                geo = self.geometry() #type: ignore
+                x = geo.x() + geo.width() - toast.width() - 40
+                y = geo.y() + geo.height() - toast.height() - 40
+                toast.move(x, y)
+                toast.show()
+
         segment_action.triggered.connect(segment_audio)
         if analysis_menu is not None:
             analysis_menu.addAction(segment_action)
@@ -759,8 +774,19 @@ class FireworkShowApp(QMainWindow):
         interesting_points_action = QAction("Find Interesting Points", self)
         interesting_points_action.setShortcut("Ctrl+I")
         def find_interesting_points():
+            # Only show toast the first time interesting points are found
             if self.analyzer is not None:
                 self.analyzer.analyze_interesting_points()
+                self._interesting_points_toast_shown = False
+
+                # Display a toast/loading dialog while processing interesting points
+                toast = ToastDialog("Analyzing interesting points...")
+                geo = self.geometry() #type: ignore
+                x = geo.x() + geo.width() - toast.width() - 40
+                y = geo.y() + geo.height() - toast.height() - 40
+                toast.move(x, y)
+                toast.show()
+
         interesting_points_action.triggered.connect(find_interesting_points)
         if analysis_menu is not None:
             analysis_menu.addAction(interesting_points_action)
@@ -769,8 +795,19 @@ class FireworkShowApp(QMainWindow):
         onsets_action = QAction("Find Onsets", self)
         onsets_action.setShortcut("Ctrl+N")
         def find_onsets():
+            # Only show toast the first time onsets are found
             if self.analyzer is not None:
                 self.analyzer.analyze_onsets()
+                self._onsets_toast_shown = False
+
+                # Display a toast/loading dialog while processing onsets
+                toast = ToastDialog("Analyzing onsets...")
+                geo = self.geometry() #type: ignore
+                x = geo.x() + geo.width() - toast.width() - 40
+                y = geo.y() + geo.height() - toast.height() - 40
+                toast.move(x, y)
+                toast.show()
+
         onsets_action.triggered.connect(find_onsets)
         if analysis_menu is not None:
             analysis_menu.addAction(onsets_action)
@@ -1004,8 +1041,6 @@ class FireworkShowApp(QMainWindow):
                     dialog.show()
                 help_action.triggered.connect(show_help_dialog)
                 help_menu.addAction(help_action)
-        
-       
 
         ############################################################
         #                                                          #
@@ -1087,9 +1122,9 @@ class FireworkShowApp(QMainWindow):
             self.current_time_label.setText(f"{mins:02d}:{secs:02d}:{ms:03d}")  # type: ignore
         else:
             self.current_time_label.setText("00:00:000")  # type: ignore
-            
-    def plot_waveform(self):
-        ax = self.waveform_canvas.figure.axes[0]  
+
+    def plot_waveform(self, current_legend=None):
+        ax = self.waveform_canvas.figure.axes[0]
         ax.clear()
         if self.audio_data is not None:
             # Create time axis in seconds
@@ -1131,6 +1166,15 @@ class FireworkShowApp(QMainWindow):
             ax.set_title("No audio loaded", color='white')
             ax.set_xticks([])
             ax.set_yticks([])
+        
+        if current_legend is not None:
+            if self.segment_times is not None and isinstance(self.segment_times, (list, tuple)):
+                self.handle_segments(self.segment_times)  # Reapply segments if needed
+            if self.points is not None and isinstance(self.points, (list, tuple)):
+                self.handle_interesting_points(self.points)  # Reapply points if needed
+            if self.onsets is not None and isinstance(self.onsets, (list, tuple)):
+                self.handle_onsets(self.onsets)  # Reapply onsets if needed
+
         self.waveform_canvas.draw_idle()
         
     def update_firework_show_info(self):
@@ -1180,8 +1224,9 @@ class FireworkShowApp(QMainWindow):
         toolbar.addAction(action)
 
     def handle_segments(self, segment_times): 
-        # Plot segment lines on waveform (like interesting points)
-        self.segment_times = segment_times
+        if self.segment_times == []:
+            self.segment_times = segment_times
+            
         ax = self.waveform_canvas.figure.axes[0]
         # Remove previous segment lines (by clearing and replotting)
         # Only plot one legend entry for all segments
@@ -1211,14 +1256,25 @@ class FireworkShowApp(QMainWindow):
                 )
                 if leg:
                     leg.get_frame().set_alpha(0.3)
+        
+        def show_segments_toast():
+            toast = ToastDialog(f"Found {len(self.segment_times)} segments!", parent=self)
+            geo = self.geometry()
+            x = geo.x() + geo.width() - toast.width() - 40
+            y = geo.y() + geo.height() - toast.height() - 40
+            toast.move(x, y)
+            toast.show()
+            QTimer.singleShot(2500, toast.close)
+        if hasattr(self, "_segments_toast_shown") and not self._segments_toast_shown:
+            show_segments_toast()
+            self._segments_toast_shown = True
+        self.update_firework_show_info()  # Update info with new segment count
         self.waveform_canvas.draw_idle()
-        self.update_firework_show_info()
-        toast = ToastDialog("Audio segmented!", parent=self)
-        toast.show()
 
     def handle_interesting_points(self, points):
-        # Optionally, mark these points on the waveform
-        self.points = points
+        if self.points == []:
+            self.points = points
+
         ax = self.waveform_canvas.figure.axes[0]
         # Only plot one legend entry for all interesting points
         if self.points is not None and isinstance(self.points, (list, tuple, np.ndarray)):
@@ -1242,13 +1298,25 @@ class FireworkShowApp(QMainWindow):
                 )
                 if leg:
                     leg.get_frame().set_alpha(0.3)
-            toast = ToastDialog(f"Found {len(self.points)} interesting points!", parent=self)
-            toast.show()
+        
+        def show_interesting_toast():
+                toast = ToastDialog(f"Found {len(self.points)} interesting points!", parent=self)
+                geo = self.geometry()
+                x = geo.x() + geo.width() - toast.width() - 40
+                y = geo.y() + geo.height() - toast.height() - 40
+                toast.move(x, y)
+                toast.show()
+                QTimer.singleShot(2500, toast.close)
+        if hasattr(self, "_interesting_points_toast_shown") and not self._interesting_points_toast_shown:
+            show_interesting_toast()
+            self._interesting_points_toast_shown = True
         self.waveform_canvas.draw_idle()
 
     def handle_onsets(self, onsets):
         # Optionally, mark these onsets on the waveform
-        self.onsets = onsets
+        if self.onsets == []:
+            self.onsets = onsets
+
         ax = self.waveform_canvas.figure.axes[0]
         # Only plot one legend entry for all onsets
         if self.onsets is not None and isinstance(self.onsets, (list, tuple, np.ndarray)):
@@ -1272,6 +1340,19 @@ class FireworkShowApp(QMainWindow):
                 )
                 if leg:
                     leg.get_frame().set_alpha(0.3)
+        
+        def show_onset_toast():
             toast = ToastDialog(f"Found {len(self.onsets)} onsets!", parent=self)
+            geo = self.geometry()
+            x = geo.x() + geo.width() - toast.width() - 40
+            y = geo.y() + geo.height() - toast.height() - 40
+            toast.move(x, y)
             toast.show()
+            QTimer.singleShot(2500, toast.close)
+
+        if hasattr(self, "_onsets_toast_shown") and not self._onsets_toast_shown:
+            show_onset_toast()
+            self._onsets_toast_shown = True
+
         self.waveform_canvas.draw_idle()
+

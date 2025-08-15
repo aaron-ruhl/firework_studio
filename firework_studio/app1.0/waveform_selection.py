@@ -35,6 +35,7 @@ class WaveformSelectionTool:
             self.main_window.status_bar.showMessage(self.main_window.firework_show_info)
         # Reactivate the span selector for new selections
         self.span.set_active(True)
+        self.main_window.update_firework_show_info()
 
     def on_select(self, xmin, xmax):
         if abs(xmax - xmin) < 0.05:
