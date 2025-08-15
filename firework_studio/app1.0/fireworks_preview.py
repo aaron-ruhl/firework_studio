@@ -11,8 +11,6 @@ from PyQt6.QtGui import QIcon, QPixmap
 from fireworks_timeline import FireworkTimelineRenderer
 from handles import FiringHandles
 
-
-
 class FireworkPreviewWidget(QWidget):
     def __init__(self):
         super().__init__()

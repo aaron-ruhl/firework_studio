@@ -65,10 +65,22 @@ class FireworkTimelineRenderer:
             zoom_duration = max(draw_end - draw_start, 1e-9)
         else:
             draw_start = 0
-            # Ensure draw_end is never None
             draw_end = widget.duration if widget.duration is not None else 1.0
             zoom_duration = draw_end if draw_end > 0 else 1.0
         return draw_start, draw_end, zoom_duration
+
+    def _time_to_x(self, time, left_margin, usable_w, draw_start, zoom_duration):
+        # This function ensures that any time value is mapped to the correct pixel position
+        # regardless of zoom level or selected_region
+        rel = (time - draw_start) / zoom_duration
+        rel = min(max(rel, 0.0), 1.0)
+        return left_margin + rel * usable_w
+
+    def _x_to_time(self, x, left_margin, usable_w, draw_start, zoom_duration):
+        # Inverse of _time_to_x, for accurate handle movement
+        rel = (x - left_margin) / usable_w
+        rel = min(max(rel, 0.0), 1.0)
+        return draw_start + rel * zoom_duration
 
     def _draw_selected_region(self, painter, left_margin, usable_w, timeline_y):
         widget = self.widget
@@ -142,23 +154,21 @@ class FireworkTimelineRenderer:
         draw_start, draw_end, span = self._get_draw_region()
         step = nice_step(span, approx_ticks)
         first_tick = ((draw_start // step) + 1) * step if draw_start % step != 0 else draw_start
-        t = first_tick
         orig_font = painter.font()
         label_font = orig_font
         label_font = label_font.__class__(label_font)  # Make a copy
         label_font.setPointSizeF(orig_font.pointSizeF() * 0.9)
         painter.setFont(label_font)
-        # Use vectorized tick calculation
         tick_times = np.arange(first_tick, draw_end + 1e-6, step)
         for t in tick_times:
-            x = left_margin + int((t - draw_start) / span * usable_w)
-            painter.drawLine(x, timeline_y + 10, x, timeline_y + 18)
+            x = self._time_to_x(t, left_margin, usable_w, draw_start, span)
+            painter.drawLine(int(round(x)), timeline_y + 10, int(round(x)), timeline_y + 18)
             if widget.duration:
                 minutes = int(t // 60)
                 seconds = int(t % 60)
                 label = f"{minutes}:{seconds:02d}"
                 painter.setPen(QColor(200, 200, 220))
-                painter.drawText(x - 12, timeline_y + 22, 24, 14, Qt.AlignmentFlag.AlignCenter, label)
+                painter.drawText(int(round(x)) - 12, timeline_y + 22, 24, 14, Qt.AlignmentFlag.AlignCenter, label)
                 painter.setPen(QColor(150, 150, 170))
         painter.setFont(orig_font)
         
@@ -171,27 +181,22 @@ class FireworkTimelineRenderer:
         if widget.fireworks is not None and widget.duration:
             orig_font = painter.font()
             indices = [i for i, fw in enumerate(widget.fireworks) if draw_start <= fw.firing_time <= draw_end]
-            xs = [
-                left_margin + ((widget.fireworks[i].firing_time - draw_start) / zoom_duration) * usable_w
-                for i in indices
-            ]
-            for idx, x in zip(indices, xs):
+            for idx in indices:
                 fw = widget.fireworks[idx]
                 is_selected = hasattr(widget, 'selected_firing') and widget.selected_firing == idx
-                # Use a consistent color for each idx
                 color = self.handle_colors[idx % len(self.handle_colors)]
+                # Always use fw.firing_time for handle position, so it stays accurate regardless of zoom
+                x = self._time_to_x(fw.firing_time, left_margin, usable_w, draw_start, zoom_duration)
                 painter.setBrush(color)
                 painter.setPen(QColor(255, 255, 0) if is_selected else QColor(220, 220, 220, 180))
                 if is_selected:
-                    # Draw a vertical line through the center of the handle, above and below the handle for visibility
                     center_x = int(round(x))
                     painter.setPen(QColor(255, 255, 0))
-                    # Draw line slightly longer than handle for visibility
                     painter.drawLine(center_x, timeline_y - handle_height, center_x, timeline_y + handle_height)
                 rect_x = int(round(x)) - handle_width // 2
                 rect_y = timeline_y - handle_height // 2
                 painter.drawRoundedRect(rect_x, rect_y, handle_width, handle_height, 5, 5)
-                painter.setPen(QColor(0, 255, 255))  # Bright cyan for high visibility
+                painter.setPen(QColor(0, 255, 255))
                 number_font = orig_font
                 number_font = number_font.__class__(number_font)  # Make a copy
                 number_font.setBold(True)
@@ -205,6 +210,7 @@ class FireworkTimelineRenderer:
                     Qt.AlignmentFlag.AlignCenter,
                     str(fw.number_firings)
                 )
+                # Store handle rect and index for hit-testing, always based on fw.firing_time
                 widget.firing_handles.append((QRect(rect_x, rect_y, handle_width, handle_height), idx))
             painter.setFont(orig_font)
 
@@ -212,7 +218,7 @@ class FireworkTimelineRenderer:
         widget = self.widget
         draw_start, draw_end, zoom_duration = self._get_draw_region()
         widget.playhead_time = min(max(widget.current_time, 0), widget.duration)
-        playhead_x = left_margin + ((widget.playhead_time - draw_start) / zoom_duration) * usable_w
+        playhead_x = self._time_to_x(widget.playhead_time, left_margin, usable_w, draw_start, zoom_duration)
         playhead_x = max(-2_147_483_648, min(playhead_x, 2_147_483_647))
         fade = False
         if widget.playhead_time < draw_start or widget.playhead_time > draw_end:
