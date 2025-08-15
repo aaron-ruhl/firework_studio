@@ -784,14 +784,14 @@ class FireworkShowApp(QMainWindow):
                     "Set Custom Padding Vector",
                     "Enter padding (seconds) before each audio file, separated by commas:\n"
                     "Example: 5,10,5 for 5s before first, 10s before second, 5s before third, etc.",
-                    text=",".join(str(v) for v in getattr(self.audio_loader, "padding_vector", [self.padding]))
+                text=",".join(str(v) for v in getattr(self.audio_loader, "padding_vector", [self.padding]))
                 )
                 if ok:
                     try:
-                        # Remove any '[' or ']' from input if present
-                        text_clean = text.replace('[', '').replace(']', '')
+                        if "[" in text or "]" in text:
+                            text = text.replace("[", "").replace("]", "")
                         # Parse the input into a list of floats/ints
-                        padding_vector = [float(v.strip()) for v in text_clean.split(",") if v.strip() != ""]
+                        padding_vector = [float(v.strip()) for v in text.split(",") if v.strip() != ""]
                         self.audio_loader.set_padding(padding_vector)
                         self.padding = padding_vector  # Save as a list
                         # Uncheck all preset actions
