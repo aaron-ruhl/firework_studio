@@ -348,7 +348,7 @@ class FireworkShowApp(QMainWindow):
             canvas.figure.subplots_adjust(left=0, right=1, top=1, bottom=0)
             return canvas
         self.waveform_canvas = create_waveform_canvas()
-        self.waveform_canvas.setFixedHeight(60)
+        self.waveform_canvas.setFixedHeight(80)
         self.waveform_canvas.setContentsMargins(0, 0, 0, 0)  # No margin
 
         # Add NavigationToolbar for zoom/pan (does not disrupt custom selection tool)
@@ -366,7 +366,7 @@ class FireworkShowApp(QMainWindow):
             }
             QToolButton {
             background: #31323a;
-            color: #ffd700;
+            color: #8fb9bd;  /* Use gray-blue for text to match arrow color */
             border: 1px solid #444657;
             border-radius: 4px;
             font-size: 13px;
@@ -711,55 +711,55 @@ class FireworkShowApp(QMainWindow):
             file_menu.addAction(exit_action)
 
 
-            ############################################################
-            #                                                          #
-            #                         Analysis menu                    #
-            #                                                          #
-            ############################################################
+        ############################################################
+        #                                                          #
+        #                         Analysis menu                    #
+        #                                                          #
+        ############################################################
 
-            # Ensure the menu bar exists before adding the Analysis menu
-            menu_bar = self.menuBar()
-            if menu_bar is None:
-                menu_bar = QMenuBar(self)
-                self.setMenuBar(menu_bar)
-            analysis_menu = None
-            # Find existing Analysis menu or create it
-            for menu in menu_bar.findChildren(QMenu):
-                if menu.title() == "&Analysis":
-                    analysis_menu = menu
-                    break
-            if analysis_menu is None:
-                analysis_menu = menu_bar.addMenu("&Analysis")
-            
-            # Segment Audio action
-            segment_action = QAction("Segment Audio", self)
-            segment_action.setShortcut("Ctrl+M")
-            def segment_audio():
-                if self.analyzer is not None:
-                    self.analyzer.analyze_segments()
-            segment_action.triggered.connect(segment_audio)
-            if analysis_menu is not None:
-                analysis_menu.addAction(segment_action)
+        # Ensure the menu bar exists before adding the Analysis menu
+        menu_bar = self.menuBar()
+        if menu_bar is None:
+            menu_bar = QMenuBar(self)
+            self.setMenuBar(menu_bar)
+        analysis_menu = None
+        # Find existing Analysis menu or create it
+        for menu in menu_bar.findChildren(QMenu):
+            if menu.title() == "&Analysis":
+                analysis_menu = menu
+                break
+        if analysis_menu is None:
+            analysis_menu = menu_bar.addMenu("&Analysis")
+        
+        # Segment Audio action
+        segment_action = QAction("Segment Audio", self)
+        segment_action.setShortcut("Ctrl+M")
+        def segment_audio():
+            if self.analyzer is not None:
+                self.analyzer.analyze_segments()
+        segment_action.triggered.connect(segment_audio)
+        if analysis_menu is not None:
+            analysis_menu.addAction(segment_action)
 
-            # Interesting Points action
-            interesting_points_action = QAction("Find Interesting Points", self)
-            interesting_points_action.setShortcut("Ctrl+I")
-            def find_interesting_points():
-                if self.analyzer is not None:
-                    self.analyzer.analyze_interesting_points()
-            interesting_points_action.triggered.connect(find_interesting_points)
-            if analysis_menu is not None:
-                analysis_menu.addAction(interesting_points_action)
+        # Interesting Points action
+        interesting_points_action = QAction("Find Interesting Points", self)
+        interesting_points_action.setShortcut("Ctrl+I")
+        def find_interesting_points():
+            if self.analyzer is not None:
+                self.analyzer.analyze_interesting_points()
+        interesting_points_action.triggered.connect(find_interesting_points)
+        if analysis_menu is not None:
+            analysis_menu.addAction(interesting_points_action)
 
-            # Onsets action
-            onsets_action = QAction("Find Onsets", self)
-            onsets_action.setShortcut("Ctrl+N")
-            def find_onsets():
-                if self.analyzer is not None:
-                    self.analyzer.analyze_onsets()
-            onsets_action.triggered.connect(find_onsets)
-            if analysis_menu is not None:
-                analysis_menu.addAction(onsets_action)
+        # Onsets action
+        onsets_action = QAction("Find Onsets", self)
+        onsets_action.setShortcut("Ctrl+N")
+        def find_onsets():
+            if self.analyzer is not None:
+                self.analyzer.analyze_onsets()
+        onsets_action.triggered.connect(find_onsets)
+        if analysis_menu is not None:
+            analysis_menu.addAction(onsets_action)
             
        ###########################################################
        #                                                         #
@@ -1032,7 +1032,10 @@ class FireworkShowApp(QMainWindow):
 
         # Create a container for the waveform toolbar and canvas with black background
         waveform_container = QWidget()
-        waveform_container.setStyleSheet("background-color: #181a20;")  # Match plot background
+        waveform_container.setStyleSheet("""
+            background-color: #181a20;
+            color: #8fb9bd;  /* Blue-gray text to match navigation toolbar arrows */
+        """)  # Match plot background and set text color
         waveform_layout = QVBoxLayout(waveform_container)
         waveform_layout.setContentsMargins(40, 0, 40, 0)  # Left/right gap
         waveform_layout.setSpacing(0)
@@ -1162,43 +1165,99 @@ class FireworkShowApp(QMainWindow):
         action.setDefaultWidget(widget)
         toolbar.addAction(action)
 
-    
     def handle_segments(self, segment_times): 
         # Plot segment lines on waveform (like interesting points)
         self.segment_times = segment_times
         ax = self.waveform_canvas.figure.axes[0]
+        # Remove previous segment lines (by clearing and replotting)
+        # Only plot one legend entry for all segments
         if self.segment_times is not None:
             for t in self.segment_times:
-                # Ensure t is a scalar float value before plotting
                 if isinstance(t, (int, float)) and np.isscalar(t):
-                    ax.axvline(x=float(t), color="#ffd700", linestyle="--", linewidth=1.2, alpha=0.9)
+                    ax.axvline(x=float(t), color="#ffd700", linestyle="--", linewidth=1.2, alpha=0.9, label=None)
                 elif isinstance(t, (np.ndarray, list, tuple)):
                     for tt in np.atleast_1d(t):
                         if isinstance(tt, (int, float)) and np.isscalar(tt):
-                            ax.axvline(x=float(tt), color="#ffd700", linestyle="--", linewidth=1.2, alpha=0.9)
+                            ax.axvline(x=float(tt), color="#ffd700", linestyle="--", linewidth=1.2, alpha=0.9, label=None)
+            # Add a single legend entry if not present
+            legend = ax.get_legend()
+            labels = [l.get_text() for l in legend.get_texts()] if legend else []
+            if "Segment" not in labels:
+                ax.axvline(x=0, color="#ffd700", linestyle="--", linewidth=1.2, alpha=0.9, label="Segment")
+                leg = ax.legend(
+                    loc="upper right",
+                    framealpha=0.3,
+                    fontsize=7,  # Make legend font small
+                    markerscale=0.7,
+                    handlelength=1.2,
+                    borderpad=0.3,
+                    labelspacing=0.2,
+                    handletextpad=0.3,
+                    borderaxespad=0.2,
+                )
+                if leg:
+                    leg.get_frame().set_alpha(0.3)
         self.waveform_canvas.draw_idle()
         self.update_firework_show_info()
         toast = ToastDialog("Audio segmented!", parent=self)
         toast.show()
+
     def handle_interesting_points(self, points):
         # Optionally, mark these points on the waveform
         self.points = points
         ax = self.waveform_canvas.figure.axes[0]
+        # Only plot one legend entry for all interesting points
         if self.points is not None and isinstance(self.points, (list, tuple, np.ndarray)):
             for t in self.points:
                 if isinstance(t, (int, float)) and np.isscalar(t):
-                    ax.axvline(x=float(t), color="#ff6f00", linestyle=":", linewidth=1.5, alpha=0.8)
+                    ax.axvline(x=float(t), color="#ff6f00", linestyle=":", linewidth=1.5, alpha=0.8, label=None)
+            legend = ax.get_legend()
+            labels = [l.get_text() for l in legend.get_texts()] if legend else []
+            if "Interesting Point" not in labels:
+                ax.axvline(x=0, color="#ff6f00", linestyle=":", linewidth=1.5, alpha=0.8, label="Interesting Point")
+                leg = ax.legend(
+                    loc="upper right",
+                    framealpha=0.3,
+                    fontsize=7,
+                    markerscale=0.7,
+                    handlelength=1.2,
+                    borderpad=0.3,
+                    labelspacing=0.2,
+                    handletextpad=0.3,
+                    borderaxespad=0.2,
+                )
+                if leg:
+                    leg.get_frame().set_alpha(0.3)
             toast = ToastDialog(f"Found {len(self.points)} interesting points!", parent=self)
             toast.show()
         self.waveform_canvas.draw_idle()
+
     def handle_onsets(self, onsets):
         # Optionally, mark these onsets on the waveform
         self.onsets = onsets
         ax = self.waveform_canvas.figure.axes[0]
+        # Only plot one legend entry for all onsets
         if self.onsets is not None and isinstance(self.onsets, (list, tuple, np.ndarray)):
             for t in self.onsets:
                 if isinstance(t, (int, float)) and np.isscalar(t):
-                    ax.axvline(x=float(t), color="#00ff6f", linestyle="-.", linewidth=1.5, alpha=0.8)
-        toast = ToastDialog(f"Found {len(self.onsets)} onsets!", parent=self)
-        toast.show()
+                    ax.axvline(x=float(t), color="#00ff6f", linestyle="-.", linewidth=1.5, alpha=0.8, label=None)
+            legend = ax.get_legend()
+            labels = [l.get_text() for l in legend.get_texts()] if legend else []
+            if "Onset" not in labels:
+                ax.axvline(x=0, color="#00ff6f", linestyle="-.", linewidth=1.5, alpha=0.8, label="Onset")
+                leg = ax.legend(
+                    loc="upper right",
+                    framealpha=0.3,
+                    fontsize=7,
+                    markerscale=0.7,
+                    handlelength=1.2,
+                    borderpad=0.3,
+                    labelspacing=0.2,
+                    handletextpad=0.3,
+                    borderaxespad=0.2,
+                )
+                if leg:
+                    leg.get_frame().set_alpha(0.3)
+            toast = ToastDialog(f"Found {len(self.onsets)} onsets!", parent=self)
+            toast.show()
         self.waveform_canvas.draw_idle()
