@@ -739,6 +739,17 @@ class FireworkShowApp(QMainWindow):
         edit_menu = self.menuBar().addMenu("&Edit") #type: ignore
         # Set a dark style for the Edit menu to match the rest of the app
         if edit_menu is not None:
+            # Play/Pause action (styled and with shortcut)
+            play_pause_action = QAction(QIcon(os.path.join("icons", "play.png")), "Play/Pause", self)
+            play_pause_action.setShortcut("Space")
+            play_pause_action.triggered.connect(lambda: self.play_pause_btn.toggle())
+            edit_menu.addAction(play_pause_action)
+
+            # Stop action (styled and with shortcut)
+            stop_action = QAction(QIcon(os.path.join("icons", "stop.png")), "Stop", self)
+            stop_action.setShortcut("S")
+            stop_action.triggered.connect(self.stop_btn.click)
+            edit_menu.addAction(stop_action)
 
             # Load Audio action
             load_audio_action = QAction(QIcon(os.path.join("icons", "upload.png")), "Load Audio...", self)
@@ -763,14 +774,14 @@ class FireworkShowApp(QMainWindow):
 
             # Separator
             edit_menu.addSeparator()
-
-            # Background selection actions (same as context menu in fireworks_canvas)
+            # Add a submenu for background selection under Edit menu
+            background_menu = QMenu("Background", self)
             backgrounds = [
-            ("Night Sky", "night"),
-            ("Sunset", "sunset"),
-            ("City", "city"),
-            ("Mountains", "mountains"),
-            ("Custom...", "custom"),
+                ("Night Sky", "night"),
+                ("Sunset", "sunset"),
+                ("City", "city"),
+                ("Mountains", "mountains"),
+                ("Custom...", "custom"),
             ]
             for label, bg_name in backgrounds:
                 bg_action = QAction(label, self)
@@ -788,13 +799,15 @@ class FireworkShowApp(QMainWindow):
                                 image_path = selected_files[0]
                                 self.fireworks_canvas.set_background("custom", image_path)
                     bg_action.triggered.connect(custom_bg_handler)
-                edit_menu.addAction(bg_action)
+                background_menu.addAction(bg_action)
+            edit_menu.addMenu(background_menu)
                 
         ############################################################
         #                                                          #
         #                         Help menu                        #
         #                                                          #
         ############################################################
+
         # Add Help menu only once
         menu_bar = self.menuBar()
         if menu_bar is None:
@@ -860,31 +873,11 @@ class FireworkShowApp(QMainWindow):
 
         ############################################################
         #                                                          #
-        #        Media playback controls                           #
-        #                                                          #                                                        
+        #        Shortcuts                                          #
+        #                                                          #
         ############################################################
 
-        # Create a toolbar for media controls that can be docked
-        self.media_toolbar = QToolBar("Media Controls", self)
-        self.media_toolbar.setMovable(True)
-        self.media_toolbar.setFloatable(True)
-        self.media_toolbar.setAllowedAreas(
-            Qt.ToolBarArea.TopToolBarArea |
-            Qt.ToolBarArea.BottomToolBarArea 
-            )
-        self.media_toolbar.setStyleSheet(button_style)
-        self.media_toolbar.setIconSize(self.play_pause_btn.size())
-
-        # Add tooltips to all toolbar widgets
-        self.play_pause_btn.setToolTip("Play or pause the fireworks preview")
-        self.stop_btn.setToolTip("Stop playback and reset fireworks")
-        self.add_firing_btn.setToolTip("Add a firework firing at the current time")
-        self.delete_firing_btn.setToolTip("Delete the selected firework firing")
-
         # Add global hotkeys using QShortcut so they work when the app is focused
-        # Pylance ignore comments for shortcut lines
-        QShortcut(QKeySequence("Space"), self, activated=self.play_pause_btn.toggle)  # type: ignore
-        QShortcut(QKeySequence("S"), self, activated=self.stop_btn.click)  # type: ignore
         QShortcut(QKeySequence("Up"), self, activated=lambda: self.firework_count_spinner_group.findChild(QSpinBox).stepUp())  # type: ignore
         QShortcut(QKeySequence("Down"), self, activated=lambda: self.firework_count_spinner_group.findChild(QSpinBox).stepDown())  # type: ignore
         QShortcut(QKeySequence("Left"), self, activated=lambda: self.pattern_selector.findChild(QComboBox).setCurrentIndex(
@@ -893,6 +886,7 @@ class FireworkShowApp(QMainWindow):
         QShortcut(QKeySequence("Right"), self, activated=lambda: self.pattern_selector.findChild(QComboBox).setCurrentIndex(
             min(self.pattern_selector.findChild(QComboBox).count() - 1, self.pattern_selector.findChild(QComboBox).currentIndex() + 1)
         ))  # type: ignore
+
         # Shortcut to cycle backgrounds (excluding "custom") using the Home key
         def cycle_background():
             backgrounds = ["night", "sunset", "city", "mountains"]
@@ -903,15 +897,6 @@ class FireworkShowApp(QMainWindow):
             self.fireworks_canvas.current_background = backgrounds[next_idx] #type: ignore
         QShortcut(QKeySequence("Home"), self, activated=cycle_background)  # type: ignore
 
-        self.add_toolbar_widget(self.play_pause_btn, self.media_toolbar)
-        self.add_toolbar_widget(self.stop_btn, self.media_toolbar)
-        self.add_toolbar_widget(self.add_firing_btn, self.media_toolbar)
-        self.add_toolbar_widget(self.delete_firing_btn, self.media_toolbar)
-
-        # Add the toolbar to the main window at the top by default
-        self.addToolBar(Qt.ToolBarArea.BottomToolBarArea, self.media_toolbar)
-        self.media_controls_widget = self.media_toolbar  # For compatibility with rest of layout code
-
         #############################################################
         #                                                          #
         #        Overall UI Elements layout                        #
@@ -919,6 +904,7 @@ class FireworkShowApp(QMainWindow):
         #############################################################
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
+
         layout = QVBoxLayout(central_widget)
         # Add the preview widget and waveform canvas below
         layout.addWidget(self.preview_widget, stretch=0, alignment=Qt.AlignmentFlag.AlignBottom)

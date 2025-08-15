@@ -4,8 +4,8 @@ import numpy as np
 from scipy.interpolate import make_interp_spline
 
 from PyQt6.QtWidgets import QWidget
-from PyQt6.QtCore import QTimer, QPointF, Qt, QRectF
-from PyQt6.QtGui import QColor, QPainter, QPen, QLinearGradient, QRadialGradient, QPainterPath, QPixmap
+from PyQt6.QtCore import QTimer, QPointF, Qt, QRectF, QPoint
+from PyQt6.QtGui import QColor, QPainter, QPen, QLinearGradient, QRadialGradient, QPainterPath, QPixmap, QPolygon
 
 from firework import Firework
 
@@ -119,7 +119,7 @@ class FireworksCanvas(QWidget):
         elif self.background == "city":
             self.draw_background_city(painter)
         elif self.background == "mountains":
-            self.draw_background_mountains(painter)
+            self.draw_background_desert(painter)
         elif self.background == "custom":
             if self._custom_bg_pixmap:
                 painter.drawPixmap(self.rect(), self._custom_bg_pixmap)
@@ -1456,3 +1456,383 @@ class FireworksCanvas(QWidget):
                     QPointF(tx + tree_width // 2, ty),
                 ]
                 painter.drawPolygon(*points)
+
+    def draw_background_desert(self, painter):
+        # Draw desert night sky (reuse night sky gradient)
+        gradient = QLinearGradient(0, 0, 0, self.height())
+        gradient.setColorAt(0.0, QColor(12, 10, 48))
+        gradient.setColorAt(0.3, QColor(18, 18, 60))
+        gradient.setColorAt(0.7, QColor(28, 28, 80))
+        gradient.setColorAt(1.0, QColor(38, 38, 100))
+        painter.fillRect(self.rect(), gradient)
+
+        # Draw stars (same as night)
+        sky_height = int(self.height() * 0.85)
+        if not hasattr(self, "_desert_stars") or self._desert_stars is None or self.width() != getattr(self, "_desert_stars_width", None) or self.height() != getattr(self, "_desert_stars_height", None):
+            self._desert_stars = []
+            for _ in range(180):
+                sx = random.randint(0, self.width())
+                sy = random.randint(0, sky_height)
+                brightness = random.randint(180, 255)
+                self._desert_stars.append((sx, sy, brightness))
+            self._desert_stars_width = self.width()
+            self._desert_stars_height = self.height()
+        for sx, sy, brightness in self._desert_stars:
+            painter.setPen(QColor(brightness, brightness, brightness))
+            painter.drawPoint(sx, sy)
+            if random.random() < 0.02:
+                painter.drawPoint(sx+1, sy)
+                painter.drawPoint(sx, sy+1)
+
+        # Draw moon (slightly yellow, textured)
+        moon_radius = 38
+        moon_x = int(self.width() * 0.82)
+        moon_y = int(self.height() * 0.17)
+        moon_color = QColor(245, 235, 180, 230)
+        painter.setBrush(moon_color)
+        painter.setPen(moon_color)
+        painter.drawEllipse(moon_x, moon_y, moon_radius, moon_radius)
+        grad = QRadialGradient(moon_x + moon_radius // 2, moon_y + moon_radius // 2, moon_radius)
+        grad.setColorAt(0.0, QColor(255, 255, 230, 200))
+        grad.setColorAt(0.7, QColor(230, 230, 210, 120))
+        grad.setColorAt(1.0, QColor(180, 180, 170, 80))
+        painter.setBrush(grad)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawEllipse(moon_x, moon_y, moon_radius, moon_radius)
+        painter.setPen(QColor(230, 230, 210, 220))
+
+        # Moon craters (cache)
+        if not hasattr(self, "_desert_moon_craters") or self._desert_moon_craters is None or self._desert_moon_craters.get("moon_x") != moon_x or self._desert_moon_craters.get("moon_y") != moon_y or self._desert_moon_craters.get("moon_radius") != moon_radius:
+            seed_str = f"{moon_x},{moon_y},{moon_radius}"
+            rng = random.Random(seed_str)
+            craters = []
+            for _ in range(7):
+                cr_x = moon_x + rng.randint(7, moon_radius - 12)
+                cr_y = moon_y + rng.randint(7, moon_radius - 12)
+                cr_r = rng.randint(3, 7)
+                craters.append((cr_x, cr_y, cr_r))
+            self._desert_moon_craters = {
+                "moon_x": moon_x,
+                "moon_y": moon_y,
+                "moon_radius": moon_radius,
+                "craters": craters
+            }
+        painter.setBrush(QColor(200, 190, 120, 130))
+        painter.setPen(Qt.PenStyle.NoPen)
+        for cr_x, cr_y, cr_r in self._desert_moon_craters["craters"]:
+            painter.drawEllipse(cr_x, cr_y, cr_r, cr_r)
+
+        # Draw flat desert ground (dark brown)
+        ground_y = int(self.height() * 0.85)
+        ground_color = QColor(0, 0, 0, 210)
+        painter.setBrush(ground_color)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawRect(0, ground_y, self.width(), self.height() - ground_y)
+
+        # Draw a large, distant hoodoo (rock spire) silhouette
+        # Place it far away, but visually prominent, matching the dark style
+        if not hasattr(self, "_desert_hoodoo") or self._desert_hoodoo is None or self.width() != getattr(self, "_desert_hoodoo_width", None) or self.height() != getattr(self, "_desert_hoodoo_height", None):
+            rng = random.Random(self.width() * 10000 + self.height())
+            # Place hoodoo near horizon, not at edge, but visually prominent
+            hoodoo_base_x = int(self.width() * rng.uniform(0.62, 0.78))
+            hoodoo_base_y = ground_y - int(self.height() * rng.uniform(0.07, 0.11))
+            hoodoo_height = int(self.height() * rng.uniform(0.13, 0.17))
+            hoodoo_width = int(self.width() * rng.uniform(0.04, 0.07))
+            # Generate rough silhouette with bulges and a caprock
+            n_points = 9
+            points = []
+            for i in range(n_points):
+                x = hoodoo_base_x + int(i * hoodoo_width / (n_points - 1))
+                # Main shaft: mostly vertical, but add bulges
+                if i == 0 or i == n_points - 1:
+                    y = ground_y
+                elif i == n_points // 2:
+                    # Caprock: bulge at top
+                    y = hoodoo_base_y - hoodoo_height + rng.randint(-6, 6)
+                else:
+                    # Shaft: add bulges and roughness
+                    bulge = rng.randint(-8, 8) if i % 2 == 1 else rng.randint(-4, 4)
+                    y = hoodoo_base_y - int(hoodoo_height * (0.85 - abs(i - n_points // 2) * 0.13)) + bulge
+                points.append((x, y))
+            # Caprock: jagged ellipse as the top
+            caprock_width = int(hoodoo_width * rng.uniform(0.5, 0.7))
+            caprock_height = max(4, int(hoodoo_height * rng.uniform(0.06, 0.09)))  # Very flat
+            caprock_x = hoodoo_base_x + (hoodoo_width - caprock_width) // 2
+            caprock_y = min(y for x, y in points) - caprock_height // 2
+            # Generate jagged ellipse points for caprock
+            n_caprock_pts = 16
+            caprock_pts = []
+            cx = caprock_x + caprock_width / 2
+            cy = caprock_y + caprock_height / 2
+            for i in range(n_caprock_pts):
+                angle = 2 * math.pi * i / n_caprock_pts
+                # Jaggedness: vary radius randomly
+                rx = caprock_width / 2 + rng.randint(-3, 3)
+                ry = caprock_height / 2 + rng.randint(-2, 2)
+                x = int(cx + rx * math.cos(angle))
+                y = int(cy + ry * math.sin(angle))
+                caprock_pts.append(QPointF(x, y))
+                self._desert_hoodoo = {
+                "base_x": hoodoo_base_x,
+                "base_y": hoodoo_base_y,
+                "width": hoodoo_width,
+                "height": hoodoo_height,
+                "points": points,
+                "caprock_x": caprock_x,
+                "caprock_y": caprock_y,
+                "caprock_width": caprock_width,
+                "caprock_height": caprock_height,
+                "caprock_pts": caprock_pts,
+                }
+                self._desert_hoodoo_width = self.width()
+                self._desert_hoodoo_height = self.height()
+
+        hoodoo = self._desert_hoodoo
+        hoodoo_color = QColor(0, 0, 0, 255)
+        painter.setBrush(hoodoo_color)
+        painter.setPen(Qt.PenStyle.NoPen)
+        path = QPainterPath()
+        # Start at base left
+        path.moveTo(hoodoo["points"][0][0], ground_y)
+        # Go up left side
+        for x, y in hoodoo["points"]:
+            path.lineTo(x, y)
+        # Go down right side
+        for x, y in reversed(hoodoo["points"]):
+            path.lineTo(x, ground_y)
+        path.closeSubpath()
+        painter.drawPath(path)
+        # Draw caprock (jagged ellipse)
+        painter.setBrush(QColor(10, 10, 10, 255))
+        caprock_path = QPainterPath()
+        pts = hoodoo["caprock_pts"]
+        if pts:
+            caprock_path.moveTo(pts[0])
+            for pt in pts[1:]:
+                caprock_path.lineTo(pt)
+            caprock_path.closeSubpath()
+            painter.drawPath(caprock_path)
+
+        # Draw two large majestic plateaus touching ground and edges, with a larger gap and more realistic shapes
+        if not hasattr(self, "_majestic_plateaus") or self._majestic_plateaus is None or self.width() != getattr(self, "_majestic_plateaus_width", None) or self.height() != getattr(self, "_majestic_plateaus_height", None):
+            rng = random.Random(self.width() * 10000 + self.height())
+            gap_ratio = rng.uniform(0.18, 0.24)
+            gap_width = int(self.width() * gap_ratio)
+            left_width = int((self.width() - gap_width) // 2)
+            left_height = int(self.height() * rng.uniform(0.09, 0.13))
+            left_x = 0
+            left_y = ground_y - left_height - int(self.height() * 0.04)
+            right_width = int((self.width() - gap_width) // 2)
+            right_height = int(self.height() * rng.uniform(0.09, 0.13))
+            right_x = left_x + left_width + gap_width
+            right_y = ground_y - right_height - int(self.height() * 0.04)
+            n_points = 14
+
+            # Generate more realistic plateau tops with flat sections and some jaggedness
+            def realistic_plateau_top(x0, y0, width, flat_ratio=0.55):
+                points = []
+                flat_start = int(n_points * rng.uniform(0.18, 0.28))
+                flat_end = int(n_points * flat_ratio)
+                for i in range(n_points):
+                    tx = x0 + int(i * width / (n_points - 1))
+                    # Flat section in the middle, rough/jagged at ends
+                    if flat_start <= i <= flat_end:
+                        ty = y0 + rng.randint(-2, 2)
+                    else:
+                        ty = y0 + rng.randint(-10, 10)
+                    # Occasional small "pillar" or "spike" for realism
+                    if i > 0 and rng.random() < 0.13:
+                        ty -= rng.randint(8, 18)
+                    points.append((tx, ty))
+                return points
+
+            left_top_rough = realistic_plateau_top(left_x, left_y, left_width)
+            right_top_rough = realistic_plateau_top(right_x, right_y, right_width)
+
+            # Add some eroded sides and base bulges for realism
+            def add_eroded_sides(x, y, width, ground_y):
+                # Left side bulge
+                bulge_left = [
+                    (x, ground_y),
+                    (x - rng.randint(4, 12), ground_y - rng.randint(8, 18)),
+                    (x, y + rng.randint(8, 18))
+                ]
+                # Right side bulge
+                bulge_right = [
+                    (x + width, ground_y),
+                    (x + width + rng.randint(4, 12), ground_y - rng.randint(8, 18)),
+                    (x + width, y + rng.randint(8, 18))
+                ]
+                return bulge_left, bulge_right
+
+            left_bulge_left, left_bulge_right = add_eroded_sides(left_x, left_y, left_width, ground_y)
+            right_bulge_left, right_bulge_right = add_eroded_sides(right_x, right_y, right_width, ground_y)
+
+            self._majestic_plateaus = [
+            {
+                "x": left_x,
+                "y": left_y,
+                "width": left_width,
+                "height": left_height,
+                "top_rough": left_top_rough,
+                "ground_y": ground_y,
+                "bulge_left": left_bulge_left,
+                "bulge_right": left_bulge_right,
+            },
+            {
+                "x": right_x,
+                "y": right_y,
+                "width": right_width,
+                "height": right_height,
+                "top_rough": right_top_rough,
+                "ground_y": ground_y,
+                "bulge_left": right_bulge_left,
+                "bulge_right": right_bulge_right,
+            }
+            ]
+            self._majestic_plateaus_width = self.width()
+            self._majestic_plateaus_height = self.height()
+
+        plateau_color = QColor(0, 0, 0, 255)
+        painter.setBrush(plateau_color)
+        painter.setPen(Qt.PenStyle.NoPen)
+        rng = random.Random(self.width() * 10000 + self.height())
+        for plateau in self._majestic_plateaus:
+            path = QPainterPath()
+            # Start at left ground edge
+            path.moveTo(plateau["x"], plateau["ground_y"])
+            # Left eroded bulge
+            for pt in plateau["bulge_left"]:
+                path.lineTo(pt[0], pt[1])
+            # Top edge
+            for tx, ty in plateau["top_rough"]:
+                path.lineTo(tx, ty)
+            # Right eroded bulge
+            for pt in plateau["bulge_right"]:
+                path.lineTo(pt[0], pt[1])
+            # End at right ground edge
+            path.lineTo(plateau["x"] + plateau["width"], plateau["ground_y"])
+            path.closeSubpath()
+            painter.drawPath(path)
+
+            # Draw subtle striations (sedimentary layers) - muted tones for night
+            n_layers = rng.randint(4, 7)
+            layer_height = plateau["height"] // n_layers if n_layers > 0 else 1
+            # Use shades of black, even darker for night scene
+            for i in range(n_layers):
+                shade = max(0, min(10, 4 + i * 3))  # Range: 4 to 10 (darker)
+                r = g = b = shade
+                layer_color = QColor(r, g, b)
+                painter.setBrush(layer_color)
+                painter.setPen(Qt.PenStyle.NoPen)
+                # Compute layer top and bottom y
+                layer_top_y = plateau["y"] + i * layer_height
+                layer_bottom_y = layer_top_y + layer_height
+                # Draw a polygon for the layer, following the plateau's top rough edge and ground
+                layer_path = QPainterPath()
+                # Clamp left/right edge for left/right plateau
+                left_edge = plateau["x"]
+                right_edge = plateau["x"] + plateau["width"]
+                # For left plateau, don't let layers poke out left; for right plateau, don't let layers poke out right
+                if plateau is self._majestic_plateaus[0]:
+                    # Left plateau: clamp left edge to plateau["x"]
+                    layer_path.moveTo(left_edge, min(layer_bottom_y, plateau["ground_y"]))
+                else:
+                    # Right plateau: clamp right edge to plateau["x"] + plateau["width"]
+                    layer_path.moveTo(right_edge, min(layer_bottom_y, plateau["ground_y"]))
+                # Left bulge for this layer (interpolate between bulge and top)
+                if plateau.get("bulge_left"):
+                    for pt in plateau["bulge_left"]:
+                        # Clamp left bulge x for left plateau
+                        x = max(pt[0], left_edge)
+                        layer_path.lineTo(x, min(layer_bottom_y, pt[1]))
+                # Top edge for this layer (interpolate between top_rough points)
+                if plateau.get("top_rough"):
+                    for tx, ty in plateau["top_rough"]:
+                        # Clamp tx for left/right plateau
+                        if plateau is self._majestic_plateaus[0]:
+                            tx = max(tx, left_edge)
+                        else:
+                            tx = min(tx, right_edge)
+                        # Clamp ty to layer_top_y/layer_bottom_y
+                        if ty < layer_top_y:
+                            layer_path.lineTo(tx, layer_top_y)
+                        elif ty > layer_bottom_y:
+                            layer_path.lineTo(tx, layer_bottom_y)
+                        else:
+                            layer_path.lineTo(tx, ty)
+                # Right bulge for this layer
+                if plateau.get("bulge_right"):
+                    for pt in plateau["bulge_right"]:
+                        # Clamp right bulge x for right plateau
+                        x = min(pt[0], right_edge)
+                        layer_path.lineTo(x, min(layer_bottom_y, pt[1]))
+                # End at right/left edge, at layer_bottom_y
+                if plateau is self._majestic_plateaus[0]:
+                    layer_path.lineTo(left_edge, min(layer_bottom_y, plateau["ground_y"]))
+                else:
+                    layer_path.lineTo(right_edge, min(layer_bottom_y, plateau["ground_y"]))
+                layer_path.closeSubpath()
+                painter.drawPath(layer_path)
+
+        # Draw cacti (silhouette, random positions, arms at different heights)
+        if not hasattr(self, "_desert_cacti") or self._desert_cacti is None or self.width() != getattr(self, "_desert_cacti_width", None) or self.height() != getattr(self, "_desert_cacti_height", None):
+            rng = random.Random(self.width() * 10000 + self.height())
+            cacti = []
+            n_cacti = rng.randint(7, 12)
+            for _ in range(n_cacti):
+                cx = rng.randint(10, self.width() - 20)
+                base_y = rng.randint(ground_y + 8, self.height() - 12)
+                cheight = rng.randint(38, 70)
+                cwidth = rng.randint(8, 16)
+                # Generate multiple arms at different heights
+                n_arms = rng.randint(1, 3)
+                arms = []
+                for _ in range(n_arms):
+                    # Arm vertical position (not too close to top/bottom)
+                    arm_y_offset = rng.randint(int(cheight * 0.25), int(cheight * 0.75))
+                    arm_y = base_y - arm_y_offset
+                    arm_height = rng.randint(14, 22)
+                    arm_side = rng.choice([-1, 1])
+                    arms.append((arm_y, arm_height, arm_side))
+                cacti.append((cx, base_y, cheight, cwidth, arms))
+            self._desert_cacti = cacti
+            self._desert_cacti_width = self.width()
+            self._desert_cacti_height = self.height()
+        cactus_color = QColor(5, 9, 5, 255)
+        painter.setBrush(cactus_color)
+        for cx, base_y, cheight, cwidth, arms in self._desert_cacti:
+            # Main trunk
+            painter.drawRect(cx, base_y - cheight, cwidth, cheight)
+            # Top curve (ellipse)
+            painter.drawEllipse(cx, base_y - cheight - 4, cwidth, 8)
+            # Arms at different heights
+            for arm_y, arm_height, arm_side in arms:
+                # Arm base x position (left or right side)
+                if arm_side == -1:
+                    arm_x = cx - 4
+                else:
+                    arm_x = cx + cwidth - 1
+                # Draw arm vertical part
+                painter.drawRect(arm_x, arm_y, 6, arm_height)
+                # Arm curve at end
+                painter.drawEllipse(arm_x - 2, arm_y + arm_height - 4, 10, 8)
+
+        # Optionally, draw a few rocks (small ellipses)
+        if not hasattr(self, "_desert_rocks") or self._desert_rocks is None or self.width() != getattr(self, "_desert_rocks_width", None) or self.height() != getattr(self, "_desert_rocks_height", None):
+            rng = random.Random(self.width() * 10000 + self.height())
+            rocks = []
+            n_rocks = rng.randint(8, 16)
+            for _ in range(n_rocks):
+                rx = rng.randint(0, self.width())
+                ry = ground_y + rng.randint(0, self.height() - ground_y - 10)
+                rwidth = rng.randint(10, 22)
+                rheight = rng.randint(6, 14)
+                rocks.append((rx, ry, rwidth, rheight))
+            self._desert_rocks = rocks
+            self._desert_rocks_width = self.width()
+            self._desert_rocks_height = self.height()
+        rock_color = QColor(0, 0, 0, 210)
+        painter.setBrush(rock_color)
+        for rx, ry, rwidth, rheight in self._desert_rocks:
+            painter.drawEllipse(rx, ry, rwidth, rheight)
