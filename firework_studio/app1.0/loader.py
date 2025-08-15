@@ -18,7 +18,7 @@ class AudioLoaderThread(QThread):
         self.audio_datas = []
         self.audio_data = None
         self.duration = 0.0
-        self.padding = 10
+        self.padding = 4
 
     def set_padding(self, padding):
         self.padding = padding
@@ -42,10 +42,19 @@ class AudioLoaderThread(QThread):
                 print(f"Error loading audio file {path}: {e}")
                 continue
         # Concatenate all audio data
-        if self.padding and self.padding > 0 and audio_data is not None and sr is not None:
-            pad_samples = int(self.padding * sr)
-            # Add silence at the beginning of each audio segment
-            audio_datas = [np.concatenate([np.zeros(pad_samples, dtype=ad.dtype), ad]) for ad in audio_datas]
+        if audio_data is not None and sr is not None:
+            if isinstance(self.padding, (list, np.ndarray)):
+                pad_samples_list = [int(p * sr) for p in self.padding[:len(audio_datas)]]
+                # If fewer paddings than audio_datas, pad with zeros
+                while len(pad_samples_list) < len(audio_datas):
+                    pad_samples_list.append(0)
+                audio_datas = [
+                    np.concatenate([np.zeros(pad_samples, dtype=ad.dtype), ad])
+                    for pad_samples, ad in zip(pad_samples_list, audio_datas)
+                ]
+            else:
+                pad_samples = int(self.padding * sr)
+                audio_datas = [np.concatenate([np.zeros(pad_samples, dtype=ad.dtype), ad]) for ad in audio_datas]
             audio_data = np.concatenate(audio_datas) if audio_datas else None
         else:
             audio_data = np.concatenate(audio_datas) if audio_datas else None
@@ -62,18 +71,18 @@ class AudioLoader():
         self.main_window = main_window
         self.segment_times = []
         self.thread = None
-        self.padding = 10  # Default padding in seconds (int)
+        self.padding = 4  # Default padding in seconds (int)
 
     def set_padding(self, padding):
         self.padding = padding
 
-    def handle_audio(self):
+    def handle_audio(self, reload=False):
         # Start thread to load audio
-        selected = self.select_files(self.main_window)
-        if not selected:
-            self.main_window.status_bar.showMessage("No audio loaded.")
-            return
-
+        if not reload:
+            selected = self.select_files(self.main_window)
+            if not selected:
+                self.main_window.status_bar.showMessage("No audio loaded.")
+                return
         self.thread = AudioLoaderThread(self.paths)
         if self.thread is not None:
             self.thread.set_padding(self.padding)
@@ -124,7 +133,13 @@ class AudioLoader():
         else:
             return False
 
-    def just_load(self, paths):
+    def just_load(self, paths=None):
+        if paths is None:
+            paths = self.paths
+        elif isinstance(paths, str):
+            paths = [paths]
+        elif hasattr(paths, 'path'):
+            paths = [str(paths.path)]
         if isinstance(paths, str):
             self.paths = [paths]
         elif isinstance(paths, list):

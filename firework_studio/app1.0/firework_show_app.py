@@ -309,7 +309,7 @@ class FireworkShowApp(QMainWindow):
 
         # Fireworks preview widget
         self.preview_widget = FireworkPreviewWidget()
-        self.preview_widget.setFixedHeight(90)
+        self.preview_widget.setFixedHeight(80)
         # Enable mouse press tracking for the preview widget
         self.preview_widget.setMouseTracking(True)
 
@@ -344,6 +344,7 @@ class FireworkShowApp(QMainWindow):
             canvas.figure.subplots_adjust(left=0, right=1, top=1, bottom=0)
             return canvas
         self.waveform_canvas = create_waveform_canvas()
+        self.waveform_canvas.setFixedHeight(60)
 
         # Add a waveform panning/selection tool using matplotlib's SpanSelector
         self.waveform_selector = WaveformSelectionTool(self.waveform_canvas, main_window=self)
@@ -756,7 +757,7 @@ class FireworkShowApp(QMainWindow):
             padding_menu = QMenu("Padding", self)
             # Store actions so we can update their checked state
             self.padding_actions = []
-            for pad_value in [5, 10, 15, 20, 25, 30]:
+            for pad_value in [5, 10, 15, 20, 25, 50]:
                 pad_action = QAction(f"{pad_value} seconds", self)
                 pad_action.setCheckable(True)
                 pad_action.setChecked(self.padding == pad_value)
@@ -768,22 +769,44 @@ class FireworkShowApp(QMainWindow):
                         # Uncheck all others, check only this one
                         for a in self.padding_actions:
                             a.setChecked(a is action)
+                        # reload or load audio data to add padding if changed
+                        custom_check = self.audio_data is not None
+                        self.audio_loader.handle_audio(reload=custom_check)
                     return handler
                 pad_action.triggered.connect(make_pad_handler())
                 padding_menu.addAction(pad_action)
             # Optionally, add a custom padding dialog
             custom_pad_action = QAction("Custom...", self)
             def custom_pad_handler():
-                value, ok = QInputDialog.getInt(self, "Set Custom Padding", "Padding (seconds):", value=self.padding, min=0, max=500)
+                # Ask user for a comma-separated list of paddings
+                text, ok = QInputDialog.getText(
+                    self,
+                    "Set Custom Padding Vector",
+                    "Enter padding (seconds) before each audio file, separated by commas:\n"
+                    "Example: 5,10,5 for 5s before first, 10s before second, 5s before third, etc.",
+                    text=",".join(str(v) for v in getattr(self.audio_loader, "padding_vector", [self.padding]))
+                )
                 if ok:
-                    self.padding = value  # Ensure self.padding is set
-                    self.audio_loader.set_padding(value)  # Pass to audio_loader
-                    # Uncheck all preset actions
-                    for a in self.padding_actions:
-                        a.setChecked(False)
+                    try:
+                        # Remove any '[' or ']' from input if present
+                        text_clean = text.replace('[', '').replace(']', '')
+                        # Parse the input into a list of floats/ints
+                        padding_vector = [float(v.strip()) for v in text_clean.split(",") if v.strip() != ""]
+                        self.audio_loader.set_padding(padding_vector)
+                        self.padding = padding_vector  # Save as a list
+                        # Uncheck all preset actions
+                        for a in self.padding_actions:
+                            a.setChecked(False)
+                        # reload or load audio data to add padding if changed
+                        custom_check = self.audio_data is not None
+                        self.audio_loader.handle_audio(reload=custom_check)
+                    except Exception as e:
+                        toast = ToastDialog(f"Invalid input for padding vector: {e}", parent=self)
+                        toast.show()
             custom_pad_action.triggered.connect(custom_pad_handler)
             padding_menu.addAction(custom_pad_action)
             edit_menu.addMenu(padding_menu)
+
         ############################################################
         #                                                          #
         #                         Help menu                        #
@@ -889,12 +912,9 @@ class FireworkShowApp(QMainWindow):
 
         layout = QVBoxLayout(central_widget)
         # Add the preview widget and waveform canvas below
-        layout.addWidget(self.preview_widget, stretch=0, alignment=Qt.AlignmentFlag.AlignBottom)
         layout.addWidget(self.waveform_canvas)
+        layout.addWidget(self.preview_widget, stretch=0, alignment=Qt.AlignmentFlag.AlignBottom)
         layout.addWidget(self.fireworks_canvas_container)
-        # Add the preview widget and waveform canvas below
-        layout.addWidget(self.preview_widget, stretch=0, alignment=Qt.AlignmentFlag.AlignBottom)
-        layout.addWidget(self.waveform_canvas)
         
         ###########################################################
         #                                                         #
