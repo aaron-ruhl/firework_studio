@@ -22,7 +22,6 @@ from loader import AudioLoader
 from toaster import ToastDialog
 from waveform_selection import WaveformSelectionTool
 from show_file_handler import ShowFileHandler
-
 '''THIS IS THE MAIN WINDOW CLASS FOR THE FIREWORK STUDIO APPLICATION'''
 class FireworkShowApp(QMainWindow):
     def clear_show(self):
@@ -62,12 +61,28 @@ class FireworkShowApp(QMainWindow):
 
     def __init__(self):
         super().__init__()
+        # Set dark palette before showing the window to avoid white flash
+        dark_palette = QPalette()
+        dark_palette.setColor(QPalette.ColorRole.Window, QColor(30, 30, 30))
+        dark_palette.setColor(QPalette.ColorRole.WindowText, QColor(255, 215, 0))
+        dark_palette.setColor(QPalette.ColorRole.Base, QColor(30, 30, 30))
+        dark_palette.setColor(QPalette.ColorRole.AlternateBase, QColor(30, 30, 30))
+        dark_palette.setColor(QPalette.ColorRole.ToolTipBase, QColor(30, 30, 30))
+        dark_palette.setColor(QPalette.ColorRole.ToolTipText, QColor(255, 215, 0))
+        dark_palette.setColor(QPalette.ColorRole.Text, QColor(255, 215, 0))
+        dark_palette.setColor(QPalette.ColorRole.Button, QColor(30, 30, 30))
+        dark_palette.setColor(QPalette.ColorRole.ButtonText, QColor(255, 215, 0))
+        dark_palette.setColor(QPalette.ColorRole.BrightText, QColor(255, 215, 0))
+        dark_palette.setColor(QPalette.ColorRole.Highlight, QColor(255, 215, 0))
+        dark_palette.setColor(QPalette.ColorRole.HighlightedText, QColor(30, 30, 30))
+        self.setPalette(dark_palette)
+        self.setAutoFillBackground(True)
+
         self.setWindowTitle("Firework Studio")
         self.setGeometry(100, 100, 1800, 1000)
         self.setMinimumSize(1600, 900)  # Ensure enough room for all widgets
         # Start maximized but not fullscreen (windowed)
         self.showMaximized()
-        self.show()  # Ensure the window is shown and maximized
         self.generating_toast = None
         self.clear_btn = None
         self.audio_data = None
