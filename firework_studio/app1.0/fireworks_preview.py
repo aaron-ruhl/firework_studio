@@ -190,7 +190,7 @@ class FireworkPreviewWidget(QWidget):
             def play_audio():
                 if self.audio_data is not None and self.current_time is not None and self.sr is not None:
                     if self.selected_region and len(self.selected_region) == 2:
-                        start, end = self.selected_region
+                        _, end = self.selected_region
                         play_start = min(self.current_time, end)
                         start_idx = int(play_start * self.sr)
                         end_idx = int(self.duration * self.sr)
@@ -289,8 +289,6 @@ class FireworkPreviewWidget(QWidget):
                     self.show_firing_context_menu(event.globalPosition().toPoint(), idx)
                     self.dragging_firing = False
                 handle_clicked = True
-                return
-
         # If right click and not on a handle, move playhead to clicked position
         if event.button() == Qt.MouseButton.RightButton and not handle_clicked:
             x = event.position().x()
@@ -308,6 +306,7 @@ class FireworkPreviewWidget(QWidget):
                         sd.stop(ignore_errors=True)
                 except RuntimeError:
                     pass
+                self.preview_timer.stop()
                 self.preview_timer.stop()
             self.update()
 
@@ -383,10 +382,10 @@ class FireworkPreviewWidget(QWidget):
             self.update()
             return
 
-        if hasattr(self, 'firing_handles'):
-            for rect, idx in self.firing_handles:
-                if rect.contains(event.position().toPoint()):
-                    self.setCursor(Qt.CursorShape.OpenHandCursor)
+        for rect, _ in self.firing_handles:
+            if rect.contains(event.position().toPoint()):
+                self.setCursor(Qt.CursorShape.OpenHandCursor)
+                self.setCursor(Qt.CursorShape.OpenHandCursor)
         playhead_time = min(max(self.current_time, 0), self.duration)
         playhead_x = left_margin + usable_w * (playhead_time - draw_start) / zoom_duration if self.duration else left_margin
         playhead_x = max(left_margin, min(playhead_x, w - right_margin))
@@ -394,8 +393,8 @@ class FireworkPreviewWidget(QWidget):
         if playhead_rect.contains(event.position().toPoint()):
             self.setCursor(Qt.CursorShape.SizeHorCursor)
             return
-            return
 
+        self.setCursor(Qt.CursorShape.ArrowCursor)
         self.setCursor(Qt.CursorShape.ArrowCursor)
 
     def mouseReleaseEvent(self, event):

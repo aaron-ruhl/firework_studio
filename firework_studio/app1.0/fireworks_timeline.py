@@ -57,7 +57,7 @@ class FireworkTimelineRenderer:
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawRoundedRect(QRect(left_margin, top_margin, usable_w, usable_h), 12, 12)
         painter.setClipping(False)
-
+    
     def _get_draw_region(self):
         widget = self.widget
         if widget.selected_region and len(widget.selected_region) == 2 and widget.duration:
