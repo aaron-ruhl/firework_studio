@@ -5,7 +5,7 @@ import numpy as np
 
 class FireworkTimelineRenderer:
     def __init__(self, widget):
-        self.widget = widget
+        self.fireworks_preview = widget
         self.handle_colors = [
             QColor(40, 40, 60),      # Deep blue-gray
             QColor(60, 30, 60),      # Muted purple
@@ -35,7 +35,7 @@ class FireworkTimelineRenderer:
         return self._handle_color_stack.pop()
 
     def draw(self, painter):
-        w, h = self.widget.width(), self.widget.height()
+        w, h = self.fireworks_preview.width(), self.fireworks_preview.height()
         left_margin = 40
         right_margin = 40
         top_margin = 30
@@ -59,13 +59,12 @@ class FireworkTimelineRenderer:
         painter.setClipping(False)
     
     def _get_draw_region(self):
-        widget = self.widget
-        if widget.selected_region and len(widget.selected_region) == 2 and widget.duration:
-            draw_start, draw_end = widget.selected_region
+        if self.fireworks_preview.selected_region and len(self.fireworks_preview.selected_region) == 2 and self.fireworks_preview.duration:
+            draw_start, draw_end = self.fireworks_preview.selected_region
             zoom_duration = max(draw_end - draw_start, 1e-9)
         else:
             draw_start = 0
-            draw_end = widget.duration if widget.duration is not None else 1.0
+            draw_end = self.fireworks_preview.duration if self.fireworks_preview.duration is not None else 1.0
             zoom_duration = draw_end if draw_end > 0 else 1.0
         return draw_start, draw_end, zoom_duration
 
@@ -81,61 +80,12 @@ class FireworkTimelineRenderer:
         rel = (x - left_margin) / usable_w
         rel = min(max(rel, 0.0), 1.0)
         return draw_start + rel * zoom_duration
-
+    
     def _draw_selected_region(self, painter, left_margin, usable_w, timeline_y):
-        widget = self.widget
-        draw_start, draw_end, zoom_duration = self._get_draw_region()
-        if widget.selected_region and len(widget.selected_region) == 2 and widget.duration:
-            def format_time(t):
-                mins = int(t // 60)
-                secs = int(t % 60)
-                ms = int((t - int(t)) * 1000)
-                return f"{mins:02d}:{secs:02d}:{ms:03d}"
-            gap = 1.41
-            if widget.playhead_time < draw_start - gap or widget.playhead_time > draw_end + gap:
-                label = format_time(widget.playhead_time)
-                orig_font = painter.font()
-                label_font = orig_font
-                label_font = label_font.__class__(label_font)  # Make a copy
-                label_font.setBold(True)
-                label_font.setPointSizeF(orig_font.pointSizeF() * 1.1)
-                painter.setFont(label_font)
-                label_width = painter.fontMetrics().horizontalAdvance(label) + 12
-                label_height = painter.fontMetrics().height() + 6
-                arrow_y = timeline_y - 48 + 12 + label_height // 2
-
-                if widget.playhead_time < draw_start:
-                    arrow_x = 10
-                    points = [
-                        QVector2D(arrow_x + 8, arrow_y - 18),
-                        QVector2D(arrow_x + 8, arrow_y + 18),
-                        QVector2D(arrow_x, arrow_y)
-                    ]
-                    painter.setBrush(QColor(0, 255, 120, 180))
-                    painter.setPen(Qt.PenStyle.NoPen)
-                    painter.drawPolygon(*[QPoint(int(p.x()), int(p.y())) for p in points])
-                    painter.setBrush(QColor(25, 28, 40, 230))
-                    painter.drawRoundedRect(arrow_x + 16, arrow_y - label_height // 2, label_width, label_height, 7, 7)
-                    painter.setPen(QColor(0, 255, 120))
-                    painter.drawText(arrow_x + 16, arrow_y - label_height // 2, label_width, label_height, Qt.AlignmentFlag.AlignCenter, label)
-                else:
-                    arrow_x = widget.width() - 10
-                    points = [
-                        QVector2D(arrow_x - 8, arrow_y - 18),
-                        QVector2D(arrow_x - 8, arrow_y + 18),
-                        QVector2D(arrow_x, arrow_y)
-                    ]
-                    painter.setBrush(QColor(0, 255, 120, 180))
-                    painter.setPen(Qt.PenStyle.NoPen)
-                    painter.drawPolygon(*[QPoint(int(p.x()), int(p.y())) for p in points])
-                    painter.setBrush(QColor(25, 28, 40, 230))
-                    painter.drawRoundedRect(arrow_x - 16 - label_width, arrow_y - label_height // 2, label_width, label_height, 7, 7)
-                    painter.setPen(QColor(0, 255, 120))
-                    painter.drawText(arrow_x - 16 - label_width, arrow_y - label_height // 2, label_width, label_height, Qt.AlignmentFlag.AlignCenter, label)
-                painter.setFont(orig_font)
+        # Do nothing when playhead is outside the zoom region
+        pass
 
     def _draw_timeline_bar(self, painter, left_margin, usable_w, timeline_y):
-        widget = self.widget
         bar_rect = QRect(left_margin, timeline_y - 8, usable_w, 16)
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(QColor(50, 55, 70, 220))
@@ -163,7 +113,7 @@ class FireworkTimelineRenderer:
         for t in tick_times:
             x = self._time_to_x(t, left_margin, usable_w, draw_start, span)
             painter.drawLine(int(round(x)), timeline_y + 10, int(round(x)), timeline_y + 18)
-            if widget.duration:
+            if self.fireworks_preview.duration:
                 minutes = int(t // 60)
                 seconds = int(t % 60)
                 label = f"{minutes}:{seconds:02d}"
@@ -173,17 +123,16 @@ class FireworkTimelineRenderer:
         painter.setFont(orig_font)
         
     def _draw_firing_handles(self, painter, left_margin, usable_w, timeline_y):
-        widget = self.widget
-        widget.firing_handles = []
+        self.fireworks_preview.firing_handles = []
         handle_width = 14
         handle_height = 15
         draw_start, draw_end, zoom_duration = self._get_draw_region()
-        if widget.fireworks is not None and widget.duration:
+        if self.fireworks_preview.fireworks is not None and self.fireworks_preview.duration:
             orig_font = painter.font()
-            indices = [i for i, fw in enumerate(widget.fireworks) if draw_start <= fw.firing_time <= draw_end]
+            indices = [i for i, fw in enumerate(self.fireworks_preview.fireworks) if draw_start <= fw.firing_time <= draw_end]
             for idx in indices:
-                fw = widget.fireworks[idx]
-                is_selected = hasattr(widget, 'selected_firing') and widget.selected_firing == idx
+                fw = self.fireworks_preview.fireworks[idx]
+                is_selected = hasattr(self.fireworks_preview, 'selected_firing') and self.fireworks_preview.selected_firing == idx
                 color = self.handle_colors[idx % len(self.handle_colors)]
                 # Always use fw.firing_time for handle position, so it stays accurate regardless of zoom
                 x = self._time_to_x(fw.firing_time, left_margin, usable_w, draw_start, zoom_duration)
@@ -211,17 +160,18 @@ class FireworkTimelineRenderer:
                     str(fw.number_firings)
                 )
                 # Store handle rect and index for hit-testing, always based on fw.firing_time
-                widget.firing_handles.append((QRect(rect_x, rect_y, handle_width, handle_height), idx))
+                self.fireworks_preview.firing_handles.append((QRect(rect_x, rect_y, handle_width, handle_height), idx))
             painter.setFont(orig_font)
 
     def _draw_playhead(self, painter, left_margin, usable_w, timeline_y):
-        widget = self.widget
         draw_start, draw_end, zoom_duration = self._get_draw_region()
-        widget.playhead_time = min(max(widget.current_time, 0), widget.duration)
-        playhead_x = self._time_to_x(widget.playhead_time, left_margin, usable_w, draw_start, zoom_duration)
-        playhead_x = max(-2_147_483_648, min(playhead_x, 2_147_483_647))
+        # Clamp playhead_time only to the full duration, not the zoomed region
+        self.fireworks_preview.playhead_time = min(max(self.fireworks_preview.current_time, 0), self.fireworks_preview.duration)
+        playhead_x = self._time_to_x(self.fireworks_preview.playhead_time, left_margin, usable_w, draw_start, zoom_duration)
+        # Don't clamp playhead_x to int min/max, let it go outside the visible region if needed
         fade = False
-        if widget.playhead_time < draw_start or widget.playhead_time > draw_end:
+        # Only fade if playhead is outside the zoomed region
+        if self.fireworks_preview.playhead_time < draw_start or self.fireworks_preview.playhead_time > draw_end:
             fade = True
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(QColor(0, 0, 0, 40) if fade else QColor(0, 0, 0, 100))
@@ -236,9 +186,9 @@ class FireworkTimelineRenderer:
         ]
         painter.drawPolygon(*[QPoint(int(p.x()), int(p.y())) for p in points])
 
-        minutes = int(widget.playhead_time // 60)
-        seconds = int(widget.playhead_time % 60)
-        milliseconds = int((widget.playhead_time - int(widget.playhead_time)) * 1000)
+        minutes = int(self.fireworks_preview.playhead_time // 60)
+        seconds = int(self.fireworks_preview.playhead_time % 60)
+        milliseconds = int((self.fireworks_preview.playhead_time - int(self.fireworks_preview.playhead_time)) * 1000)
         time_label = f"{minutes:02d}:{seconds:02d}:{milliseconds:03d}"
 
         orig_font = painter.font()
