@@ -10,8 +10,8 @@ from OpenGL.GL import (
 import random
 from firework_2 import Firework  
 from PyQt6.QtGui import QColor
+import numpy as np
 class FireworksCanvas(QOpenGLWidget):
-
     def __init__(self):
         super().__init__()
         self.fireworks = []
@@ -42,14 +42,12 @@ class FireworksCanvas(QOpenGLWidget):
         x = random.randint(margin, max(margin, self.width() - margin))
         color = getattr(handle, "firing_color", None)
         if isinstance(color, (tuple, list)) and len(color) == 3:
-            # Use float RGB tuple (0.0-1.0) for explosion color
             explosion_color = QColor.fromRgbF(
                 max(0.0, min(1.0, color[0])),
                 max(0.0, min(1.0, color[1])),
                 max(0.0, min(1.0, color[2]))
             )
         else:
-            # Fallback to a random QColor for variety
             explosion_color = QColor.fromRgbF(
                 random.uniform(0.0, 1.0),
                 random.uniform(0.0, 1.0),
@@ -80,12 +78,11 @@ class FireworksCanvas(QOpenGLWidget):
 
     def set_fireworks_enabled(self, enabled: bool):
         self._fireworks_enabled = enabled
-        
+
     def update_animation(self):
         parent = self.parentWidget()
         preview_widget = None
         current_time = 0
-        # Find preview_widget and current_time
         while parent:
             if parent.__class__.__name__ == "FireworkShowApp":
                 preview_widget = getattr(parent, "preview_widget", None)
@@ -93,13 +90,12 @@ class FireworksCanvas(QOpenGLWidget):
             parent = parent.parentWidget()
         if preview_widget and hasattr(preview_widget, "current_time"):
             current_time = getattr(preview_widget, "current_time", 0)
-        # Update fireworks
+        # Vectorized update for fireworks
         self.fireworks = [fw for fw in self.fireworks if fw.update(current_time)]
-        # Fire new fireworks if needed
+        # Fire new fireworks if needed (keep detection logic unchanged)
         if preview_widget and getattr(preview_widget, "firework_times", None) is not None and self._fireworks_enabled:
             handles = getattr(preview_widget, "fireworks", [])
             ct = getattr(preview_widget, "current_time", 0)
-            # Use exact handle.firing_time comparison to avoid zoom/scale issues
             to_fire = [
                 handle for handle in handles
                 if (
@@ -145,25 +141,29 @@ class FireworksCanvas(QOpenGLWidget):
             glEnd()
 
     def draw_fireworks(self):
-        # Draw unexploded fireworks
-        unexploded = [
-            fw for fw in self.fireworks if not fw.exploded
-        ]
+        # Draw unexploded fireworks (vectorized)
+        unexploded = [fw for fw in self.fireworks if not fw.exploded]
         if unexploded:
-            glBegin(GL_POINTS)
+            coords = np.array([[fw.x, fw.y] for fw in unexploded], dtype=np.float32)
+            colors = []
             for firework in unexploded:
                 color = firework.color
                 if isinstance(color, QColor):
                     color = color.getRgbF()[:3]
                 elif isinstance(color, (tuple, list)) and max(color) > 1.0:
                     color = tuple(c / 255.0 for c in color)
-                glColor3f(*color)
-                glVertex2f(firework.x, firework.y)
+                colors.append(color)
+            colors = np.array(colors, dtype=np.float32)
+            glBegin(GL_POINTS)
+            for i in range(len(coords)):
+                glColor3f(*colors[i])
+                glVertex2f(*coords[i])
             glEnd()
 
-        # Draw particles (vectorized where possible)
+        # Draw particles (vectorized)
         if self._fireworks_enabled:
-            glBegin(GL_POINTS)
+            particles = []
+            colors = []
             for firework in self.fireworks:
                 for particle in firework.particles:
                     particle.resume()
@@ -175,11 +175,19 @@ class FireworksCanvas(QOpenGLWidget):
                         color = tuple(c / 255.0 for c in color)
                     if not isinstance(color, (tuple, list)):
                         color = (1.0, 1.0, 1.0)
-                    glColor3f(*color)
-                    glVertex2f(px, py)
-            glEnd()
+                    particles.append((px, py))
+                    colors.append(color)
+            if particles:
+                particles = np.array(particles, dtype=np.float32)
+                colors = np.array(colors, dtype=np.float32)
+                glBegin(GL_POINTS)
+                for i in range(len(particles)):
+                    glColor3f(*colors[i])
+                    glVertex2f(*particles[i])
+                glEnd()
         else:
-            glBegin(GL_POINTS)
+            particles = []
+            colors = []
             for firework in self.fireworks:
                 for particle in firework.particles:
                     particle.freeze()
@@ -191,9 +199,16 @@ class FireworksCanvas(QOpenGLWidget):
                         color = tuple(c / 255.0 for c in color)
                     if not isinstance(color, (tuple, list)):
                         color = (1.0, 1.0, 1.0)
-                    glColor3f(*color)
-                    glVertex2f(px, py)
-            glEnd()
+                    particles.append((px, py))
+                    colors.append(color)
+            if particles:
+                particles = np.array(particles, dtype=np.float32)
+                colors = np.array(colors, dtype=np.float32)
+                glBegin(GL_POINTS)
+                for i in range(len(particles)):
+                    glColor3f(*colors[i])
+                    glVertex2f(*particles[i])
+                glEnd()
 
     def load_custom_background(self, path=None):
         return None

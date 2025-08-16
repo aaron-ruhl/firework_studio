@@ -144,7 +144,7 @@ class Firework:
                     p = Particle(self.x, self.y, angle, speed, rainbow_color, lifetime=int(random.randint(100, 130) * fade_factor))
                     self.particles.append(p)
 
-    def update(self):
+    def update(self, current_time):
         if not self.exploded and not self.frozen:
             self.y += self.velocity_y
             self.velocity_y += 0.1

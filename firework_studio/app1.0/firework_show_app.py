@@ -874,6 +874,7 @@ class FireworkShowApp(QMainWindow):
                 ("Desert", "desert"),
                 ("Custom...", "custom"),
             ]
+            '''
             self.background_actions = []
             for label, bg_name in backgrounds:
                 bg_action = QAction(label, self)
@@ -908,7 +909,7 @@ class FireworkShowApp(QMainWindow):
                     bg_action.triggered.connect(lambda: custom_bg_handler())
                 background_menu.addAction(bg_action)
             edit_menu.addMenu(background_menu)
-
+            '''
             # --- Add Padding submenu ---
             padding_menu = QMenu("Padding", self)
             # Store actions so we can update their checked state
@@ -1222,11 +1223,11 @@ class FireworkShowApp(QMainWindow):
         # Only plot one legend entry for all segments
         if self.segment_times is not None:
             for t in self.segment_times:
-                if isinstance(t, (int, float)) and np.isscalar(t):
+                if isinstance(t, (int, float)) and np.isscalar(t) and not isinstance(t, complex):
                     ax.axvline(x=float(t), color="#ffd700", linestyle="--", linewidth=1.2, alpha=0.9, label=None)
                 elif isinstance(t, (np.ndarray, list, tuple)):
                     for tt in np.atleast_1d(t):
-                        if isinstance(tt, (int, float)) and np.isscalar(tt):
+                        if isinstance(tt, (int, float)) and np.isscalar(tt) and not isinstance(tt, complex):
                             ax.axvline(x=float(tt), color="#ffd700", linestyle="--", linewidth=1.2, alpha=0.9, label=None)
             # Add a single legend entry if not present
             legend = ax.get_legend()
@@ -1269,7 +1270,7 @@ class FireworkShowApp(QMainWindow):
         # Only plot one legend entry for all interesting points
         if self.points is not None and isinstance(self.points, (list, tuple, np.ndarray)):
             for t in self.points:
-                if isinstance(t, (int, float)) and np.isscalar(t):
+                if isinstance(t, (int, float)) and np.isscalar(t) and not isinstance(t, complex):
                     ax.axvline(x=float(t), color="#ff6f00", linestyle=":", linewidth=1.5, alpha=0.8, label=None)
             legend = ax.get_legend()
             labels = [l.get_text() for l in legend.get_texts()] if legend else []
@@ -1311,7 +1312,7 @@ class FireworkShowApp(QMainWindow):
         # Only plot one legend entry for all onsets
         if self.onsets is not None and isinstance(self.onsets, (list, tuple, np.ndarray)):
             for t in self.onsets:
-                if isinstance(t, (int, float)) and np.isscalar(t):
+                if isinstance(t, (int, float)) and np.isscalar(t) and not isinstance(t, complex):
                     ax.axvline(x=float(t), color="#00ff6f", linestyle="-.", linewidth=1.5, alpha=0.8, label=None)
             legend = ax.get_legend()
             labels = [l.get_text() for l in legend.get_texts()] if legend else []
