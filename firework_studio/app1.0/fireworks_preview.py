@@ -1,11 +1,10 @@
-from PyQt6.QtWidgets import QWidget
-from PyQt6.QtCore import QTimer, QRect, Qt, QPoint
-from PyQt6.QtGui import QPainter, QColor
+from PyQt6.QtWidgets import QWidget, QMenu, QColorDialog, QInputDialog
+from PyQt6.QtCore import QTimer, QRect, Qt, QElapsedTimer
+from PyQt6.QtGui import QPainter, QColor, QIcon, QPixmap
 
-from PyQt6.QtWidgets import QMenu, QColorDialog, QInputDialog
 import sounddevice as sd
 import random
-from PyQt6.QtGui import QIcon, QPixmap
+import threading
 
 
 from fireworks_timeline import FireworkTimelineRenderer
@@ -39,6 +38,7 @@ class FireworkPreviewWidget(QWidget):
         self.dragging_playhead = False
         self.dragging_firing = False
         self.timeline_renderer = FireworkTimelineRenderer(self)
+        self._elapsed_timer = QElapsedTimer()
 
     def set_show_data(self, audio_data, sr, segment_times, firework_times, duration):
         self.audio_data = audio_data
@@ -200,20 +200,14 @@ class FireworkPreviewWidget(QWidget):
                 sd.stop(ignore_errors=True)
             except Exception:
                 pass
-            import threading
             if self.current_time < 0:
                 self.current_time = 0
-
+            # Convert current_time to an index to play the audio from that index which is current_time
             def play_audio():
                 if self.audio_data is not None and self.current_time is not None and self.sr is not None:
                     play_start = max(0, min(self.current_time, self.duration if self.duration else 0))
                     start_idx = int(play_start * self.sr)
-                    if self.selected_region and len(self.selected_region) == 2:
-                        _, end = self.selected_region
-                        end_idx = int(min(end, self.duration) * self.sr)
-                        sd.play(self.audio_data[start_idx:end_idx], self.sr, blocking=False)
-                    else:
-                        sd.play(self.audio_data[start_idx:], self.sr, blocking=False)
+                    sd.play(self.audio_data[start_idx:], self.sr, blocking=False)
 
             if self.audio_thread is not None and self.audio_thread.is_alive():
                 self.audio_thread.join(timeout=1)
@@ -224,8 +218,6 @@ class FireworkPreviewWidget(QWidget):
         # Reset elapsed timer for accurate playhead movement
         if hasattr(self, '_last_preview_time'):
             del self._last_preview_time
-        from PyQt6.QtCore import QElapsedTimer
-        self._elapsed_timer = QElapsedTimer()
         self._elapsed_timer.start()
         self._last_preview_time = self._elapsed_timer.elapsed()
         self.preview_timer = QTimer(self)
