@@ -38,7 +38,6 @@ class FireworkPreviewWidget(QWidget):
         self.preview_timer = None
         self.dragging_playhead = False
         self.dragging_firing = False
-
         self.timeline_renderer = FireworkTimelineRenderer(self)
 
     def set_show_data(self, audio_data, sr, segment_times, firework_times, duration):
@@ -150,7 +149,20 @@ class FireworkPreviewWidget(QWidget):
     def advance_preview(self):
         if self.audio_data is None or self.sr is None or self.duration is None:
             return
-        self.current_time += 0.016
+        # Use QElapsedTimer to track actual elapsed time
+        if not hasattr(self, '_last_preview_time'):
+            from PyQt6.QtCore import QElapsedTimer
+            self._elapsed_timer = QElapsedTimer()
+            self._elapsed_timer.start()
+            self._last_preview_time = self._elapsed_timer.elapsed()
+        now = self._elapsed_timer.elapsed()
+        if self._last_preview_time is not None:
+            elapsed_ms = now - self._last_preview_time
+        else:
+            elapsed_ms = 0
+        self._last_preview_time = now
+        elapsed_sec = elapsed_ms / 1000.0
+        self.current_time += elapsed_sec
         if self.current_time > self.duration:
             self.current_time = self.duration
         if self.current_time < 0:
@@ -165,6 +177,8 @@ class FireworkPreviewWidget(QWidget):
                     sd.stop(ignore_errors=True)
             except RuntimeError:
                 pass
+            # Reset timer tracking
+            self._last_preview_time = None
         self.update()
 
     def remove_selected_firing(self):
@@ -182,22 +196,23 @@ class FireworkPreviewWidget(QWidget):
     
     def start_preview(self):
         if self.audio_data is not None and self.sr is not None:
-            sd.stop()
+            try:
+                sd.stop(ignore_errors=True)
+            except Exception:
+                pass
             import threading
             if self.current_time < 0:
                 self.current_time = 0
 
             def play_audio():
                 if self.audio_data is not None and self.current_time is not None and self.sr is not None:
+                    play_start = max(0, min(self.current_time, self.duration if self.duration else 0))
+                    start_idx = int(play_start * self.sr)
                     if self.selected_region and len(self.selected_region) == 2:
                         _, end = self.selected_region
-                        play_start = min(self.current_time, end)
-                        start_idx = int(play_start * self.sr)
-                        end_idx = int(self.duration * self.sr)
+                        end_idx = int(min(end, self.duration) * self.sr)
                         sd.play(self.audio_data[start_idx:end_idx], self.sr, blocking=False)
                     else:
-                        play_start = max(0, min(self.current_time, self.duration if self.duration else 0))
-                        start_idx = int((play_start) * self.sr)
                         sd.play(self.audio_data[start_idx:], self.sr, blocking=False)
 
             if self.audio_thread is not None and self.audio_thread.is_alive():
@@ -206,9 +221,16 @@ class FireworkPreviewWidget(QWidget):
             self.audio_thread.start()
         if self.preview_timer:
             self.preview_timer.stop()
+        # Reset elapsed timer for accurate playhead movement
+        if hasattr(self, '_last_preview_time'):
+            del self._last_preview_time
+        from PyQt6.QtCore import QElapsedTimer
+        self._elapsed_timer = QElapsedTimer()
+        self._elapsed_timer.start()
+        self._last_preview_time = self._elapsed_timer.elapsed()
         self.preview_timer = QTimer(self)
         self.preview_timer.timeout.connect(self.advance_preview)
-        self.preview_timer.start(16)
+        self.preview_timer.start(1)  # 1 ms interval for smooth playhead
 
     def toggle_play_pause(self):
         if self.preview_timer and self.preview_timer.isActive():
@@ -225,7 +247,6 @@ class FireworkPreviewWidget(QWidget):
             return
         if self.preview_timer and self.preview_timer.isActive():
             self.preview_timer.stop()
-        self.current_time = 0
         try:
             if sd.get_stream() is not None:
                 sd.stop(ignore_errors=True)
@@ -234,13 +255,15 @@ class FireworkPreviewWidget(QWidget):
         if self.audio_thread is not None and self.audio_thread.is_alive():
             self.audio_thread.join(timeout=1)
             self.audio_thread = None
+        self.current_time = 0  # Reset playhead to start
+        self.audio_thread = None
         self.update()
 
+    # Always start playback from current_time
     def paintEvent(self, event):
         painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         self.timeline_renderer.draw(painter)
-
+    
     def mousePressEvent(self, event):
         w = self.width()
         left_margin = 40
