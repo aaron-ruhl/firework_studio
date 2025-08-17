@@ -1392,7 +1392,13 @@ class FireworkShowApp(QMainWindow):
 
     def handle_peaks(self, peaks):
         # Always update self.peaks with the new peaks
-        self.peaks = peaks
+        # Append new peaks to self.peaks, avoiding duplicates
+        if self.peaks is None or self.peaks == []:
+            self.peaks = list(peaks)
+        else:
+            # Only add peaks not already present
+            new_peaks = [p for p in peaks if p not in self.peaks]
+            self.peaks.extend(new_peaks)
 
         ax = self.waveform_canvas.figure.axes[0]
         # Only plot one legend entry for all peaks

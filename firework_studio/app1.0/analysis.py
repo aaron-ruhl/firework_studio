@@ -17,7 +17,7 @@ class AudioAnalysis(QThread):
         self.sr = sr
         self.task = None
         self.selected_region = None  # For local extrema analysis
-        self.n = 40
+        self.n = 100
 
     def set_n(self, n):
         self.n = n
@@ -181,7 +181,6 @@ class AudioAnalysis(QThread):
         times = librosa.samples_to_time(refined_indices, sr=self.sr)
         times = np.unique(np.round(times, 1))
         peaks.extend(times.tolist())
-        print(peaks)
         return peaks
     
     def find_beats(self):
