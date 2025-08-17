@@ -17,7 +17,7 @@ class AudioAnalysis(QThread):
         self.sr = sr
         self.task = None
         self.selected_region = None  # For local extrema analysis
-        self.n = 10
+        self.n = 40
 
     def set_n(self, n):
         self.n = n
@@ -42,8 +42,8 @@ class AudioAnalysis(QThread):
         elif self.task == "beats":
             beats = self.find_beats()
             self.beats_ready.emit(beats)
-        elif self.task == "extrema":
-            peaks = self.find_local_extrema()
+        elif self.task == "maxima":
+            peaks = self.find_local_maxima()
             self.peaks_ready.emit(peaks)
 
     def analyze_segments(self):
@@ -62,8 +62,8 @@ class AudioAnalysis(QThread):
         self.task = "beats"
         self.start()
 
-    def analyze_extrema(self):
-        self.task = "extrema"
+    def analyze_maxima(self):
+        self.task = "maxima"
         self.start()
 
     def find_segments(self):
@@ -120,7 +120,7 @@ class AudioAnalysis(QThread):
                 results.extend(onset_times.tolist())
         return results
     
-    def find_local_extrema(self): 
+    def find_local_maxima(self): 
         '''Find n local maxima and minima using derivative approximation and Newton's method within selected_region'''
         peaks = []
         if self.audio_data is None or len(self.audio_data) == 0:
@@ -137,15 +137,14 @@ class AudioAnalysis(QThread):
             audio_data_region = self.audio_data
             offset = 0
 
-        # First and second derivative approximation
+        # First derivative approximation
         first_deriv = np.gradient(audio_data_region)
-        second_deriv = np.gradient(first_deriv)
 
         # Find zero crossings in first derivative (potential extrema)
         zero_crossings = np.where(np.diff(np.sign(first_deriv)))[0]
 
-        # Score extrema by absolute second derivative (sharpness)
-        scores = np.abs(second_deriv[zero_crossings])
+        # Score extrema by the absolute value of the audio signal at zero crossing (higher value = higher score)
+        scores = np.abs(audio_data_region[zero_crossings])  
         if len(scores) == 0:
             return peaks
         # Choose "N" of the top indices
@@ -174,9 +173,10 @@ class AudioAnalysis(QThread):
             refined_indices.append(x + offset)
 
         # Remove duplicates after refinement
-        refined_indices = np.unique(refined_indices)
         times = librosa.samples_to_time(refined_indices, sr=self.sr)
+        times = np.unique(np.round(times, 1))
         peaks.extend(times.tolist())
+        print(peaks)
         return peaks
     
     def find_beats(self):

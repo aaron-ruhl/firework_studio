@@ -57,7 +57,7 @@ class WaveformSelectionTool:
             )
             # Only update the selected region for visual feedback, do not filter or add firings
             self.main_window.preview_widget.set_selected_region((xmin, xmax))
-            self.main_window.analyzer.set_selected_region((xmin,xmax))
+            self.main_window.analyzer.set_selected_region((xmin, xmax))
             self.main_window.preview_widget.update()
             self.ax.set_xlim(xmin, xmax)
             self.canvas.draw_idle()

@@ -101,7 +101,7 @@ class FireworkShowApp(QMainWindow):
         self.paths = []
         self.padding = 0
         self.analyzer = None  # Initialize analyzer attribute
-        self._maxima_toast_shown = False  # Initialize maxima toast flag
+        self.peaks = []  # Initialize peaks for maxima plotting
 
         #############################################################
         #                                                          #
@@ -823,10 +823,10 @@ class FireworkShowApp(QMainWindow):
         maxima_action = QAction("Find Local Maxima", self)
         maxima_action.setShortcut("Ctrl+X")
         def find_local_maxima():
-            # Only show toast the first time local extrema are found
+            # Only show toast the first time local maxima are found
             if self.analyzer is not None:
-                self.analyzer.find_local_extrema()
-                self._maxima_toast_shown = False
+                self.analyzer.analyze_maxima()
+                self._peaks_toast_shown = False
 
             # Display a toast/loading dialog while processing maxima
             toast = ToastDialog("Analyzing local maxima...")
@@ -1198,6 +1198,7 @@ class FireworkShowApp(QMainWindow):
             ax.set_xticks([])
             ax.set_yticks([])
         
+        # Check for analysis and replot if it was there
         if current_legend is not None:
             if self.segment_times is not None and isinstance(self.segment_times, (list, tuple)):
                 self.handle_segments(self.segment_times)  # Reapply segments if needed
@@ -1205,6 +1206,8 @@ class FireworkShowApp(QMainWindow):
                 self.handle_interesting_points(self.points)  # Reapply points if needed
             if self.onsets is not None and isinstance(self.onsets, (list, tuple)):
                 self.handle_onsets(self.onsets)  # Reapply onsets if needed
+            if self.peaks is not None and isinstance(self.peaks, (list, tuple)):
+                self.handle_peaks(self.peaks)  # Reapply peaks if needed
 
         self.waveform_canvas.draw_idle()
         
@@ -1388,9 +1391,8 @@ class FireworkShowApp(QMainWindow):
         self.waveform_canvas.draw_idle()
 
     def handle_peaks(self, peaks):
-        # Optionally, mark these peaks on the waveform
-        if not hasattr(self, "peaks") or self.peaks == []:
-            self.peaks = peaks
+        # Always update self.peaks with the new peaks
+        self.peaks = peaks
 
         ax = self.waveform_canvas.figure.axes[0]
         # Only plot one legend entry for all peaks
