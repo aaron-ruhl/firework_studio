@@ -8,6 +8,7 @@ from toaster import ToastDialog
 from PyQt6.QtCore import QThread, pyqtSignal
 
 from analysis import AudioAnalysis
+from filters import AudioFilter
 
 
 class AudioLoaderThread(QThread):
@@ -111,6 +112,7 @@ class AudioLoader():
             self.main_window.preview_widget.set_show_data(audio_data, sr, self.segment_times, None, duration) #type: ignore
             self.main_window.plot_waveform() #type: ignore
             self.main_window.analyzer = AudioAnalysis(audio_data,audio_datas, sr)
+            self.main_window.filter = AudioFilter(sr)  # Initialize filter with sample rate
 
             # As soon as data is loaded signals for analysis are connected
             if hasattr(self.main_window, "handle_segments"):

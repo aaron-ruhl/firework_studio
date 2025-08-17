@@ -22,6 +22,7 @@ from loader import AudioLoader
 from toaster import ToastDialog
 from waveform_selection import WaveformSelectionTool
 from show_file_handler import ShowFileHandler
+
 '''THIS IS THE MAIN WINDOW CLASS FOR THE FIREWORK STUDIO APPLICATION'''
 class FireworkShowApp(QMainWindow):
     def clear_show(self):
@@ -83,25 +84,36 @@ class FireworkShowApp(QMainWindow):
         self.setMinimumSize(1600, 900)  # Ensure enough room for all widgets
         # Start maximized but not fullscreen (windowed)
         self.showMaximized()
+        
+        # App Initialization
         self.generating_toast = None
         self.clear_btn = None
+        self.firework_show_info = "No audio loaded. Load audio to get started. Use the arrow keys to change what firework(s) you add."
         self.audio_data = None
         self.audio_datas = []
         self.sr = None
         self.duration = None
-        self.segment_times = []
-        self.points = []
-        self.onsets = []
         self.firework_firing = []
-        self.firework_show_info = "No audio loaded. Load audio to get started. Use the arrow keys to change what firework(s) you add."
         self.start = None
         self.end = None
         self.fireworks_colors = []
         self.filtered_firings = []
         self.paths = []
         self.padding = 0
-        self.analyzer = None  # Initialize analyzer attribute
-        self.peaks = []  # Initialize peaks for maxima plotting
+
+        # Audio analysis settings
+        self.analyzer = None  
+        self.peaks = []
+        self.segment_times = []
+        self.points = []
+        self.onsets = []  
+
+        # Filter settings
+        self.filter = None  # Will be set to an instance of AudioFilter in loader.py
+        self.filter_type = None  
+        self.filter_kwargs = {}  
+        self.cutoff = None  
+        self.order = None  
 
         #############################################################
         #                                                          #
@@ -1155,17 +1167,30 @@ class FireworkShowApp(QMainWindow):
             self.current_time_label.setText("00:00:000")  # type: ignore
 
     def plot_waveform(self, current_legend=None):
+        audio_to_plot = self.audio_data
+        if hasattr(self, "filter") and self.filter is not None and self.audio_data is not None and self.sr is not None:
+            try:
+                self.filter = {"instance": AudioFilter(self.sr), "type": "lowpass", "kwargs": {"cutoff": 3000, "order": 5}}
+                filter_instance = self.filter.get("instance")
+                filter_type = self.filter.get("type")
+                filter_kwargs = self.filter.get("kwargs", {})
+                if filter_instance is not None and filter_type is not None:
+                    audio_to_plot = filter_instance.apply(self.audio_data, self.filter_type, self.cutoff, self.order)
+            except Exception as e:
+                # If filter fails, fallback to original audio
+                audio_to_plot = self.audio_data
+
         ax = self.waveform_canvas.figure.axes[0]
         ax.clear()
-        if self.audio_data is not None:
+        if audio_to_plot is not None:
             # Create time axis in seconds
-            times = np.linspace(0, len(self.audio_data) / self.sr, num=len(self.audio_data))  # type: ignore
+            times = np.linspace(0, len(audio_to_plot) / self.sr, num=len(audio_to_plot))  # type: ignore
             # Downsample for dense signals to avoid smudging
             max_points = 2000  # Adjust for performance/detail
-            if len(self.audio_data) > max_points:
-                factor = len(self.audio_data) // max_points
+            if len(audio_to_plot) > max_points:
+                factor = len(audio_to_plot) // max_points
                 # Use min/max envelope for better visibility
-                audio_data_reshaped = self.audio_data[:factor * max_points].reshape(-1, factor)
+                audio_data_reshaped = audio_to_plot[:factor * max_points].reshape(-1, factor)
                 envelope_min = audio_data_reshaped.min(axis=1)
                 envelope_max = audio_data_reshaped.max(axis=1)
                 times_ds = times[:factor * max_points].reshape(-1, factor)
@@ -1174,7 +1199,7 @@ class FireworkShowApp(QMainWindow):
                 ax.plot(times_ds, envelope_max, color="#5fd7e6", linewidth=0.7, alpha=0.9)
                 ax.plot(times_ds, envelope_min, color="#5fd7e6", linewidth=0.7, alpha=0.9)
             else:
-                ax.plot(times, self.audio_data, color="#8fb9bd", linewidth=1.2, alpha=0.95, antialiased=True)
+                ax.plot(times, audio_to_plot, color="#8fb9bd", linewidth=1.2, alpha=0.95, antialiased=True)
             ax.set_facecolor('#181a20')
             ax.tick_params(axis='y', colors='white')
             # Plot segment times in gold
@@ -1185,8 +1210,8 @@ class FireworkShowApp(QMainWindow):
             self.waveform_canvas.draw_idle()  # Ensure segment lines are drawn
             if self.duration is not None and self.sr is not None:
                 ax.set_xlim(0, self.duration)
-            elif self.audio_data is not None and self.sr is not None:
-                ax.set_xlim(0, len(self.audio_data) / self.sr)
+            elif audio_to_plot is not None and self.sr is not None:
+                ax.set_xlim(0, len(audio_to_plot) / self.sr)
             else:
                 ax.set_xlim(0, 1)
             ax.set_xlabel("Time (s)", color='white')
