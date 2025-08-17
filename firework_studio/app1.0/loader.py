@@ -110,7 +110,7 @@ class AudioLoader():
             self.main_window.clear_show() #type: ignore
             self.main_window.preview_widget.set_show_data(audio_data, sr, self.segment_times, None, duration) #type: ignore
             self.main_window.plot_waveform() #type: ignore
-            self.main_window.analyzer = AudioAnalysis(audio_datas, sr)
+            self.main_window.analyzer = AudioAnalysis(audio_data,audio_datas, sr)
             if hasattr(self.main_window, "handle_segments"):
                 self.main_window.analyzer.segments_ready.connect(self.main_window.handle_segments)
             if hasattr(self.main_window, "handle_interesting_points"):

@@ -30,6 +30,7 @@ class WaveformSelectionTool:
             self.canvas.draw_idle()
         if self.main_window and hasattr(self.main_window, "preview_widget"):
             self.main_window.preview_widget.reset_selected_region()
+            self.main_window.analyzer.reset_selected_region()
             self.main_window.preview_widget.update()
         if self.main_window and hasattr(self.main_window, "status_bar"):
             self.main_window.status_bar.showMessage(self.main_window.firework_show_info)
@@ -56,6 +57,7 @@ class WaveformSelectionTool:
             )
             # Only update the selected region for visual feedback, do not filter or add firings
             self.main_window.preview_widget.set_selected_region((xmin, xmax))
+            self.main_window.analyzer.set_selected_region((xmin,xmax))
             self.main_window.preview_widget.update()
             self.ax.set_xlim(xmin, xmax)
             self.canvas.draw_idle()
