@@ -8,12 +8,25 @@ class AudioAnalysis(QThread):
     interesting_points_ready = pyqtSignal(list)
     onsets_ready = pyqtSignal(list)
     beats_ready = pyqtSignal(list)
+    peaks_ready = pyqtSignal(list)
 
-    def __init__(self, audio_datas, sr, parent=None):
+    def __init__(self, audio_data, audio_datas, sr, parent=None):
         super().__init__(parent)
+        self.audio_data = audio_data
         self.audio_datas = audio_datas
         self.sr = sr
         self.task = None
+        self.selected_region = None  # For local extrema analysis
+        self.n = 10
+
+    def set_n(self, n):
+        self.n = n
+
+    def set_selected_region(self, region):
+        self.selected_region = region
+
+    def reset_selected_region(self):
+        self.selected_region = None
 
     def run(self):
         # Run the selected analysis task in the thread
@@ -29,6 +42,9 @@ class AudioAnalysis(QThread):
         elif self.task == "beats":
             beats = self.find_beats()
             self.beats_ready.emit(beats)
+        elif self.task == "extrema":
+            peaks = self.find_local_extrema()
+            self.peaks_ready.emit(peaks)
 
     def analyze_segments(self):
         self.task = "segments"
@@ -44,6 +60,10 @@ class AudioAnalysis(QThread):
 
     def analyze_beats(self):
         self.task = "beats"
+        self.start()
+
+    def analyze_extrema(self):
+        self.task = "extrema"
         self.start()
 
     def find_segments(self):
@@ -99,9 +119,68 @@ class AudioAnalysis(QThread):
                 print(f"Found {len(onset_times)} onsets")
                 results.extend(onset_times.tolist())
         return results
+    
+    def find_local_extrema(self): 
+        '''Find n local maxima and minima using derivative approximation and Newton's method within selected_region'''
+        peaks = []
+        if self.audio_data is None or len(self.audio_data) == 0:
+            return peaks
 
+        # If selected_region is provided, convert times to indices and slice audio_data
+        if self.selected_region is not None and isinstance(self.selected_region, (tuple, list)) and len(self.selected_region) == 2:
+            start_time, end_time = self.selected_region # type: ignore
+            start_idx = int(start_time * self.sr)
+            end_idx = int(end_time * self.sr)
+            audio_data_region = self.audio_data[start_idx:end_idx]
+            offset = start_idx
+        else:
+            audio_data_region = self.audio_data
+            offset = 0
+
+        # First and second derivative approximation
+        first_deriv = np.gradient(audio_data_region)
+        second_deriv = np.gradient(first_deriv)
+
+        # Find zero crossings in first derivative (potential extrema)
+        zero_crossings = np.where(np.diff(np.sign(first_deriv)))[0]
+
+        # Score extrema by absolute second derivative (sharpness)
+        scores = np.abs(second_deriv[zero_crossings])
+        if len(scores) == 0:
+            return peaks
+        # Choose "N" of the top indices
+        top_indices = np.argsort(scores)[::-1][:self.n]
+        extrema_indices = zero_crossings[top_indices]
+
+        # Round and deduplicate
+        rounded_indices = np.unique(np.round(extrema_indices).astype(int))
+
+        # Refine using Newton's method
+        refined_indices = []
+        for idx in rounded_indices:
+            x = idx
+            for _ in range(5):  # 5 iterations of Newton's method
+                if x <= 0 or x >= len(audio_data_region) - 1:
+                    break
+                f_prime = (audio_data_region[x+1] - audio_data_region[x-1]) / 2
+                f_double_prime = audio_data_region[x+1] - 2*audio_data_region[x] + audio_data_region[x-1]
+                if f_double_prime == 0:
+                    break
+                # Newton's method step
+                x_new = x - f_prime / f_double_prime
+                if abs(x_new - x) < 1e-3:
+                    break
+                x = int(np.clip(x_new, 1, len(audio_data_region)-2))
+            refined_indices.append(x + offset)
+
+        # Remove duplicates after refinement
+        refined_indices = np.unique(refined_indices)
+        times = librosa.samples_to_time(refined_indices, sr=self.sr)
+        peaks.extend(times.tolist())
+        return peaks
+    
     def find_beats(self):
-        '''Sample Beats for use in a naive firework show generator'''
+        '''Sample Beats, potentially for use in a naive firework show generator that is not implemented yet'''
         _, beat_frames = librosa.beat.beat_track(y=self.audio_data, sr=self.sr)
         beat_times = librosa.frames_to_time(beat_frames, sr=self.sr)
         return beat_times.tolist()

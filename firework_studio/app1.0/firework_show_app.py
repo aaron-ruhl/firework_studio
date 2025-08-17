@@ -101,6 +101,7 @@ class FireworkShowApp(QMainWindow):
         self.paths = []
         self.padding = 0
         self.analyzer = None  # Initialize analyzer attribute
+        self._maxima_toast_shown = False  # Initialize maxima toast flag
 
         #############################################################
         #                                                          #
@@ -805,17 +806,40 @@ class FireworkShowApp(QMainWindow):
                 self.analyzer.analyze_onsets()
                 self._onsets_toast_shown = False
 
-                # Display a toast/loading dialog while processing onsets
-                toast = ToastDialog("Analyzing onsets...")
-                geo = self.geometry() #type: ignore
-                x = geo.x() + geo.width() - toast.width() - 40
-                y = geo.y() + geo.height() - toast.height() - 40
-                toast.move(x, y)
-                toast.show()
+            # Display a toast/loading dialog while processing onsets
+            toast = ToastDialog("Analyzing onsets...")
+            geo = self.geometry() #type: ignore
+            x = geo.x() + geo.width() - toast.width() - 40
+            y = geo.y() + geo.height() - toast.height() - 40
+            toast.move(x, y)
+            toast.show()
 
         onsets_action.triggered.connect(find_onsets)
+
         if analysis_menu is not None:
             analysis_menu.addAction(onsets_action)
+
+        # Local Maxima action
+        maxima_action = QAction("Find Local Maxima", self)
+        maxima_action.setShortcut("Ctrl+X")
+        def find_local_maxima():
+            # Only show toast the first time local extrema are found
+            if self.analyzer is not None:
+                self.analyzer.find_local_extrema()
+                self._maxima_toast_shown = False
+
+            # Display a toast/loading dialog while processing maxima
+            toast = ToastDialog("Analyzing local maxima...")
+            geo = self.geometry() #type: ignore
+            x = geo.x() + geo.width() - toast.width() - 40
+            y = geo.y() + geo.height() - toast.height() - 40
+            toast.move(x, y)
+            toast.show()
+
+        maxima_action.triggered.connect(find_local_maxima)
+
+        if analysis_menu is not None:
+            analysis_menu.addAction(maxima_action)
             
        ###########################################################
        #                                                         #
@@ -1118,6 +1142,7 @@ class FireworkShowApp(QMainWindow):
     #  HELPER FUNCTIONS for loading audio and segmenting it       #
     #                                                             #
     ###############################################################
+
     def update_time_label(self):
         """Update current_time_label to always reflect the playhead position."""
         if hasattr(self.preview_widget, "playhead"):
@@ -1362,3 +1387,46 @@ class FireworkShowApp(QMainWindow):
 
         self.waveform_canvas.draw_idle()
 
+    def handle_peaks(self, peaks):
+        # Optionally, mark these peaks on the waveform
+        if not hasattr(self, "peaks") or self.peaks == []:
+            self.peaks = peaks
+
+        ax = self.waveform_canvas.figure.axes[0]
+        # Only plot one legend entry for all peaks
+        if self.peaks is not None and isinstance(self.peaks, (list, tuple, np.ndarray)):
+            for t in self.peaks:
+                if isinstance(t, (int, float)) and np.isscalar(t) and not isinstance(t, complex):
+                    ax.axvline(x=float(t), color="#ff00ff", linestyle="--", linewidth=1.5, alpha=0.8, label=None)
+            legend = ax.get_legend()
+            labels = [l.get_text() for l in legend.get_texts()] if legend else []
+            if "Peak" not in labels:
+                ax.axvline(x=0, color="#ff00ff", linestyle="--", linewidth=1.5, alpha=0.8, label="Peak")
+                leg = ax.legend(
+                    loc="upper right",
+                    framealpha=0.3,
+                    fontsize=7,
+                    markerscale=0.7,
+                    handlelength=1.2,
+                    borderpad=0.3,
+                    labelspacing=0.2,
+                    handletextpad=0.3,
+                    borderaxespad=0.2,
+                )
+                if leg:
+                    leg.get_frame().set_alpha(0.3)
+
+        def show_peaks_toast():
+            toast = ToastDialog(f"Found {len(self.peaks)} peaks!", parent=self)
+            geo = self.geometry()
+            x = geo.x() + geo.width() - toast.width() - 40
+            y = geo.y() + geo.height() - toast.height() - 40
+            toast.move(x, y)
+            toast.show()
+            QTimer.singleShot(2500, toast.close)
+
+        if not hasattr(self, "_peaks_toast_shown") or not self._peaks_toast_shown:
+            show_peaks_toast()
+            self._peaks_toast_shown = True
+
+        self.waveform_canvas.draw_idle()
