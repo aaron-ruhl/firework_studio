@@ -69,17 +69,22 @@ class AudioAnalysis(QThread):
     def find_segments(self):
         '''Segment each audio into distinct portions and concatenate results'''
         results = []
-        for audio_data in getattr(self, "audio_datas", [self.audio_datas]):
+        audio_datas = getattr(self, "audio_datas", [self.audio_datas])
+        for audio_data in audio_datas:
             if audio_data is None or len(audio_data) == 0:
                 print("No audio data available for segment analysis.")
                 continue
-            mfcc = librosa.feature.mfcc(y=audio_data, sr=self.sr, n_mfcc=13)
-            similarity = np.dot(mfcc.T, mfcc)
-            similarity = similarity / np.max(similarity)
-            segment_boundaries = librosa.segment.agglomerative(similarity, k=6)
-            segment_times = librosa.frames_to_time(segment_boundaries, sr=self.sr)
-            segments = [(segment_times[i], segment_times[i+1]) for i in range(len(segment_times)-1)]
-            results.extend(segments)
+            # To avoid blocking, process in smaller chunks if possible
+            try:
+                mfcc = librosa.feature.mfcc(y=audio_data, sr=self.sr, n_mfcc=13)
+                similarity = np.dot(mfcc.T, mfcc)
+                similarity = similarity / np.max(similarity)
+                segment_boundaries = librosa.segment.agglomerative(similarity, k=6)
+                segment_times = librosa.frames_to_time(segment_boundaries, sr=self.sr)
+                segments = [(segment_times[i], segment_times[i+1]) for i in range(len(segment_times)-1)]
+                results.extend(segments)
+            except Exception as e:
+                print(f"Error in segment analysis: {e}")
         return results
 
     def find_interesting_points(self):
