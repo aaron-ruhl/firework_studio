@@ -79,6 +79,19 @@ class AudioLoader():
     def set_padding(self, padding):
         self.padding = padding
 
+    def connect_analysis_signals(self):
+        # As soon as data is loaded signals for analysis are connected
+        if hasattr(self.main_window, "handle_segments"):
+            self.main_window.analyzer.segments_ready.connect(self.main_window.handle_segments)
+        if hasattr(self.main_window, "handle_interesting_points"):
+            self.main_window.analyzer.interesting_points_ready.connect(self.main_window.handle_interesting_points)
+        if hasattr(self.main_window, "handle_onsets"):
+            self.main_window.analyzer.onsets_ready.connect(self.main_window.handle_onsets)
+        if hasattr(self.main_window, "handle_peaks"):
+            self.main_window.analyzer.peaks_ready.connect(self.main_window.handle_peaks)
+        #if hasattr(self.main_window, "handle_beats"):
+        #    self.analyzer.beats_ready.connect(self.main_window.handle_beats)
+        
     def handle_audio(self, reload=False):
         # Start thread to load audio
         if not reload:
@@ -116,17 +129,7 @@ class AudioLoader():
             self.main_window.analyzer = AudioAnalysis(audio_data,audio_datas, sr)
             self.main_window.filter = AudioFilter(sr)  # Initialize filter with sample rate
 
-            # As soon as data is loaded signals for analysis are connected
-            if hasattr(self.main_window, "handle_segments"):
-                self.main_window.analyzer.segments_ready.connect(self.main_window.handle_segments)
-            if hasattr(self.main_window, "handle_interesting_points"):
-                self.main_window.analyzer.interesting_points_ready.connect(self.main_window.handle_interesting_points)
-            if hasattr(self.main_window, "handle_onsets"):
-                self.main_window.analyzer.onsets_ready.connect(self.main_window.handle_onsets)
-            if hasattr(self.main_window, "handle_peaks"):
-                self.main_window.analyzer.peaks_ready.connect(self.main_window.handle_peaks)
-            #if hasattr(self.main_window, "handle_beats"):
-            #    self.analyzer.beats_ready.connect(self.main_window.handle_beats)
+            self.connect_analysis_signals()
 
             basenames = [os.path.basename(p) for p in paths]
             toast = ToastDialog(f"Loaded audio: {', '.join(basenames)}", parent=self.main_window)

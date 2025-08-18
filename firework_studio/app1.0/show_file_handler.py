@@ -1,4 +1,3 @@
-import random
 import numpy as np
 import json
 import os
@@ -10,8 +9,7 @@ from PyQt6.QtGui import QColor
 from PyQt6.QtGui import QColor
 from toaster import ToastDialog
 from handles import FiringHandles
-
-import os
+from analysis import AudioAnalysis
 
 class FireworkshowManager:
     @staticmethod
@@ -257,7 +255,10 @@ class ShowFileHandler:
             for handle in loaded_handles:
                 if hasattr(fw_canvas, "add_firework"):
                     fw_canvas.add_firework(handle)
-            
+
+            # this is setting up analysis and plotting to mimic load audio functionality
+            self.main_window.analyzer = AudioAnalysis(audio_data,audio_datas, sr)
+            self.main_window.audio_loader.connect_analysis_signals()
             self.main_window.plot_waveform()
 
             def show_loaded_toast():

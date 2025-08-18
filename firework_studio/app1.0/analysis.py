@@ -142,6 +142,10 @@ class AudioAnalysis(QThread):
             audio_data_region = self.audio_data
             offset = 0
 
+        # Check if audio_data_region is long enough for gradient calculation
+        if len(audio_data_region) < 2:
+            return peaks
+
         # First derivative approximation
         first_deriv = np.gradient(audio_data_region)
 
