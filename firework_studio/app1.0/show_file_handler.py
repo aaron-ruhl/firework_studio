@@ -3,28 +3,40 @@ import numpy as np
 import json
 import os
 
-from PyQt6.QtWidgets import QPushButton, QFileDialog, QRadioButton
+from PyQt6.QtWidgets import QFileDialog
 from PyQt6.QtCore import QTimer
 from PyQt6.QtGui import QColor
 
 from PyQt6.QtGui import QColor
-from loader import AudioLoader
 from toaster import ToastDialog
 from handles import FiringHandles
 
-import shutil
+import os
 
 class FireworkshowManager:
     @staticmethod
     def save_show(file_path, audio_datas, sr, firework_times, segment_times, duration, handles):
-        # Save audio_datas to local 'music' folder
-        music_dir = os.path.join(os.path.dirname(file_path), "music")
-        os.makedirs(music_dir, exist_ok=True)
+        # Ensure music_dir is a sibling of the file, not inside the file name
+        base_dir = os.path.dirname(os.path.abspath(file_path))
+        music_dir = os.path.join(base_dir, "music")
+
+        # Save audio_datas to this local 'music_dir' 
         audio_paths = []
+        # Ensure the music directory exists
+        if not os.path.exists(music_dir):
+            try:
+                os.makedirs(music_dir, exist_ok=True)
+            except Exception as e:
+                print(f"Error creating music directory: {e}")
+                raise
         for idx, audio_data in enumerate(audio_datas):
             audio_file = os.path.join(music_dir, f"audio_{idx}.npy")
-            np.save(audio_file, audio_data)
-            audio_paths.append(audio_file)
+            try:
+                np.save(audio_file, audio_data)
+                audio_paths.append(audio_file)
+            except Exception as e:
+                print(f"Error saving audio file {audio_file}: {e}")
+                raise
 
         # Convert handles to a list of lists using to_list() if available, and ensure all elements are JSON serializable
         def make_json_serializable(obj):
@@ -83,7 +95,6 @@ class FireworkshowManager:
 
     @staticmethod
     def load_show(file_path):
-        import os
         show_data = {}
         if not os.path.exists(file_path) or os.path.getsize(file_path) == 0:
             print(f"File {file_path} does not exist or is empty.")
