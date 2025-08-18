@@ -82,8 +82,6 @@ class FireworkShowApp(QMainWindow):
         self.setWindowTitle("Firework Studio")
         self.setGeometry(100, 100, 1800, 1000)
         self.setMinimumSize(1600, 900)  # Ensure enough room for all widgets
-        # Start maximized but not fullscreen (windowed)
-        self.showMaximized()
         
         # App Initialization
         self.generating_toast = None
@@ -1148,6 +1146,9 @@ class FireworkShowApp(QMainWindow):
         dark_palette.setColor(self.foregroundRole(), QColor(255, 215, 0))     # Light gold text
         dark_palette.setColor(QPalette.ColorRole.Window, QColor(30, 30, 30))
         self.setPalette(dark_palette)
+
+        # Show the window maximized after all UI setup is complete to avoid white flash
+        self.showMaximized()
 
     ###############################################################
     #                                                             #
