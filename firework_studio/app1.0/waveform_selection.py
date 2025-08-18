@@ -37,9 +37,17 @@ class WaveformSelectionTool:
         self.span.set_active(True)
         self.main_window.update_firework_show_info()
 
+    def update_original_limits(self):
+        """Update the stored original x-limits to match current axis limits"""
+        # Ensure we have the correct axis reference
+        if hasattr(self.canvas, 'figure') and hasattr(self.canvas.figure, 'axes') and self.canvas.figure.axes:
+            self.ax = self.canvas.figure.axes[0]
+        self._original_xlim = self.ax.get_xlim()
+
     def on_select(self, xmin, xmax):
         if abs(xmax - xmin) < 0.05:
-            self.main_window.analyzer.reset_selected_region()
+            if self.main_window and hasattr(self.main_window, 'analyzer') and self.main_window.analyzer:
+                self.main_window.analyzer.reset_selected_region()
             return
         self.selected_region = (xmin, xmax)
         # Update status bar and filter segments/firings if main_window is provided
@@ -57,7 +65,8 @@ class WaveformSelectionTool:
             )
             # Only update the selected region for visual feedback, do not filter or add firings
             self.main_window.preview_widget.set_selected_region((xmin, xmax))
-            self.main_window.analyzer.set_selected_region((xmin, xmax))
+            if self.main_window and hasattr(self.main_window, 'analyzer') and self.main_window.analyzer:
+                self.main_window.analyzer.set_selected_region((xmin, xmax))
             self.main_window.preview_widget.update()
             self.ax.set_xlim(xmin, xmax)
             self.canvas.draw_idle()

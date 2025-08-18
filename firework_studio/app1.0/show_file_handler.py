@@ -219,9 +219,7 @@ class ShowFileHandler:
                 self.main_window.audio_loader.paths = self.main_window.paths
             self.main_window.clear_show()
             self.main_window.preview_widget.set_show_data(audio_data, sr, segment_times, firework_times, duration)
-            self.main_window.plot_waveform()
             if audio_data is not None:
-                self.main_window.status_bar.showMessage("Generate fireworks show from scratch or use generate show button to get help.")
                 basenames = []
                 if self.main_window.paths:
                     basenames = [os.path.basename(str(p)) for p in self.main_window.paths if p and isinstance(p, (str, bytes, os.PathLike))]
@@ -259,6 +257,8 @@ class ShowFileHandler:
             for handle in loaded_handles:
                 if hasattr(fw_canvas, "add_firework"):
                     fw_canvas.add_firework(handle)
+            
+            self.main_window.plot_waveform()
 
             def show_loaded_toast():
                 toast = ToastDialog("Show loaded!", parent=self.main_window)

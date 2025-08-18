@@ -1214,6 +1214,11 @@ class FireworkShowApp(QMainWindow):
                 ax.set_xlim(0, len(audio_to_plot) / self.sr)
             else:
                 ax.set_xlim(0, 1)
+            
+            # Update the waveform selector's original limits to match the new axis limits
+            if hasattr(self, 'waveform_selector') and hasattr(self.waveform_selector, 'update_original_limits'):
+                self.waveform_selector.update_original_limits()
+                
             ax.set_xlabel("Time (s)", color='white')
             ax.set_ylabel("Amplitude", color='white')
             # Add grid lines in white, with some transparency for subtlety
