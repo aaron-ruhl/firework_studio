@@ -97,6 +97,8 @@ class AudioLoader():
         toast.move(x, y)
         toast.show()
         self.loading_toast = toast
+
+        # start loading audio
         self.thread.finished.connect(self.on_audio_loaded)
         self.thread.start()
 
