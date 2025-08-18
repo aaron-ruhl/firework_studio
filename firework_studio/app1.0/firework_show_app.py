@@ -33,6 +33,15 @@ class FireworkShowApp(QMainWindow):
             self.preview_widget.reset_selected_region()  # Reset selected region in preview widget
             self.fireworks_canvas.update_animation()  # Reset firings displayed
             self.preview_widget.reset_fireworks()  # Reset fireworks in preview widget
+            if self.analyzer is not None:
+                self.analyzer.clear_signals()  # Clear any analysis signals
+                # Clear the legend from the waveform plot
+                ax = self.waveform_canvas.figure.axes[0]
+                ax.legend_.remove() if ax.legend_ else None
+                self.peaks = []
+                self.segment_times = []
+                self.points = []
+                self.onsets = []  
             self.plot_waveform()  # Update waveform after clearing
             self.update_firework_show_info()  # Update info after clearing
             

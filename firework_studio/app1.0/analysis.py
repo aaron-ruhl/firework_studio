@@ -46,6 +46,13 @@ class AudioAnalysis(QThread):
             peaks = self.find_local_maxima()
             self.peaks_ready.emit(peaks)
 
+    def clear_signals(self):
+        self.segments_ready.emit([])
+        self.interesting_points_ready.emit([])
+        self.onsets_ready.emit([])
+        self.beats_ready.emit([])
+        self.peaks_ready.emit([])
+        
     def analyze_segments(self):
         self.task = "segments"
         self.start()
