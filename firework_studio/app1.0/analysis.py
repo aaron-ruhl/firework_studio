@@ -84,6 +84,7 @@ class AudioAnalysis(QThread):
 
         if self.selected_region is not None and isinstance(self.selected_region, (tuple, list)) and len(self.selected_region) == 2:
             start_time, end_time = self.selected_region
+            duration = end_time - start_time
             start_idx = int(start_time * self.sr)
             end_idx = int(end_time * self.sr)
             audio_data_region = self.audio_data[start_idx:end_idx]
@@ -95,7 +96,21 @@ class AudioAnalysis(QThread):
         mfcc = librosa.feature.mfcc(y=audio_data_region, sr=self.sr, n_mfcc=13)
         similarity = np.dot(mfcc.T, mfcc)
         similarity = similarity / np.max(similarity)
-        segment_boundaries = librosa.segment.agglomerative(similarity, k=6)
+
+        # Determine number of segments based on duration
+        if self.selected_region is not None and isinstance(self.selected_region, (tuple, list)) and len(self.selected_region) == 2:
+            region_duration = duration
+        else:
+            region_duration = self.duration
+
+        # Aim for roughly one segment per 3-6 seconds, minimum 2 segments
+        min_segments = 2
+        max_segments = 12
+        target_segments = max(min_segments, min(max_segments, int(region_duration // 4)))
+        if target_segments < 2:
+            target_segments = 2
+
+        segment_boundaries = librosa.segment.agglomerative(similarity, k=target_segments)
         segment_times = librosa.frames_to_time(segment_boundaries, sr=self.sr)
         # Offset times if region is used
         if region_offset > 0:

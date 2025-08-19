@@ -71,7 +71,7 @@ class FireworkShowApp(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        # Set dark palette before showing the window to avoid white flash
+        # Set dark palette before initializing the main window
         dark_palette = QPalette()
         dark_palette.setColor(QPalette.ColorRole.Window, QColor(30, 30, 30))
         dark_palette.setColor(QPalette.ColorRole.WindowText, QColor(255, 215, 0))
@@ -1155,16 +1155,6 @@ class FireworkShowApp(QMainWindow):
             min(self.pattern_selector.findChild(QComboBox).count() - 1, self.pattern_selector.findChild(QComboBox).currentIndex() + 1)
         ))  # type: ignore
 
-        # Shortcut to cycle backgrounds (excluding "custom") using the Home key
-        def cycle_background():
-            backgrounds = ["night", "sunset", "city", "mountains", "desert"]
-            current_bg = getattr(self.fireworks_canvas, "current_background", "night")
-            idx = backgrounds.index(current_bg) if current_bg in backgrounds else 0
-            next_idx = (idx + 1) % len(backgrounds)
-            self.fireworks_canvas.set_background(backgrounds[next_idx])
-            self.fireworks_canvas.current_background = backgrounds[next_idx] #type: ignore
-        QShortcut(QKeySequence("Home"), self, activated=cycle_background)  # type: ignore
-
         #############################################################
         #                                                          #
         #        Overall UI Elements layout                        #
@@ -1209,20 +1199,9 @@ class FireworkShowApp(QMainWindow):
 
     ###############################################################
     #                                                             #
-    #  HELPER FUNCTIONS for loading audio and segmenting it       #
+    #                     HELPER FUNCTIONS                        #
     #                                                             #
     ###############################################################
-
-    def update_time_label(self):
-        """Update current_time_label to always reflect the playhead position."""
-        if hasattr(self.preview_widget, "playhead"):
-            t = self.preview_widget.playhead.current_time  # type: ignore
-            mins = int(t // 60)
-            secs = int(t % 60)
-            ms = int((t - int(t)) * 1000)
-            self.current_time_label.setText(f"{mins:02d}:{secs:02d}:{ms:03d}")  # type: ignore
-        else:
-            self.current_time_label.setText("00:00:000")  # type: ignore
 
     def plot_waveform(self, current_legend=None):
         audio_to_plot = self.audio_data
@@ -1344,12 +1323,7 @@ class FireworkShowApp(QMainWindow):
         if hasattr(self, "status_bar") and self.status_bar is not None:
             self.status_bar.showMessage(self.firework_show_info)
             self.status_bar.repaint()  # Force repaint to ensure update
-
-    # Helper to add widgets to toolbar using QWidgetAction
-    def add_toolbar_widget(self, widget, toolbar):
-        action = QWidgetAction(self)
-        action.setDefaultWidget(widget)
-        toolbar.addAction(action)
+        return
 
     def handle_segments(self, segment_times): 
         # Always update self.segments with the new segments
