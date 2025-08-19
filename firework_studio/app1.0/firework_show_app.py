@@ -783,13 +783,25 @@ class FireworkShowApp(QMainWindow):
                 self.analyzer.analyze_segments()
                 self._segments_toast_shown = False
 
-                # Display a toast/loading dialog while processing segments
-                toast = ToastDialog("Analyzing segments...")
-                geo = self.geometry() #type: ignore
-                x = geo.x() + geo.width() - toast.width() - 40
-                y = geo.y() + geo.height() - toast.height() - 40
-                toast.move(x, y)
-                toast.show()
+            # Display a toast/loading dialog while processing segments
+            toast = ToastDialog("Analyzing segments...")
+            geo = self.geometry() #type: ignore
+            x = geo.x() + geo.width() - toast.width() - 40
+            y = geo.y() + geo.height() - toast.height() - 40
+            toast.move(x, y)
+            toast.show()
+
+            # clear the loading toast and let user know it is not doing anything because no audio is loaded
+            if self.audio_data is None or len(self.audio_data) == 0:
+                def show_no_audio_toast():
+                    toast = ToastDialog("No audio data available for analysis.", parent=self)
+                    geo = self.geometry()
+                    x = geo.x() + geo.width() - toast.width() - 40
+                    y = geo.y() + geo.height() - toast.height() - 40
+                    toast.move(x, y)
+                    toast.show()
+                    QTimer.singleShot(2500, toast.close)
+                show_no_audio_toast()
 
         segment_action.triggered.connect(segment_audio)
         if analysis_menu is not None:
@@ -804,14 +816,26 @@ class FireworkShowApp(QMainWindow):
                 self.analyzer.analyze_interesting_points()
                 self._interesting_points_toast_shown = False
 
-                # Display a toast/loading dialog while processing interesting points
-                toast = ToastDialog("Analyzing interesting points...")
-                geo = self.geometry() #type: ignore
-                x = geo.x() + geo.width() - toast.width() - 40
-                y = geo.y() + geo.height() - toast.height() - 40
-                toast.move(x, y)
-                toast.show()
+            # Display a toast/loading dialog while processing interesting points
+            toast = ToastDialog("Analyzing interesting points...")
+            geo = self.geometry() #type: ignore
+            x = geo.x() + geo.width() - toast.width() - 40
+            y = geo.y() + geo.height() - toast.height() - 40
+            toast.move(x, y)
+            toast.show()
 
+            # clear the loading toast and let user know it is not doing anything because no audio is loaded
+            if self.audio_data is None or len(self.audio_data) == 0:
+                def show_no_audio_toast():
+                    toast = ToastDialog("No audio data available for analysis.", parent=self)
+                    geo = self.geometry()
+                    x = geo.x() + geo.width() - toast.width() - 40
+                    y = geo.y() + geo.height() - toast.height() - 40
+                    toast.move(x, y)
+                    toast.show()
+                    QTimer.singleShot(2500, toast.close)
+                show_no_audio_toast()
+                    
         interesting_points_action.triggered.connect(find_interesting_points)
         if analysis_menu is not None:
             analysis_menu.addAction(interesting_points_action)
@@ -832,6 +856,18 @@ class FireworkShowApp(QMainWindow):
             y = geo.y() + geo.height() - toast.height() - 40
             toast.move(x, y)
             toast.show()
+
+            # clear the loading toast and let user know it is not doing anything because no audio is loaded
+            if self.audio_data is None or len(self.audio_data) == 0:
+                def show_no_audio_toast():
+                    toast = ToastDialog("No audio data available for analysis.", parent=self)
+                    geo = self.geometry()
+                    x = geo.x() + geo.width() - toast.width() - 40
+                    y = geo.y() + geo.height() - toast.height() - 40
+                    toast.move(x, y)
+                    toast.show()
+                    QTimer.singleShot(2500, toast.close)
+                show_no_audio_toast()
 
         onsets_action.triggered.connect(find_onsets)
 
@@ -854,6 +890,18 @@ class FireworkShowApp(QMainWindow):
             y = geo.y() + geo.height() - toast.height() - 40
             toast.move(x, y)
             toast.show()
+
+            # clear the loading toast and let user know it is not doing anything because no audio is loaded
+            if self.audio_data is None or len(self.audio_data) == 0:
+                def show_no_audio_toast():
+                    toast = ToastDialog("No audio data available for analysis.", parent=self)
+                    geo = self.geometry()
+                    x = geo.x() + geo.width() - toast.width() - 40
+                    y = geo.y() + geo.height() - toast.height() - 40
+                    toast.move(x, y)
+                    toast.show()
+                    QTimer.singleShot(2500, toast.close)
+                show_no_audio_toast()
 
         maxima_action.triggered.connect(find_local_maxima)
 
@@ -1354,6 +1402,7 @@ class FireworkShowApp(QMainWindow):
         if hasattr(self, "_segments_toast_shown") and not self._segments_toast_shown:
             show_segments_toast()
             self._segments_toast_shown = True
+
         self.update_firework_show_info()  # Update info with new segment count
         self.waveform_canvas.draw_idle()
         # Update the waveform selector's original limits after redraw

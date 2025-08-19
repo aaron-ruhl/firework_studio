@@ -1,7 +1,8 @@
-from PyQt6.QtCore import QThread, pyqtSignal
+from PyQt6.QtCore import QThread, pyqtSignal, QTimer
 import numpy as np
 import librosa
-from PyQt6.QtWidgets import QMessageBox
+
+from toaster import ToastDialog
 
 class AudioAnalysis(QThread):
     segments_ready = pyqtSignal(list)
@@ -76,6 +77,11 @@ class AudioAnalysis(QThread):
 
     def find_segments(self):
         '''Segment each audio into distinct portions and concatenate results, limited to selected_region if set'''
+        
+        segments = []
+        if self.audio_data is None or len(self.audio_data) == 0:
+            return segments
+
         if self.selected_region is not None and isinstance(self.selected_region, (tuple, list)) and len(self.selected_region) == 2:
             start_time, end_time = self.selected_region
             start_idx = int(start_time * self.sr)
@@ -86,31 +92,26 @@ class AudioAnalysis(QThread):
             audio_data_region = self.audio_data
             region_offset = 0
 
-        segments = []
-        if self.audio_data is None or len(self.audio_data) == 0:
-            return segments
-        if audio_data_region is None or len(audio_data_region) == 0:
-            print("No audio data available for segment analysis.")
-            return segments
+        mfcc = librosa.feature.mfcc(y=audio_data_region, sr=self.sr, n_mfcc=13)
+        similarity = np.dot(mfcc.T, mfcc)
+        similarity = similarity / np.max(similarity)
+        segment_boundaries = librosa.segment.agglomerative(similarity, k=6)
+        segment_times = librosa.frames_to_time(segment_boundaries, sr=self.sr)
+        # Offset times if region is used
+        if region_offset > 0:
+            segment_times += librosa.samples_to_time(region_offset, sr=self.sr)
 
-        try:
-            mfcc = librosa.feature.mfcc(y=audio_data_region, sr=self.sr, n_mfcc=13)
-            similarity = np.dot(mfcc.T, mfcc)
-            similarity = similarity / np.max(similarity)
-            segment_boundaries = librosa.segment.agglomerative(similarity, k=6)
-            segment_times = librosa.frames_to_time(segment_boundaries, sr=self.sr)
-            # Offset times if region is used
-            if region_offset > 0:
-                segment_times += librosa.samples_to_time(region_offset, sr=self.sr)
-            segments = [(segment_times[i], segment_times[i+1]) for i in range(len(segment_times)-1)]
-            segments.extend(segments)
-        except Exception as e:
-            print(f"Error in segment analysis: {e}")
+        segments = [(segment_times[i], segment_times[i+1]) for i in range(len(segment_times)-1)]
+        segments.extend(segments)
         return segments
 
     def find_interesting_points(self):
         '''Find points of interest in each audio signal and concatenate results, limited to selected_region if set'''
-
+        
+        points = []
+        if self.audio_data is None or len(self.audio_data) == 0:
+            return points
+        
         if self.selected_region is not None and isinstance(self.selected_region, (tuple, list)) and len(self.selected_region) == 2:
             start_time, end_time = self.selected_region
             start_idx = int(start_time * self.sr)
@@ -120,14 +121,6 @@ class AudioAnalysis(QThread):
         else:
             audio_data_region = self.audio_data
             region_offset = 0
-
-        points = []
-        if self.audio_data is None or len(self.audio_data) == 0:
-            return points
-
-        if audio_data_region is None or len(audio_data_region) == 0:
-            print("No audio data available for interesting points analysis.")
-            return points
 
         centroids = librosa.feature.spectral_centroid(y=audio_data_region, sr=self.sr)[0]
         times = librosa.times_like(centroids, sr=self.sr)
@@ -142,7 +135,6 @@ class AudioAnalysis(QThread):
         if len(peaks) > 0:
             top_indices = np.argsort(centroids[peaks])[::-1][:N]
             interesting_points = [times[peaks[i]] for i in top_indices]
-        print(f"Found {len(interesting_points)} interesting points")
         points.extend(interesting_points)
         return points
 
@@ -162,10 +154,6 @@ class AudioAnalysis(QThread):
             audio_data_region = self.audio_data
             region_offset = 0
 
-        if audio_data_region is None or len(audio_data_region) == 0:
-            print("No audio data available for onset analysis.")
-            return onsets
-
         onset_frames = librosa.onset.onset_detect(y=audio_data_region, sr=self.sr)
         onset_times = librosa.frames_to_time(onset_frames, sr=self.sr)
         # Offset times if region is used
@@ -179,7 +167,6 @@ class AudioAnalysis(QThread):
             sampled_onsets = [onset_times[i] for i in indices]
             onsets.extend(sampled_onsets)
         else:
-            print(f"Found {len(onset_times)} onsets")
             onsets.extend(onset_times.tolist())
         return onsets
 
