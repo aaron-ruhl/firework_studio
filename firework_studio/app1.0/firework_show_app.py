@@ -22,8 +22,9 @@ from loader import AudioLoader
 from toaster import ToastDialog
 from waveform_selection import WaveformSelectionTool
 from show_file_handler import ShowFileHandler
+from PyQt6.QtWidgets import QTabWidget
 
-'''THIS IS THE MAIN WINDOW CLASS FOR THE FIREWORK STUDIO APPLICATION'''
+'''THIS IS THE MAIN VIEW FOR THE FIREWORK STUDIO APPLICATION'''
 class FireworkShowApp(QMainWindow):
     def clear_show(self):
         # Only clear if audio is loaded
@@ -330,6 +331,156 @@ class FireworkShowApp(QMainWindow):
 
         self.fireworks_canvas_container = create_fireworks_canvas_container()
         self.fireworks_canvas.setStyleSheet("background-color: #23242b;")  # Set canvas background color
+
+        ############################################################
+        #                                                          #
+        #                   Create Tab Widget                      #
+        #                                                          #
+        ############################################################
+
+        # This will be the "Create" tab content                   
+        create_tab_widget = QWidget()
+        # Advanced settings page styling for "Create" tab
+        create_tab_widget.setStyleSheet("""
+            QWidget {
+            background-color: #23242b;
+            color: #ffd700;
+            font-size: 15px;
+            font-family: 'Segoe UI', 'Arial', sans-serif;
+            }
+            QGroupBox {
+            background-color: #181a20;
+            border: 2px solid #ffd700;
+            border-radius: 8px;
+            color: #ffd700;
+            font-size: 16px;
+            font-weight: bold;
+            margin-top: 12px;
+            margin-bottom: 12px;
+            padding: 8px 12px;
+            }
+            QGroupBox:title {
+            subcontrol-origin: margin;
+            subcontrol-position: top left;
+            padding: 0 8px;
+            color: #ffd700;
+            font-size: 16px;
+            font-weight: bold;
+            }
+            QLabel {
+            color: #ffd700;
+            font-size: 15px;
+            font-weight: 500;
+            padding: 4px 0;
+            }
+            QComboBox, QSpinBox {
+            background-color: #23242b;
+            color: #ffd700;
+            border: 2px solid #ffd700;
+            border-radius: 6px;
+            font-size: 15px;
+            font-weight: bold;
+            min-width: 60px;
+            min-height: 32px;
+            padding: 4px 12px;
+            margin: 4px 0;
+            }
+            QPushButton {
+            background-color: #ffd700;
+            color: #23242b;
+            border: 2px solid #ffd700;
+            border-radius: 6px;
+            font-size: 15px;
+            font-weight: bold;
+            min-width: 80px;
+            min-height: 32px;
+            margin: 6px 0;
+            }
+            QPushButton:hover {
+            background-color: #fffbe6;
+            color: #23242b;
+            border: 2px solid #ffd700;
+            }
+            QMenu {
+            background-color: #23242b;
+            color: #ffd700;
+            border: 2px solid #ffd700;
+            border-radius: 8px;
+            font-size: 15px;
+            padding: 8px 0px;
+            }
+            QTabWidget::pane {
+            border: 2px solid #ffd700;
+            background: #23242b;
+            }
+            QTabBar::tab {
+            background: #181a20;
+            color: #ffd700;
+            border: 2px solid #ffd700;
+            border-radius: 6px;
+            min-width: 140px;
+            min-height: 36px;
+            font-size: 15px;
+            font-weight: bold;
+            margin: 4px;
+            }
+            QTabBar::tab:selected {
+            background: #ffd700;
+            color: #23242b;
+            border: 2px solid #ffd700;
+            }
+            QTabBar::tab:hover {
+            background: #fffbe6;
+            color: #23242b;
+            }
+        """)
+        main_layout = QVBoxLayout(create_tab_widget)
+        
+        # Analysis Adjustment Section (Horizontal)
+        analysis_section = QHBoxLayout()
+        # Segment Settings
+        segment_group = QGroupBox("Segment Settings")
+        segment_layout = QVBoxLayout()
+        # Placeholder for future dropdowns/checkboxes
+        segment_layout.addWidget(QLabel(" "))
+        segment_group.setLayout(segment_layout)
+        analysis_section.addWidget(segment_group)
+        # Onset Settings
+        onset_group = QGroupBox("Onset Settings")
+        onset_layout = QVBoxLayout()
+        onset_layout.addWidget(QLabel(" "))
+        onset_group.setLayout(onset_layout)
+        analysis_section.addWidget(onset_group)
+        # Interesting Points Settings
+        points_group = QGroupBox("Interesting Points Settings")
+        points_layout = QVBoxLayout()
+        points_layout.addWidget(QLabel(" "))
+        points_group.setLayout(points_layout)
+        analysis_section.addWidget(points_group)
+        # Peak Settings
+        peak_group = QGroupBox("Peak Settings")
+        peak_layout = QVBoxLayout()
+        peak_layout.addWidget(QLabel(" "))
+        peak_group.setLayout(peak_layout)
+        analysis_section.addWidget(peak_group)
+        # Add the horizontal analysis section to the main vertical layout
+        main_layout.addLayout(analysis_section)
+
+        # Audio Spectrogram
+        main_layout.addWidget(QLabel("Spectrogram of audio goes here"))
+
+        # Filters Section
+        filters_group = QGroupBox("Filters")
+        filters_layout = QVBoxLayout()
+        # Placeholder for future filter controls
+        filters_layout.addWidget(QLabel("Filter options will appear here."))
+        filters_group.setLayout(filters_layout)
+        main_layout.addWidget(filters_group)
+
+        # Placeholder for additional vertical sections
+        main_layout.addWidget(QLabel("Additional sections go here..."))
+
+        create_tab_widget.setLayout(main_layout)
 
         ############################################################
         #                                                          #
@@ -1180,7 +1331,23 @@ class FireworkShowApp(QMainWindow):
         layout.addWidget(waveform_container)
 
         layout.addWidget(self.preview_widget, stretch=0, alignment=Qt.AlignmentFlag.AlignBottom)
-        layout.addWidget(self.fireworks_canvas_container)
+        # Add a tabbed window with Preview and Create tabs
+
+        tab_widget = QTabWidget()
+        tab_widget.setTabPosition(QTabWidget.TabPosition.North)
+        tab_widget.setStyleSheet("""
+            QTabWidget::pane { border: 1px solid #444657; background: #23242b; }
+            QTabBar::tab { background: #31323a; color: #ffd700; border: 1px solid #444657; border-radius: 4px; min-width: 120px; min-height: 32px; font-size: 13px; }
+            QTabBar::tab:selected { background: #23242b; color: #ffd700; border: 1.2px solid #ffd700; }
+            QTabBar::tab:hover { background: #49505a; color: #ffd700; }
+        """)
+
+        # First tab: Preview (fireworks_canvas_container)
+        tab_widget.addTab(self.fireworks_canvas_container, "Preview")
+
+        tab_widget.addTab(create_tab_widget, "Create")
+
+        layout.addWidget(tab_widget)
         
         ###########################################################
         #                                                         #
@@ -1205,21 +1372,13 @@ class FireworkShowApp(QMainWindow):
 
     def plot_waveform(self, current_legend=None):
         audio_to_plot = self.audio_data
-        if hasattr(self, "filter") and self.filter is not None and self.audio_data is not None and self.sr is not None:
-            try:
-                self.filter = {"instance": AudioFilter(self.sr), "type": "lowpass", "kwargs": {"cutoff": 3000, "order": 5}}
-                filter_instance = self.filter.get("instance")
-                filter_type = self.filter.get("type")
-                filter_kwargs = self.filter.get("kwargs", {})
-                if filter_instance is not None and filter_type is not None:
-                    audio_to_plot = filter_instance.apply(self.audio_data, self.filter_type, self.cutoff, self.order)
-            except Exception as e:
-                # If filter fails, fallback to original audio
-                audio_to_plot = self.audio_data
 
         ax = self.waveform_canvas.figure.axes[0]
         ax.clear()  # Clear the previous plot
         if audio_to_plot is not None:
+            if hasattr(self, "filter") and self.filter is not None:
+                # Apply the filter to the audio data
+                audio_to_plot = self.filter["instance"].apply(audio_to_plot, self.filter["type"], **self.filter["kwargs"])
             # Create time axis in seconds
             times = np.linspace(0, len(audio_to_plot) / self.sr, num=len(audio_to_plot))  # type: ignore
             # Downsample for dense signals to avoid smudging
