@@ -1,6 +1,5 @@
-from PyQt6.QtWidgets import QApplication, QMainWindow
 from PyQt6.QtOpenGLWidgets import QOpenGLWidget
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import QTimer
 from OpenGL.GL import (
     glClearColor, glPointSize, glEnable, glBlendFunc, glClear, glLoadIdentity,
     glBegin, glColor3f, glVertex2f, glEnd, glViewport, glMatrixMode,
