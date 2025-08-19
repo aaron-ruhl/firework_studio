@@ -35,7 +35,8 @@ class WaveformSelectionTool:
             self.main_window.status_bar.showMessage(self.main_window.firework_show_info)
         # Reactivate the span selector for new selections
         self.span.set_active(True)
-        self.main_window.update_firework_show_info()
+        if self.main_window and hasattr(self.main_window, "update_firework_show_info"):
+            self.main_window.update_firework_show_info()
 
     def update_original_limits(self):
         """Update the stored original x-limits to match current axis limits"""

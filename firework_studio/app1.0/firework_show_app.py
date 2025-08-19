@@ -1191,7 +1191,7 @@ class FireworkShowApp(QMainWindow):
                 audio_to_plot = self.audio_data
 
         ax = self.waveform_canvas.figure.axes[0]
-        ax.clear()
+        ax.clear()  # Clear the previous plot
         if audio_to_plot is not None:
             # Create time axis in seconds
             times = np.linspace(0, len(audio_to_plot) / self.sr, num=len(audio_to_plot))  # type: ignore
@@ -1218,6 +1218,9 @@ class FireworkShowApp(QMainWindow):
                     if t is not None and isinstance(t, (int, float)) and np.isfinite(t):
                         ax.axvline(x=t, color="#ffd700", linestyle="--", linewidth=1.2, alpha=0.9)
             self.waveform_canvas.draw_idle()  # Ensure segment lines are drawn
+            # Update the waveform selector's original limits after redraw
+            if hasattr(self, 'waveform_selector'):
+                self.waveform_selector.update_original_limits()
             if self.duration is not None and self.sr is not None:
                 ax.set_xlim(0, self.duration)
             elif audio_to_plot is not None and self.sr is not None:
@@ -1250,6 +1253,9 @@ class FireworkShowApp(QMainWindow):
                 self.handle_peaks(self.peaks)  # Reapply peaks if needed
 
         self.waveform_canvas.draw_idle()
+        # Update the waveform selector's original limits after redraw
+        if hasattr(self, 'waveform_selector'):
+            self.waveform_selector.update_original_limits()
         
     def update_firework_show_info(self):
         # Updates the variable called firework_show_info, not the actual show.
@@ -1298,9 +1304,15 @@ class FireworkShowApp(QMainWindow):
         toolbar.addAction(action)
 
     def handle_segments(self, segment_times): 
-        if self.segment_times == []:
-            self.segment_times = segment_times
-            
+        # Always update self.segments with the new segments
+        # Append new segments to self.segments, avoiding duplicates
+        if self.segment_times is None or self.segment_times == []:
+            self.segment_times = list(segment_times)
+        else:
+            # Only add segments not already present
+            new_segments = [s for s in segment_times if s not in self.segment_times]
+            self.segment_times.extend(new_segments)
+
         ax = self.waveform_canvas.figure.axes[0]
         # Remove previous segment lines (by clearing and replotting)
         # Only plot one legend entry for all segments
@@ -1344,10 +1356,19 @@ class FireworkShowApp(QMainWindow):
             self._segments_toast_shown = True
         self.update_firework_show_info()  # Update info with new segment count
         self.waveform_canvas.draw_idle()
+        # Update the waveform selector's original limits after redraw
+        if hasattr(self, 'waveform_selector'):
+            self.waveform_selector.update_original_limits()
 
     def handle_interesting_points(self, points):
-        if self.points == []:
-            self.points = points
+        # Always update self.points with the new points
+        # Append new points to self.points, avoiding duplicates
+        if self.points is None or self.points == []:
+            self.points = list(points)
+        else:
+            # Only add points not already present
+            new_points = [p for p in points if p not in self.points]
+            self.points.extend(new_points)
 
         ax = self.waveform_canvas.figure.axes[0]
         # Only plot one legend entry for all interesting points
@@ -1385,11 +1406,19 @@ class FireworkShowApp(QMainWindow):
             show_interesting_toast()
             self._interesting_points_toast_shown = True
         self.waveform_canvas.draw_idle()
+        # Update the waveform selector's original limits after redraw
+        if hasattr(self, 'waveform_selector'):
+            self.waveform_selector.update_original_limits()
 
     def handle_onsets(self, onsets):
-        # Optionally, mark these onsets on the waveform
-        if self.onsets == []:
-            self.onsets = onsets
+        # Always update self.onsets with the new onsets
+        # Append new onsets to self.onsets, avoiding duplicates
+        if self.onsets is None or self.onsets == []:
+            self.onsets = list(onsets)
+        else:
+            # Only add onsets not already present
+            new_onsets = [o for o in onsets if o not in self.onsets]
+            self.onsets.extend(new_onsets)
 
         ax = self.waveform_canvas.figure.axes[0]
         # Only plot one legend entry for all onsets
@@ -1429,6 +1458,9 @@ class FireworkShowApp(QMainWindow):
             self._onsets_toast_shown = True
 
         self.waveform_canvas.draw_idle()
+        # Update the waveform selector's original limits after redraw
+        if hasattr(self, 'waveform_selector'):
+            self.waveform_selector.update_original_limits()
 
     def handle_peaks(self, peaks):
         # Always update self.peaks with the new peaks
@@ -1478,3 +1510,6 @@ class FireworkShowApp(QMainWindow):
             self._peaks_toast_shown = True
 
         self.waveform_canvas.draw_idle()
+        # Update the waveform selector's original limits after redraw
+        if hasattr(self, 'waveform_selector'):
+            self.waveform_selector.update_original_limits()

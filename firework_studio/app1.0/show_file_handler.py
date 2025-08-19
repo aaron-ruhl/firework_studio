@@ -257,7 +257,7 @@ class ShowFileHandler:
                     fw_canvas.add_firework(handle)
 
             # this is setting up analysis and plotting to mimic load audio functionality
-            self.main_window.analyzer = AudioAnalysis(audio_data,audio_datas, sr)
+            self.main_window.analyzer = AudioAnalysis(audio_data,audio_datas, sr, duration)
             self.main_window.audio_loader.connect_analysis_signals()
             self.main_window.plot_waveform()
 
