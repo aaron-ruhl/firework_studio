@@ -34,9 +34,9 @@ class AudioLoaderThread(QThread):
                 path_str = str(path)
                 if path_str.lower().endswith('.npy'):
                     audio_data = np.load(path_str)
-                    sr = self.sr if self.sr is not None else 41000
+                    sr = self.sr if self.sr is not None else 16000
                 else:
-                    sr = self.sr if self.sr is not None else 41000
+                    sr = self.sr if self.sr is not None else 16000
                     audio_data, _ = librosa.load(path_str, sr=sr, mono=True)
                 audio_datas.append(audio_data)
             except Exception as e:
