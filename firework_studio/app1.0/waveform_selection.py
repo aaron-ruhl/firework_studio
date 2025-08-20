@@ -18,6 +18,7 @@ class WaveformSelectionTool:
         self.selected_region = None
         self.main_window = main_window
         self._original_xlim = self.ax.get_xlim()
+        self._original_xlim_spectrogram = self.main_window.spectrogram_ax.get_xlim()
 
     def clear_selection(self, redraw=True):
         # Remove the highlighted selection area and restore original limits
@@ -44,6 +45,7 @@ class WaveformSelectionTool:
         if hasattr(self.canvas, 'figure') and hasattr(self.canvas.figure, 'axes') and self.canvas.figure.axes:
             self.ax = self.canvas.figure.axes[0]
         self._original_xlim = self.ax.get_xlim()
+        self._original_xlim_spectrogram = self.main_window.spectrogram_ax.get_xlim()
 
     def on_select(self, xmin, xmax):
         if abs(xmax - xmin) < 0.05:
@@ -69,6 +71,10 @@ class WaveformSelectionTool:
             if self.main_window and hasattr(self.main_window, 'analyzer') and self.main_window.analyzer:
                 self.main_window.analyzer.set_selected_region((xmin, xmax))
             self.main_window.preview_widget.update()
-            self.main_window.plot_spectrogram(start, end)
+            # Set waveform and spectrogram limits without triggering a redraw here
             self.ax.set_xlim(xmin, xmax)
+            self.main_window.spectrogram_ax.set_xlim((xmin, xmax))
+            if hasattr(self.main_window, "spectrogram_canvas"):
+                self.main_window.spectrogram_canvas.draw_idle()
+            # Do not call draw/redraw here; let self.canvas.draw_idle() below handle it
             self.canvas.draw_idle()
