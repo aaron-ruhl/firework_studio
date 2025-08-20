@@ -312,6 +312,34 @@ class FireworkShowApp(QMainWindow):
             }
         """
 
+        ############################################################
+        #                                                          #
+        #        Fireworks Display Preview                         #
+        #                                                          #
+        ############################################################
+
+        # Fireworks preview widget
+        self.preview_widget = FireworkPreviewWidget()
+        self.preview_widget.setFixedHeight(80)
+        # Enable mouse press tracking for the preview widget
+        self.preview_widget.setMouseTracking(True)
+
+        # If the user is dragging the playhead, set play_pause_btn to "Play"
+        def on_dragging_playhead(event_type):
+            if event_type == "dragging_playhead":
+                self.play_pause_btn.blockSignals(True)
+                self.play_pause_btn.setChecked(False)
+                self.play_pause_btn.setIcon(QIcon(os.path.join("icons", "play.png")))
+                self.play_pause_btn.blockSignals(False)
+
+        # Override the preview_widget's mouseMoveEvent to call on_dragging_playhead
+        original_mouse_release_event = self.preview_widget.mouseReleaseEvent
+        def custom_mouse_release_event(event):
+            if self.preview_widget.dragging_playhead:
+                on_dragging_playhead("dragging_playhead")
+            original_mouse_release_event(event)
+        self.preview_widget.mouseReleaseEvent = custom_mouse_release_event
+
         #############################################################
         #                                                          #
         #        Fireworks Display Screen                          #
@@ -346,8 +374,11 @@ class FireworkShowApp(QMainWindow):
         # This will be the "Create" tab content
 
         create_tab_widget = QWidget()
-        # Advanced settings page styling for "Create" tab
-        create_tab_widget.setStyleSheet("""
+
+        # Create a scroll area for the tab content
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setStyleSheet("""
             QWidget {
             background-color: #23242b;
             color: #ffd700;
@@ -436,24 +467,21 @@ class FireworkShowApp(QMainWindow):
             border: 2px solid #ffd700;
             }
             QTabBar::tab:hover {
-            background: #fffbe6;
+            background-color: #fffbe6;
             color: #23242b;
             }
         """)
 
-        # Create a scroll area for the tab content
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setStyleSheet("background-color: #23242b; border: none;")
-
         # Create the actual content widget and layout
         content_widget = QWidget()
         main_layout = QVBoxLayout(content_widget)
+        main_layout.setContentsMargins(0, 0, 0, 0)  # Remove left/right margins
+        content_widget.setContentsMargins(0, 0, 0, 0)  # Remove left/right margins
+
         # Create a spectrogram canvas with clear formatting for readability
         self.spectrogram_canvas = FigureCanvas(Figure(figsize=(8, 2.5)))
         self.spectrogram_canvas.setFixedHeight(260)
         self.spectrogram_ax = self.spectrogram_canvas.figure.subplots()
-        # Set dark background and gold text for axes and title
         self.spectrogram_ax.set_facecolor('#181a20')
         self.spectrogram_canvas.figure.set_facecolor('#23242b')
         self.spectrogram_ax.set_title("Spectrogram", color="#ffd700", fontsize=14, pad=12)
@@ -462,13 +490,29 @@ class FireworkShowApp(QMainWindow):
         self.spectrogram_ax.tick_params(axis='x', colors='#ffd700', labelsize=10)
         self.spectrogram_ax.tick_params(axis='y', colors='#ffd700', labelsize=10)
         self.spectrogram_ax.grid(False)
-        self.spectrogram_canvas.setStyleSheet("background-color: #23242b; border-radius: 8px;")
+        self.spectrogram_canvas.setStyleSheet("background-color: #23242b")
 
         main_layout.addWidget(self.spectrogram_canvas)
 
+        # Add a professional label for "Analysis Settings"
+        analysis_label = QLabel("Analysis Settings")
+        analysis_label.setStyleSheet("""
+            QLabel {
+                color: #ffd700;
+                font-size: 20px;
+                font-weight: bold;
+                letter-spacing: 1px;
+                padding: 8px 0 12px 0;
+                border-bottom: 2px solid #ffd700;
+                margin-bottom: 12px;
+                background: transparent;
+            }
+        """)
+        analysis_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        main_layout.addWidget(analysis_label)
         # Responsive horizontal layout for analysis section
         analysis_section = QHBoxLayout()
-        analysis_section.setSpacing(24)
+        analysis_section.setSpacing(12)
         analysis_section.setContentsMargins(0, 0, 0, 0)
         # --- Segment Settings ---
         segment_group = QGroupBox("Segment Settings")
@@ -542,7 +586,6 @@ class FireworkShowApp(QMainWindow):
         backtrack_box.setMinimumWidth(80)
         backtrack_box.setMaximumWidth(120)
         backtrack_box.setStyleSheet("font-size: 10px;")
-        # Add a nicely formatted label for Backtrack
         backtrack_label = QLabel(
             "<b>Backtrack:</b><br>"
             "This is primarily useful when using onsets as slice points for segmentation.<br>"
@@ -752,39 +795,13 @@ class FireworkShowApp(QMainWindow):
 
         content_widget.setLayout(main_layout)
         scroll_area.setWidget(content_widget)
+        scroll_area.setContentsMargins(0, 0, 0, 0)
         # Set the scroll area as the only child of the tab widget
         create_tab_widget_layout = QVBoxLayout(create_tab_widget)
-        create_tab_widget_layout.setContentsMargins(0, 0, 0, 0)
+        create_tab_widget_layout.setContentsMargins(0, 8, 0, 8)
         create_tab_widget_layout.addWidget(scroll_area)
         create_tab_widget.setLayout(create_tab_widget_layout)
-
-        ############################################################
-        #                                                          #
-        #        Fireworks Display Preview                         #
-        #                                                          #
-        ############################################################
-
-        # Fireworks preview widget
-        self.preview_widget = FireworkPreviewWidget()
-        self.preview_widget.setFixedHeight(80)
-        # Enable mouse press tracking for the preview widget
-        self.preview_widget.setMouseTracking(True)
-
-        # If the user is dragging the playhead, set play_pause_btn to "Play"
-        def on_dragging_playhead(event_type):
-            if event_type == "dragging_playhead":
-                self.play_pause_btn.blockSignals(True)
-                self.play_pause_btn.setChecked(False)
-                self.play_pause_btn.setIcon(QIcon(os.path.join("icons", "play.png")))
-                self.play_pause_btn.blockSignals(False)
-
-        # Override the preview_widget's mouseMoveEvent to call on_dragging_playhead
-        original_mouse_release_event = self.preview_widget.mouseReleaseEvent
-        def custom_mouse_release_event(event):
-            if self.preview_widget.dragging_playhead:
-                on_dragging_playhead("dragging_playhead")
-            original_mouse_release_event(event)
-        self.preview_widget.mouseReleaseEvent = custom_mouse_release_event
+        create_tab_widget.setContentsMargins(0, 0, 0, 0)
 
         ###########################################################
         #                                                         #

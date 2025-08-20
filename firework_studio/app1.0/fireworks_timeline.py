@@ -33,9 +33,12 @@ class FireworkTimelineRenderer:
         if not hasattr(self, '_handle_color_stack') or not self._handle_color_stack:
             self._handle_color_stack = list(self.handle_colors)
         return self._handle_color_stack.pop()
-
+    
+    def get_width_and_height(self):
+        return self.fireworks_preview.width(), self.fireworks_preview.height()
+    
     def draw(self, painter):
-        w, h = self.fireworks_preview.width(), self.fireworks_preview.height()
+        w, h = self.get_width_and_height()
         left_margin = 40
         right_margin = 40
         top_margin = 30
