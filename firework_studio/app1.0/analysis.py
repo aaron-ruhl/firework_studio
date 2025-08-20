@@ -275,7 +275,7 @@ class AudioAnalysis(QThread):
             return peaks
 
         # First derivative approximation
-        first_deriv = np.gradient(audio_data_region)
+        first_deriv = np.gradient(audio_data_region, edge_order=2)
 
         # Find zero crossings in first derivative (potential extrema)
         zero_crossings = np.where(np.diff(np.sign(first_deriv)))[0]
@@ -298,14 +298,18 @@ class AudioAnalysis(QThread):
         
         # set the duration to selected region if available
         duration = self.duration if self.selected_region is None else selected_duration
+
         # Set the min and max amount of peaks based on settings
-        target_peaks = max(self.min_peaks, min(self.max_peaks, int(duration // 3)))
-        # Choose "target_peaks" of the top indices
-        top_indices = np.argsort(scores)[::-1][:target_peaks]
-        extrema_indices = zero_crossings[top_indices]
+        target_peaks = max(self.min_peaks, min(self.max_peaks, len(zero_crossings), int(duration // 3)))
+        # If there are fewer zero crossings than target_peaks, use all of them
+        if len(zero_crossings) <= target_peaks:
+            extrema_indices = zero_crossings
+        else:
+            top_indices = np.argsort(scores)[::-1][:target_peaks]
+            extrema_indices = zero_crossings[top_indices]
 
         # Round and deduplicate
-        rounded_indices = np.unique(np.round(extrema_indices).astype(int))
+        rounded_indices = np.unique(np.round(extrema_indices, 2).astype(int))
 
         # Refine using Newton's method
         refined_indices = []

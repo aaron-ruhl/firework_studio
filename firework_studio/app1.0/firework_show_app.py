@@ -514,6 +514,7 @@ class FireworkShowApp(QMainWindow):
         analysis_section = QHBoxLayout()
         analysis_section.setSpacing(12)
         analysis_section.setContentsMargins(0, 0, 0, 0)
+        
         # --- Segment Settings ---
         segment_group = QGroupBox("Segment Settings")
         segment_layout = QVBoxLayout()
