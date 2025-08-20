@@ -23,6 +23,9 @@ from toaster import ToastDialog
 from waveform_selection import WaveformSelectionTool
 from show_file_handler import ShowFileHandler
 from PyQt6.QtWidgets import QTabWidget
+from PyQt6.QtWidgets import QLineEdit
+from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QSpinBox, QDoubleSpinBox, QPushButton
+from filters import AudioFilter
 
 '''THIS IS THE MAIN VIEW FOR THE FIREWORK STUDIO APPLICATION'''
 class FireworkShowApp(QMainWindow):
@@ -435,34 +438,283 @@ class FireworkShowApp(QMainWindow):
             }
         """)
         main_layout = QVBoxLayout(create_tab_widget)
-        
-        # Analysis Adjustment Section (Horizontal)
+
+        # Responsive horizontal layout for analysis section
         analysis_section = QHBoxLayout()
-        # Segment Settings
+        analysis_section.setSpacing(24)
+        analysis_section.setContentsMargins(0, 0, 0, 0)
+        # --- Segment Settings ---
         segment_group = QGroupBox("Segment Settings")
         segment_layout = QVBoxLayout()
-        # Placeholder for future dropdowns/checkboxes
-        segment_layout.addWidget(QLabel(" "))
+        min_segments_spin = QSpinBox()
+        min_segments_spin.setRange(1, 50)
+        min_segments_spin.setValue(2)
+        min_segments_spin.setPrefix("Min: ")
+        min_segments_spin.setStyleSheet("font-size: 10px;")
+        segment_layout.addWidget(min_segments_spin)
+        max_segments_spin = QSpinBox()
+        max_segments_spin.setRange(2, 50)
+        max_segments_spin.setValue(12)
+        max_segments_spin.setPrefix("Max: ")
+        max_segments_spin.setStyleSheet("font-size: 10px;")
+        segment_layout.addWidget(max_segments_spin)
+        n_mfcc_spin = QSpinBox()
+        n_mfcc_spin.setRange(1, 40)
+        n_mfcc_spin.setValue(13)
+        n_mfcc_spin.setPrefix("MFCC: ")
+        n_mfcc_spin.setStyleSheet("font-size: 10px;")
+        segment_layout.addWidget(n_mfcc_spin)
+        dct_type_spin = QSpinBox()
+        dct_type_spin.setRange(1, 4)
+        dct_type_spin.setValue(2)
+        dct_type_spin.setPrefix("DCT: ")
+        dct_type_spin.setStyleSheet("font-size: 10px;")
+        segment_layout.addWidget(dct_type_spin)
+        n_fft_spin = QSpinBox()
+        n_fft_spin.setRange(256, 8192)
+        n_fft_spin.setValue(2048)
+        n_fft_spin.setPrefix("FFT: ")
+        n_fft_spin.setStyleSheet("font-size: 10px;")
+        segment_layout.addWidget(n_fft_spin)
+        hop_length_segments_spin = QSpinBox()
+        hop_length_segments_spin.setRange(64, 4096)
+        hop_length_segments_spin.setValue(512)
+        hop_length_segments_spin.setPrefix("Hop: ")
+        hop_length_segments_spin.setStyleSheet("font-size: 10px;")
+        segment_layout.addWidget(hop_length_segments_spin)
         segment_group.setLayout(segment_layout)
+        segment_group.setMinimumWidth(220)
+        segment_group.setMaximumWidth(260)
         analysis_section.addWidget(segment_group)
-        # Onset Settings
+
+        # --- Onset Settings ---
         onset_group = QGroupBox("Onset Settings")
         onset_layout = QVBoxLayout()
-        onset_layout.addWidget(QLabel(" "))
+        min_onsets_spin = QSpinBox()
+        min_onsets_spin.setRange(1, 100)
+        min_onsets_spin.setValue(5)
+        min_onsets_spin.setPrefix("Min: ")
+        min_onsets_spin.setStyleSheet("font-size: 10px;")
+        onset_layout.addWidget(min_onsets_spin)
+        max_onsets_spin = QSpinBox()
+        max_onsets_spin.setRange(1, 100)
+        max_onsets_spin.setValue(20)
+        max_onsets_spin.setPrefix("Max: ")
+        max_onsets_spin.setStyleSheet("font-size: 10px;")
+        onset_layout.addWidget(max_onsets_spin)
+        hop_length_onsets_spin = QSpinBox()
+        hop_length_onsets_spin.setRange(64, 4096)
+        hop_length_onsets_spin.setValue(512)
+        hop_length_onsets_spin.setPrefix("Hop: ")
+        hop_length_onsets_spin.setStyleSheet("font-size: 10px;")
+        onset_layout.addWidget(hop_length_onsets_spin)
+        backtrack_box = QComboBox()
+        backtrack_box.addItems(["True", "False"])
+        backtrack_box.setCurrentIndex(0)
+        backtrack_box.setEditable(False)
+        backtrack_box.setMinimumWidth(80)
+        backtrack_box.setMaximumWidth(120)
+        backtrack_box.setStyleSheet("font-size: 10px;")
+        # Add a nicely formatted label for Backtrack
+        backtrack_label = QLabel(
+            "<b>Backtrack:</b><br>"
+            "This is primarily useful when using onsets as slice points for segmentation.<br>"
+            "If enabled, detected onsets are shifted to the nearest preceding peak in the signal."
+        )
+        backtrack_label.setWordWrap(True)
+        backtrack_label.setStyleSheet("font-size: 11px; color: #ffd700; padding: 2px 0;")
+        backtrack_label.setMinimumHeight(9)
+        onset_layout.addWidget(backtrack_label)
+        onset_layout.addWidget(backtrack_box)
+        normalize_box = QComboBox()
+        normalize_box.addItems(["True", "False"])
+        normalize_box.setCurrentIndex(1)
+        normalize_box.setEditable(False)
+        normalize_box.setMinimumWidth(80)
+        normalize_box.setMaximumWidth(120)
+        normalize_box.setStyleSheet("font-size: 10px;")
+        onset_layout.addWidget(QLabel("Normalize:"))
+        onset_layout.addWidget(normalize_box)
         onset_group.setLayout(onset_layout)
+        onset_group.setMinimumWidth(220)
+        onset_group.setMaximumWidth(260)
         analysis_section.addWidget(onset_group)
-        # Interesting Points Settings
+
+        # --- Interesting Points Settings ---
         points_group = QGroupBox("Interesting Points Settings")
         points_layout = QVBoxLayout()
-        points_layout.addWidget(QLabel(" "))
+        min_points_spin = QSpinBox()
+        min_points_spin.setRange(1, 100)
+        min_points_spin.setValue(5)
+        min_points_spin.setPrefix("Min: ")
+        min_points_spin.setStyleSheet("font-size: 10px;")
+        points_layout.addWidget(min_points_spin)
+        max_points_spin = QSpinBox()
+        max_points_spin.setRange(1, 100)
+        max_points_spin.setValue(20)
+        max_points_spin.setPrefix("Max: ")
+        max_points_spin.setStyleSheet("font-size: 10px;")
+        points_layout.addWidget(max_points_spin)
+        pre_max_spin = QSpinBox()
+        pre_max_spin.setRange(0, 20)
+        pre_max_spin.setValue(3)
+        pre_max_spin.setPrefix("PreMax: ")
+        pre_max_spin.setStyleSheet("font-size: 10px;")
+        points_layout.addWidget(pre_max_spin)
+        post_max_spin = QSpinBox()
+        post_max_spin.setRange(0, 20)
+        post_max_spin.setValue(3)
+        post_max_spin.setPrefix("PostMax: ")
+        post_max_spin.setStyleSheet("font-size: 10px;")
+        points_layout.addWidget(post_max_spin)
+        pre_avg_distance_spin = QSpinBox()
+        pre_avg_distance_spin.setRange(0, 20)
+        pre_avg_distance_spin.setValue(3)
+        pre_avg_distance_spin.setPrefix("PreAvgDist: ")
+        pre_avg_distance_spin.setStyleSheet("font-size: 10px;")
+        points_layout.addWidget(pre_avg_distance_spin)
+        post_avg_distance_spin = QSpinBox()
+        post_avg_distance_spin.setRange(0, 20)
+        post_avg_distance_spin.setValue(5)
+        post_avg_distance_spin.setPrefix("PostAvgDist: ")
+        post_avg_distance_spin.setStyleSheet("font-size: 10px;")
+        points_layout.addWidget(post_avg_distance_spin)
+        delta_spin = QSpinBox()
+        delta_spin.setRange(0, 100)
+        delta_spin.setValue(5)
+        delta_spin.setPrefix("Delta x0.1: ")
+        delta_spin.setStyleSheet("font-size: 10px;")
+        points_layout.addWidget(delta_spin)
+        moving_avg_wait_spin = QSpinBox()
+        moving_avg_wait_spin.setRange(0, 20)
+        moving_avg_wait_spin.setValue(5)
+        moving_avg_wait_spin.setPrefix("MA Wait: ")
+        moving_avg_wait_spin.setStyleSheet("font-size: 10px;")
+        points_layout.addWidget(moving_avg_wait_spin)
         points_group.setLayout(points_layout)
+        points_group.setMinimumWidth(220)
+        points_group.setMaximumWidth(260)
         analysis_section.addWidget(points_group)
-        # Peak Settings
+
+        # --- Peak Settings ---
         peak_group = QGroupBox("Peak Settings")
         peak_layout = QVBoxLayout()
-        peak_layout.addWidget(QLabel(" "))
+        min_peaks_spin = QSpinBox()
+        min_peaks_spin.setRange(1, 100)
+        min_peaks_spin.setValue(5)
+        min_peaks_spin.setPrefix("Min: ")
+        min_peaks_spin.setStyleSheet("font-size: 10px;")
+        peak_layout.addWidget(min_peaks_spin)
+        max_peaks_spin = QSpinBox()
+        max_peaks_spin.setRange(1, 100)
+        max_peaks_spin.setValue(20)
+        max_peaks_spin.setPrefix("Max: ")
+        max_peaks_spin.setStyleSheet("font-size: 10px;")
+        peak_layout.addWidget(max_peaks_spin)
+        scoring_box = QComboBox()
+        scoring_box.addItems(["absolute", "relative", "sharp", "custom"])
+        scoring_box.setCurrentIndex(0)
+        scoring_box.setMinimumWidth(100)
+        scoring_box.setMaximumWidth(140)
+        scoring_box.setStyleSheet("font-size: 10px;")
+        label = QLabel(
+            "<b>Scoring:</b><br>"
+            "This enables the user to set the scoring method used to determine which peaks to keep.<br>"
+            "<b>Current options:</b> <code>absolute</code>, <code>relative</code>, <code>sharp</code>, <code>custom</code>."
+        )
+        label.setWordWrap(True)
+        label.setStyleSheet("font-size: 11px; color: #ffd700; padding: 2px 0;")
+        label.setMinimumHeight(9)
+        peak_layout.addWidget(label)
+        peak_layout.addWidget(scoring_box)
+        custom_function_edit = QLineEdit()
+        custom_function_edit.setPlaceholderText("custom_scoring_method(audio_data_region, zero_crossings)")
+        custom_function_edit.setStyleSheet("font-size: 10px;")
+        label = QLabel(
+            "<b>Custom Function:</b><br>"
+            "Define a lambda function for custom peak scoring.<br>"
+            "Example: <br><code>lambda audio_data_region, zero_crossings: np.abs(audio_data_region[zero_crossings])</code><br>"
+            "<b>Arguments:</b>"
+            "<ul>"
+            "<li><b>audio_data_region</b>: The audio currently selected by the user.</li>"
+            "<li><b>zero_crossings</b>: Locations of detected zero crossings (all found peaks).</li>"
+            "</ul>"
+        )
+        label.setWordWrap(True)
+        label.setStyleSheet("font-size: 11px; color: #ffd700; padding: 2px 0;")
+        label.setMinimumHeight(9)
+        peak_layout.addWidget(label)
+        peak_layout.addWidget(custom_function_edit)
         peak_group.setLayout(peak_layout)
-        analysis_section.addWidget(peak_group)
+        peak_group.setMinimumWidth(280)
+        peak_group.setMaximumWidth(400)
+        analysis_section.addWidget(peak_group, stretch=2)
+
+        # --- Connect fields to analyzer setters ---
+        def update_segment_settings():
+                if self.analyzer is not None:
+                    self.analyzer.set_segment_settings(
+                        n_mfcc=n_mfcc_spin.value(),
+                        min_segments=min_segments_spin.value(),
+                        max_segments=max_segments_spin.value(),
+                        dct_type=dct_type_spin.value(),
+                        n_fft=n_fft_spin.value(),
+                        hop_length_segments=hop_length_segments_spin.value()
+                    )
+        for spin in [n_mfcc_spin, min_segments_spin, max_segments_spin, dct_type_spin, n_fft_spin, hop_length_segments_spin]:
+            spin.valueChanged.connect(update_segment_settings)
+
+        def update_onset_settings():
+                if self.analyzer is not None:
+                    self.analyzer.set_onset_settings(
+                        min_onsets=min_onsets_spin.value(),
+                        max_onsets=max_onsets_spin.value(),
+                        hop_length_onsets=hop_length_onsets_spin.value(),
+                        backtrack=backtrack_box.currentText() == "True",
+                        normalize=normalize_box.currentText() == "True"
+                    )
+        for spin in [min_onsets_spin, max_onsets_spin, hop_length_onsets_spin]:
+            spin.valueChanged.connect(update_onset_settings)
+        backtrack_box.currentIndexChanged.connect(update_onset_settings)
+        normalize_box.currentIndexChanged.connect(update_onset_settings)
+
+        def update_points_settings():
+            if self.analyzer is not None:
+                self.analyzer.set_interesting_points_settings(
+                    min_points=min_points_spin.value(),
+                    max_points=max_points_spin.value(),
+                    pre_max=pre_max_spin.value(),
+                    post_max=post_max_spin.value(),
+                    pre_avg_distance=pre_avg_distance_spin.value(),
+                    post_avg_distance=post_avg_distance_spin.value(),
+                    delta=delta_spin.value() * 0.1,
+                    moving_avg_wait=moving_avg_wait_spin.value()
+                )
+        for spin in [min_points_spin, max_points_spin, pre_max_spin, post_max_spin, pre_avg_distance_spin, post_avg_distance_spin, delta_spin, moving_avg_wait_spin]:
+            spin.valueChanged.connect(update_points_settings)
+
+        def update_peak_settings():
+            custom_func = None
+            text = custom_function_edit.text().strip()
+            if text:
+                try:
+                    # Only allow lambda expressions for safety
+                    if text.startswith("lambda"):
+                        custom_func = eval(text, {"__builtins__": {}}, {})
+                except Exception:
+                    custom_func = None
+            if self.analyzer is not None:
+                self.analyzer.set_peak_settings(
+                    min_peaks=min_peaks_spin.value(),
+                    max_peaks=max_peaks_spin.value(),
+                    scoring=scoring_box.currentText(),
+                    custom_scoring_method=custom_func
+                )
+        for spin in [min_peaks_spin, max_peaks_spin]:
+            spin.valueChanged.connect(update_peak_settings)
+        scoring_box.currentIndexChanged.connect(update_peak_settings)
+        custom_function_edit.textChanged.connect(update_peak_settings)
+
         # Add the horizontal analysis section to the main vertical layout
         main_layout.addLayout(analysis_section)
 
@@ -829,9 +1081,9 @@ class FireworkShowApp(QMainWindow):
         self.clear_btn = create_clear_btn()
         
         ############################################################
-        #                                                         #
-        #              Add info status bar                        #
-        #                                                         #
+        #                                                          #
+        #                       Status Bar                         #
+        #                                                          #
         ############################################################
         # Add info label to display audio loading status
         self.status_bar = QStatusBar()
@@ -1058,6 +1310,134 @@ class FireworkShowApp(QMainWindow):
 
         if analysis_menu is not None:
             analysis_menu.addAction(maxima_action)
+
+        # Add "Apply Filter" action to Analysis menu
+        apply_filter_action = QAction("Apply Filter...", self)
+        apply_filter_action.setShortcut("Ctrl+F")
+
+        def open_filter_dialog():
+
+            class FilterDialog(QDialog):
+                def __init__(self, parent=None):
+                    super().__init__(parent)
+                    self.setWindowTitle("Apply Audio Filter")
+                    self.setMinimumWidth(320)
+                    layout = QVBoxLayout(self)
+
+                    # Filter type
+                    layout.addWidget(QLabel("Filter Type:"))
+                    self.type_box = QComboBox()
+                    self.type_box.addItems(["lowpass", "highpass", "bandpass"])
+                    layout.addWidget(self.type_box)
+
+                    # Order
+                    layout.addWidget(QLabel("Order:"))
+                    self.order_spin = QSpinBox()
+                    self.order_spin.setRange(1, 12)
+                    self.order_spin.setValue(4)
+                    layout.addWidget(self.order_spin)
+
+                    # Cutoff(s)
+                    self.cutoff_layout = QHBoxLayout()
+                    self.cutoff_label = QLabel("Cutoff Frequency (Hz):")
+                    self.cutoff_layout.addWidget(self.cutoff_label)
+                    self.cutoff_spin = QDoubleSpinBox()
+                    self.cutoff_spin.setRange(20, 20000)
+                    self.cutoff_spin.setValue(1000)
+                    self.cutoff_spin.setDecimals(1)
+                    self.cutoff_layout.addWidget(self.cutoff_spin)
+                    # For bandpass, add second cutoff
+                    self.cutoff_spin2 = QDoubleSpinBox()
+                    self.cutoff_spin2.setRange(20, 20000)
+                    self.cutoff_spin2.setValue(5000)
+                    self.cutoff_spin2.setDecimals(1)
+                    self.cutoff_spin2.setVisible(False)
+                    self.cutoff_layout.addWidget(self.cutoff_spin2)
+                    layout.addLayout(self.cutoff_layout)
+
+                    def update_cutoff_fields():
+                        filter_type = self.type_box.currentText()
+                        if filter_type == "bandpass":
+                            self.cutoff_label.setText("Cutoff Range (Hz):")
+                            self.cutoff_spin2.setVisible(True)
+                        else:
+                            self.cutoff_label.setText("Cutoff Frequency (Hz):")
+                            self.cutoff_spin2.setVisible(False)
+                    self.type_box.currentIndexChanged.connect(lambda _: update_cutoff_fields())
+
+                    # Buttons
+                    btn_layout = QHBoxLayout()
+                    ok_btn = QPushButton("Apply")
+                    cancel_btn = QPushButton("Cancel")
+                    btn_layout.addWidget(ok_btn)
+                    btn_layout.addWidget(cancel_btn)
+                    layout.addLayout(btn_layout)
+
+                    ok_btn.clicked.connect(self.accept)
+                    cancel_btn.clicked.connect(self.reject)
+
+                def get_values(self):
+                    filter_type = self.type_box.currentText()
+                    order = self.order_spin.value()
+                    if filter_type == "bandpass":
+                        lowcut = self.cutoff_spin.value()
+                        highcut = self.cutoff_spin2.value()
+                        # Ensure both are valid floats and lowcut < highcut
+                        if lowcut is None or highcut is None or not isinstance(lowcut, float) or not isinstance(highcut, float):
+                            cutoff = (1000.0, 5000.0)
+                        else:
+                            cutoff = (min(lowcut, highcut), max(lowcut, highcut))
+                    else:
+                        cutoff = self.cutoff_spin.value()
+                    return filter_type, order, cutoff
+
+            dialog = FilterDialog(self)
+            if dialog.exec():
+                filter_type, order, cutoff = dialog.get_values()
+                # Save filter settings to self
+                self.filter_type = filter_type
+                self.order = order
+                self.cutoff = cutoff
+                self.filter_kwargs = {"order": order, "cutoff": cutoff}
+                # Apply filter to audio_data and replot
+                if self.audio_data is not None and self.sr is not None:
+                    try:
+                        # Ensure self.filter is an instance of AudioFilter
+                        if self.filter is None or not hasattr(self.filter, "apply"):
+                            self.filter = AudioFilter(self.sr)  # Initialize filter with sample rate
+                        # Use lowercase for filter type comparison
+                        if filter_type.lower() in ["lowpass", "highpass", "bandpass"]:
+                            kwargs = {"sr": self.sr, "order": order}
+                            if filter_type.lower() == "bandpass":
+                                # cutoff is a tuple (lowcut, highcut)
+                                lowcut, highcut = cutoff if isinstance(cutoff, (tuple, list)) and len(cutoff) == 2 else (1000.0, 5000.0)
+                                kwargs["lowcut"] = lowcut
+                                kwargs["highcut"] = highcut
+                            else:
+                                kwargs["cutoff"] = cutoff
+                            filtered = self.filter.apply(self.audio_data, filter_type.lower(), **kwargs)
+                            self.audio_data = filtered
+                            self.plot_waveform()
+                            toast = ToastDialog(f"Applied {filter_type} filter!", parent=self)
+                            geo = self.geometry()
+                            x = geo.x() + geo.width() - toast.width() - 40
+                            y = geo.y() + geo.height() - toast.height() - 40
+                            toast.move(x, y)
+                            toast.show()
+                            QTimer.singleShot(2000, toast.close)
+                        else:
+                            toast = ToastDialog(f"Filter type '{filter_type}' is not supported.", parent=self)
+                            toast.show()
+                            QTimer.singleShot(2500, toast.close)
+                    except Exception as e:
+                        toast = ToastDialog(f"Filter error: {e}", parent=self)
+                        toast.show()
+                        QTimer.singleShot(2500, toast.close)
+                        
+
+        apply_filter_action.triggered.connect(open_filter_dialog)
+        if analysis_menu is not None:
+            analysis_menu.addAction(apply_filter_action)
             
        ###########################################################
        #                                                         #
@@ -1376,9 +1756,11 @@ class FireworkShowApp(QMainWindow):
         ax = self.waveform_canvas.figure.axes[0]
         ax.clear()  # Clear the previous plot
         if audio_to_plot is not None:
+            '''            # If a filter is applied, use it to process audio (currently not functional)
             if hasattr(self, "filter") and self.filter is not None:
                 # Apply the filter to the audio data
                 audio_to_plot = self.filter["instance"].apply(audio_to_plot, self.filter["type"], **self.filter["kwargs"])
+            '''
             # Create time axis in seconds
             times = np.linspace(0, len(audio_to_plot) / self.sr, num=len(audio_to_plot))  # type: ignore
             # Downsample for dense signals to avoid smudging
@@ -1486,9 +1868,9 @@ class FireworkShowApp(QMainWindow):
 
     def handle_segments(self, segment_times): 
         # Always update self.segments with the new segments
-        # Append new segments to self.segments, avoiding duplicates
         if self.segment_times is None or self.segment_times == []:
             self.segment_times = list(segment_times)
+            new_segments = list(segment_times)
         else:
             # Only add segments not already present
             new_segments = [s for s in segment_times if s not in self.segment_times]
@@ -1525,7 +1907,7 @@ class FireworkShowApp(QMainWindow):
                     leg.get_frame().set_alpha(0.3)
         
         def show_segments_toast():
-            toast = ToastDialog(f"Found {len(self.segment_times)} segments!", parent=self)
+            toast = ToastDialog(f"Found {len(new_segments)//2 + 1} segments!", parent=self) # segments are between two lines so divided by 2
             geo = self.geometry()
             x = geo.x() + geo.width() - toast.width() - 40
             y = geo.y() + geo.height() - toast.height() - 40
@@ -1547,6 +1929,7 @@ class FireworkShowApp(QMainWindow):
         # Append new points to self.points, avoiding duplicates
         if self.points is None or self.points == []:
             self.points = list(points)
+            new_points = list(points)
         else:
             # Only add points not already present
             new_points = [p for p in points if p not in self.points]
@@ -1577,7 +1960,7 @@ class FireworkShowApp(QMainWindow):
                     leg.get_frame().set_alpha(0.3)
         
         def show_interesting_toast():
-                toast = ToastDialog(f"Found {len(self.points)} interesting points!", parent=self)
+                toast = ToastDialog(f"Found {len(new_points)} interesting points!", parent=self)
                 geo = self.geometry()
                 x = geo.x() + geo.width() - toast.width() - 40
                 y = geo.y() + geo.height() - toast.height() - 40
@@ -1597,6 +1980,7 @@ class FireworkShowApp(QMainWindow):
         # Append new onsets to self.onsets, avoiding duplicates
         if self.onsets is None or self.onsets == []:
             self.onsets = list(onsets)
+            new_onsets = list(onsets)
         else:
             # Only add onsets not already present
             new_onsets = [o for o in onsets if o not in self.onsets]
@@ -1627,7 +2011,7 @@ class FireworkShowApp(QMainWindow):
                     leg.get_frame().set_alpha(0.3)
         
         def show_onset_toast():
-            toast = ToastDialog(f"Found {len(self.onsets)} onsets!", parent=self)
+            toast = ToastDialog(f"Found {len(new_onsets)} onsets!", parent=self)
             geo = self.geometry()
             x = geo.x() + geo.width() - toast.width() - 40
             y = geo.y() + geo.height() - toast.height() - 40
@@ -1649,6 +2033,7 @@ class FireworkShowApp(QMainWindow):
         # Append new peaks to self.peaks, avoiding duplicates
         if self.peaks is None or self.peaks == []:
             self.peaks = list(peaks)
+            new_peaks = list(peaks)
         else:
             # Only add peaks not already present
             new_peaks = [p for p in peaks if p not in self.peaks]
@@ -1679,7 +2064,7 @@ class FireworkShowApp(QMainWindow):
                     leg.get_frame().set_alpha(0.3)
 
         def show_peaks_toast():
-            toast = ToastDialog(f"Found {len(self.peaks)} peaks!", parent=self)
+            toast = ToastDialog(f"Found {len(new_peaks)} peaks!", parent=self)
             geo = self.geometry()
             x = geo.x() + geo.width() - toast.width() - 40
             y = geo.y() + geo.height() - toast.height() - 40
