@@ -439,6 +439,9 @@ class FireworkShowApp(QMainWindow):
         """)
         main_layout = QVBoxLayout(create_tab_widget)
 
+        # Audio Spectrogram
+        main_layout.addWidget(QLabel("Spectrogram of selected_audio_region goes here"))
+
         # Responsive horizontal layout for analysis section
         analysis_section = QHBoxLayout()
         analysis_section.setSpacing(24)
@@ -718,19 +721,8 @@ class FireworkShowApp(QMainWindow):
         # Add the horizontal analysis section to the main vertical layout
         main_layout.addLayout(analysis_section)
 
-        # Audio Spectrogram
-        main_layout.addWidget(QLabel("Spectrogram of audio goes here"))
-
-        # Filters Section
-        filters_group = QGroupBox("Filters")
-        filters_layout = QVBoxLayout()
-        # Placeholder for future filter controls
-        filters_layout.addWidget(QLabel("Filter options will appear here."))
-        filters_group.setLayout(filters_layout)
-        main_layout.addWidget(filters_group)
-
         # Placeholder for additional vertical sections
-        main_layout.addWidget(QLabel("Additional sections go here..."))
+        main_layout.addWidget(QLabel("Lay down firing..."))
 
         create_tab_widget.setLayout(main_layout)
 
