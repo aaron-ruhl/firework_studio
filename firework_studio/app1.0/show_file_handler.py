@@ -262,6 +262,7 @@ class ShowFileHandler:
             self.main_window.filter = AudioFilter(sr)  # Initialize filter with sample rate
             self.main_window.audio_loader.connect_analysis_signals()
             self.main_window.plot_waveform()
+            self.main_window.plot_spectrogram()
 
             def show_loaded_toast():
                 toast = ToastDialog("Show loaded!", parent=self.main_window)

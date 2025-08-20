@@ -34,11 +34,9 @@ class AudioLoaderThread(QThread):
                 path_str = str(path)
                 if path_str.lower().endswith('.npy'):
                     audio_data = np.load(path_str)
-                    if sr is None:
-                        sr = 16000
+                    sr = self.sr if self.sr is not None else 41000
                 else:
-                    if sr is None:
-                        sr = 16000
+                    sr = self.sr if self.sr is not None else 41000
                     audio_data, _ = librosa.load(path_str, sr=sr, mono=True)
                 audio_datas.append(audio_data)
             except Exception as e:
@@ -126,8 +124,10 @@ class AudioLoader():
             self.main_window.clear_show() #type: ignore
             self.main_window.preview_widget.set_show_data(audio_data, sr, self.segment_times, None, duration) #type: ignore
             self.main_window.plot_waveform() #type: ignore
+            self.main_window.plot_spectrogram() #type: ignore
             self.main_window.analyzer = AudioAnalysis(audio_data,audio_datas, sr, duration)
             self.main_window.filter = AudioFilter(sr)  # Initialize filter with sample rate
+
 
             self.connect_analysis_signals()
 
@@ -186,14 +186,12 @@ class AudioLoader():
         sr = self.sr
         for path in self.paths:
             try:
+                if sr is None:
+                    sr = 41000
                 path_str = str(path)
                 if path_str.lower().endswith('.npy'):
                     audio_data = np.load(path_str)
-                    if sr is None:
-                        sr = 16000
                 else:
-                    if sr is None:
-                        sr = 16000
                     audio_data, _ = librosa.load(path_str, sr=sr, mono=True)
                 audio_datas.append(audio_data)
             except Exception as e:

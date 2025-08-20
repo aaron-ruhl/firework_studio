@@ -69,5 +69,6 @@ class WaveformSelectionTool:
             if self.main_window and hasattr(self.main_window, 'analyzer') and self.main_window.analyzer:
                 self.main_window.analyzer.set_selected_region((xmin, xmax))
             self.main_window.preview_widget.update()
+            self.main_window.plot_spectrogram(start, end)
             self.ax.set_xlim(xmin, xmax)
             self.canvas.draw_idle()

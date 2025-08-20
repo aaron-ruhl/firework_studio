@@ -3,6 +3,8 @@ import os
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt import NavigationToolbar2QT
+import librosa
+import librosa.display
 
 from PyQt6.QtCore import Qt, QTimer, QSize
 from PyQt6.QtGui import (
@@ -26,6 +28,7 @@ from PyQt6.QtWidgets import QTabWidget
 from PyQt6.QtWidgets import QLineEdit
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QSpinBox, QDoubleSpinBox, QPushButton
 from filters import AudioFilter
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 
 '''THIS IS THE MAIN VIEW FOR THE FIREWORK STUDIO APPLICATION'''
 class FireworkShowApp(QMainWindow):
@@ -438,9 +441,22 @@ class FireworkShowApp(QMainWindow):
             }
         """)
         main_layout = QVBoxLayout(create_tab_widget)
-
-        # Audio Spectrogram
-        main_layout.addWidget(QLabel("Spectrogram of selected_audio_region goes here"))
+        # Create a spectrogram canvas with clear formatting for readability
+        self.spectrogram_canvas = FigureCanvas(Figure(figsize=(8, 2.5)))
+        self.spectrogram_canvas.setFixedHeight(250)
+        self.spectrogram_ax = self.spectrogram_canvas.figure.subplots()
+        # Set dark background and gold text for axes and title
+        self.spectrogram_ax.set_facecolor('#181a20')
+        self.spectrogram_canvas.figure.set_facecolor('#23242b')
+        self.spectrogram_ax.set_title("Spectrogram", color="#ffd700", fontsize=14, pad=12)
+        self.spectrogram_ax.set_xlabel("Time (s)", color="#ffd700", fontsize=12, labelpad=8)
+        self.spectrogram_ax.set_ylabel("Frequency (Hz)", color="#ffd700", fontsize=12, labelpad=8, rotation=90)
+        self.spectrogram_ax.tick_params(axis='x', colors='#ffd700', labelsize=10)
+        self.spectrogram_ax.tick_params(axis='y', colors='#ffd700', labelsize=10)
+        self.spectrogram_ax.grid(False)
+        self.spectrogram_canvas.setStyleSheet("background-color: #23242b; border-radius: 8px;")
+        main_layout.addWidget(QLabel("Spectrogram of selected audio region:"))
+        main_layout.addWidget(self.spectrogram_canvas)
 
         # Responsive horizontal layout for analysis section
         analysis_section = QHBoxLayout()
@@ -1741,6 +1757,44 @@ class FireworkShowApp(QMainWindow):
     #                     HELPER FUNCTIONS                        #
     #                                                             #
     ###############################################################
+
+    def plot_spectrogram(self):
+        if self.audio_data is not None and self.sr is not None:
+            self.spectrogram_ax.clear()
+            # Compute the spectrogram using librosa
+            S = librosa.stft(self.audio_data, n_fft=2048, hop_length=512)
+            S_db = librosa.amplitude_to_db(np.abs(S), ref=np.max)
+            img = librosa.display.specshow(
+                S_db, ax=self.spectrogram_ax, sr=self.sr, hop_length=512,
+                x_axis='time', y_axis='linear', cmap='magma'
+            )
+            # Dark theme formatting
+            self.spectrogram_ax.set_facecolor('#181a20')
+            self.spectrogram_ax.figure.set_facecolor('#23242b')
+            self.spectrogram_ax.set_title("Spectrogram", color="#ffd700", fontsize=14, pad=12)
+            self.spectrogram_ax.set_xlabel("Time (s)", color="#ffd700", fontsize=12, labelpad=8)
+            self.spectrogram_ax.set_ylabel("Frequency (Hz)", color="#ffd700", fontsize=12, labelpad=8, rotation=90)
+            self.spectrogram_ax.tick_params(axis='x', colors='#ffd700', labelsize=10)
+            self.spectrogram_ax.tick_params(axis='y', colors='#ffd700', labelsize=10)
+            # Remove grid for cleaner look
+            self.spectrogram_ax.grid(False)
+            # Colorbar styling
+            cbar = self.spectrogram_ax.figure.colorbar(img, ax=self.spectrogram_ax, format="%+2.0f dB", pad=0.02)
+            cbar.set_label("dB", color="#ffd700", fontsize=11)
+            cbar.ax.yaxis.set_tick_params(color='#ffd700', labelsize=9)
+            plt = cbar.ax
+            plt.set_facecolor('#23242b')
+            for label in plt.get_yticklabels():
+                label.set_color('#ffd700')
+            self.spectrogram_canvas.draw_idle()
+        else:
+            self.spectrogram_ax.clear()
+            self.spectrogram_ax.set_facecolor('#181a20')
+            self.spectrogram_ax.figure.set_facecolor('#23242b')
+            self.spectrogram_ax.set_title("No audio loaded", color="#ffd700", fontsize=14)
+            self.spectrogram_ax.set_xticks([])
+            self.spectrogram_ax.set_yticks([])
+            self.spectrogram_canvas.draw_idle()
 
     def plot_waveform(self, current_legend=None):
         audio_to_plot = self.audio_data
