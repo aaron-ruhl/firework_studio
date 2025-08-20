@@ -15,7 +15,9 @@ from PyQt6.QtWidgets import (
     QMenu, QMainWindow, QWidget, QVBoxLayout, 
     QHBoxLayout, QPushButton, QLabel, QFileDialog, 
     QSizePolicy, QStatusBar, QGroupBox, QComboBox,
-    QMenuBar, QWidgetAction, QSpinBox, QInputDialog
+    QMenuBar, QWidgetAction, QSpinBox, QInputDialog,
+    QTabWidget, QLineEdit, QScrollArea, QDoubleSpinBox,
+    QDialog
 )
 
 from firework_canvas_2 import FireworksCanvas
@@ -24,9 +26,6 @@ from loader import AudioLoader
 from toaster import ToastDialog
 from waveform_selection import WaveformSelectionTool
 from show_file_handler import ShowFileHandler
-from PyQt6.QtWidgets import QTabWidget
-from PyQt6.QtWidgets import QLineEdit
-from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QSpinBox, QDoubleSpinBox, QPushButton
 from filters import AudioFilter
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 
@@ -344,7 +343,8 @@ class FireworkShowApp(QMainWindow):
         #                                                          #
         ############################################################
 
-        # This will be the "Create" tab content                   
+        # This will be the "Create" tab content
+
         create_tab_widget = QWidget()
         # Advanced settings page styling for "Create" tab
         create_tab_widget.setStyleSheet("""
@@ -440,10 +440,18 @@ class FireworkShowApp(QMainWindow):
             color: #23242b;
             }
         """)
-        main_layout = QVBoxLayout(create_tab_widget)
+
+        # Create a scroll area for the tab content
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setStyleSheet("background-color: #23242b; border: none;")
+
+        # Create the actual content widget and layout
+        content_widget = QWidget()
+        main_layout = QVBoxLayout(content_widget)
         # Create a spectrogram canvas with clear formatting for readability
         self.spectrogram_canvas = FigureCanvas(Figure(figsize=(8, 2.5)))
-        self.spectrogram_canvas.setFixedHeight(250)
+        self.spectrogram_canvas.setFixedHeight(260)
         self.spectrogram_ax = self.spectrogram_canvas.figure.subplots()
         # Set dark background and gold text for axes and title
         self.spectrogram_ax.set_facecolor('#181a20')
@@ -455,7 +463,7 @@ class FireworkShowApp(QMainWindow):
         self.spectrogram_ax.tick_params(axis='y', colors='#ffd700', labelsize=10)
         self.spectrogram_ax.grid(False)
         self.spectrogram_canvas.setStyleSheet("background-color: #23242b; border-radius: 8px;")
-        main_layout.addWidget(QLabel("Spectrogram of selected audio region:"))
+
         main_layout.addWidget(self.spectrogram_canvas)
 
         # Responsive horizontal layout for analysis section
@@ -671,27 +679,29 @@ class FireworkShowApp(QMainWindow):
 
         # --- Connect fields to analyzer setters ---
         def update_segment_settings():
-                if self.analyzer is not None:
-                    self.analyzer.set_segment_settings(
-                        n_mfcc=n_mfcc_spin.value(),
-                        min_segments=min_segments_spin.value(),
-                        max_segments=max_segments_spin.value(),
-                        dct_type=dct_type_spin.value(),
-                        n_fft=n_fft_spin.value(),
-                        hop_length_segments=hop_length_segments_spin.value()
-                    )
-        for spin in [n_mfcc_spin, min_segments_spin, max_segments_spin, dct_type_spin, n_fft_spin, hop_length_segments_spin]:
+            if self.analyzer is not None:
+                self.analyzer.set_segment_settings(
+                n_mfcc=n_mfcc_spin.value(),
+                min_segments=min_segments_spin.value(),
+                max_segments=max_segments_spin.value(),
+                dct_type=dct_type_spin.value(),
+                n_fft=n_fft_spin.value(),
+                hop_length_segments=hop_length_segments_spin.value()
+                )
+        for spin in [n_mfcc_spin, min_segments_spin, dct_type_spin, n_fft_spin, hop_length_segments_spin]:
             spin.valueChanged.connect(update_segment_settings)
+        min_segments_spin.valueChanged.connect(update_segment_settings)
+        max_segments_spin.valueChanged.connect(update_segment_settings)
 
         def update_onset_settings():
-                if self.analyzer is not None:
-                    self.analyzer.set_onset_settings(
-                        min_onsets=min_onsets_spin.value(),
-                        max_onsets=max_onsets_spin.value(),
-                        hop_length_onsets=hop_length_onsets_spin.value(),
-                        backtrack=backtrack_box.currentText() == "True",
-                        normalize=normalize_box.currentText() == "True"
-                    )
+            if self.analyzer is not None:
+                self.analyzer.set_onset_settings(
+                min_onsets=min_onsets_spin.value(),
+                max_onsets=max_onsets_spin.value(),
+                hop_length_onsets=hop_length_onsets_spin.value(),
+                backtrack=backtrack_box.currentText() == "True",
+                normalize=normalize_box.currentText() == "True"
+                )
         for spin in [min_onsets_spin, max_onsets_spin, hop_length_onsets_spin]:
             spin.valueChanged.connect(update_onset_settings)
         backtrack_box.currentIndexChanged.connect(update_onset_settings)
@@ -740,7 +750,13 @@ class FireworkShowApp(QMainWindow):
         # Placeholder for additional vertical sections
         main_layout.addWidget(QLabel("Lay down firing..."))
 
-        create_tab_widget.setLayout(main_layout)
+        content_widget.setLayout(main_layout)
+        scroll_area.setWidget(content_widget)
+        # Set the scroll area as the only child of the tab widget
+        create_tab_widget_layout = QVBoxLayout(create_tab_widget)
+        create_tab_widget_layout.setContentsMargins(0, 0, 0, 0)
+        create_tab_widget_layout.addWidget(scroll_area)
+        create_tab_widget.setLayout(create_tab_widget_layout)
 
         ############################################################
         #                                                          #
