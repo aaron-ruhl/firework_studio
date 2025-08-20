@@ -10,6 +10,7 @@ from PyQt6.QtGui import QColor
 from toaster import ToastDialog
 from handles import FiringHandles
 from analysis import AudioAnalysis
+from filters import AudioFilter
 
 class FireworkshowManager:
     @staticmethod
@@ -258,6 +259,7 @@ class ShowFileHandler:
 
             # this is setting up analysis and plotting to mimic load audio functionality
             self.main_window.analyzer = AudioAnalysis(audio_data,audio_datas, sr, duration)
+            self.main_window.filter = AudioFilter(sr)  # Initialize filter with sample rate
             self.main_window.audio_loader.connect_analysis_signals()
             self.main_window.plot_waveform()
 
