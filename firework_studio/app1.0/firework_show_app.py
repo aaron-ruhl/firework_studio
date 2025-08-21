@@ -408,17 +408,21 @@ class FireworkShowApp(QMainWindow):
         self.spectrogram_freq_label.setVisible(False)
 
         def on_spectrogram_motion(event):
-            if event.inaxes == self.spectrogram_ax and event.xdata is not None and event.ydata is not None:
+            if (
+                event.inaxes == self.spectrogram_ax
+                and event.xdata is not None
+                and event.ydata is not None
+                and self.audio_data is not None
+                and self.sr is not None
+            ):
                 freq_khz = event.ydata / 1000.0
-                # Get dB value at mouse location
                 x, y = event.xdata, event.ydata
-                # Find nearest pixel in spectrogram data
-                S = librosa.stft(self.audio_data, n_fft=2048, hop_length=512)
+                # Ensure audio_data is a numpy array
+                audio_np = np.array(self.audio_data)
+                S = librosa.stft(audio_np, n_fft=2048, hop_length=512)
                 S_db = librosa.amplitude_to_db(np.abs(S), ref=np.max)
-                # Convert axes coords to spectrogram array indices
                 times = librosa.frames_to_time(np.arange(S_db.shape[1]), sr=self.sr, hop_length=512)
                 freqs = librosa.fft_frequencies(sr=self.sr, n_fft=2048)
-                # Find closest indices
                 time_idx = np.argmin(np.abs(times - x))
                 freq_idx = np.argmin(np.abs(freqs - y))
                 db_val = S_db[freq_idx, time_idx] if 0 <= freq_idx < S_db.shape[0] and 0 <= time_idx < S_db.shape[1] else None
@@ -426,7 +430,6 @@ class FireworkShowApp(QMainWindow):
                     self.spectrogram_freq_label.setText(f"{db_val:.1f} dB @ {freq_khz:.2f} kHz")
                 else:
                     self.spectrogram_freq_label.setText(f"{freq_khz:.2f} kHz")
-                # Position label near mouse, keep inside widget
                 label_width = self.spectrogram_freq_label.sizeHint().width()
                 label_height = self.spectrogram_freq_label.sizeHint().height()
                 x_widget = int(event.x) - label_width // 2

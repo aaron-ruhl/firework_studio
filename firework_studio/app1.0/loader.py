@@ -95,7 +95,6 @@ class AudioLoader():
                 self.main_window.analyzer.interesting_points_ready.connect(self.main_window.firework_show_helper.handle_interesting_points)
                 self.main_window.analyzer.onsets_ready.connect(self.main_window.firework_show_helper.handle_onsets)
                 self.main_window.analyzer.peaks_ready.connect(self.main_window.firework_show_helper.handle_peaks)
-                print("Analysis signals connected successfully")
         
     def apply_create_tab_settings(self):
         """Apply current create tab settings to the analyzer"""
@@ -150,8 +149,6 @@ class AudioLoader():
                     scoring=helper.scoring_box.currentText(),
                     custom_scoring_method=custom_func
                 )
-                
-                print("Applied create tab settings to analyzer")
         
     def handle_audio(self, reload=False):
         # Start thread to load audio
