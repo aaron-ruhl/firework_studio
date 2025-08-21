@@ -9,7 +9,7 @@ class AudioFilter:
         """Return the original, unfiltered audio data."""
         if self.original_audio is None:
             raise ValueError("No original audio data set.")
-        return self.original_audio.copy()
+        return self.original_audio
 
     def lowpass(self, data, cutoff, order=5):
         """Apply a low-pass filter to the data."""
