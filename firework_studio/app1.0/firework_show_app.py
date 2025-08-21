@@ -19,9 +19,10 @@ from PyQt6.QtGui import (
 from PyQt6.QtWidgets import (
     QMenu, QMainWindow, QWidget, QVBoxLayout, 
     QHBoxLayout, QPushButton, QLabel, QSizePolicy, 
-    QStatusBar, QGroupBox, QComboBox,
-    QMenuBar, QSpinBox, QInputDialog,
-    QTabWidget, QLineEdit, QScrollArea, 
+    QStatusBar, QGroupBox, QComboBox, QMenuBar, 
+    QSpinBox, QInputDialog, QTabWidget, QLineEdit, 
+    QScrollArea, QApplication, QSpacerItem, QDockWidget,
+    QToolBar
 )
 
 from firework_canvas_2 import FireworksCanvas
@@ -89,10 +90,9 @@ class FireworkShowApp(QMainWindow):
         # Set window properties first to prevent flash
         self.setWindowTitle("Firework Studio")
         # Set initial geometry to full screen to prevent small window flash
-        from PyQt6.QtWidgets import QApplication
         screen = QApplication.primaryScreen().geometry()
         self.setGeometry(screen)
-        self.setWindowState(Qt.WindowState.WindowFullScreen)
+        self.setWindowState(Qt.WindowState.WindowMaximized)
         
         # Set dark palette 
         dark_palette = QPalette()
@@ -845,12 +845,84 @@ class FireworkShowApp(QMainWindow):
 
         ############################################################
         #                                                          #
-        #                         Menu Bar                          #
+        #       Menu Bar                                           #
         #                                                          #
         ############################################################
 
         # Instantiate the menu helper
         self.menu_helper = MenuBarHelper(self, button_style, menu_style)
+
+        ############################################################
+        #                                                          #
+        #       Toolbar with all buttons                           #
+        #                                                          #
+        ############################################################
+        # Create a toolbar and add all main buttons in a professional layout
+        toolbar = QToolBar("Main Controls")
+        toolbar.setMovable(True)
+        toolbar.setFloatable(False)
+        toolbar.setIconSize(QSize(32, 32))
+        toolbar.setStyleSheet("""
+            QToolBar {
+            background: #23242b;
+            border-top: 1px solid #444657;
+            border-bottom: none;
+            spacing: 8px;
+            padding: 8px 16px;
+            min-height: 48px;
+            }
+            QToolButton {
+            background: #31323a;
+            color: #ffd700;
+            border: 1px solid #444657;
+            border-radius: 6px;
+            font-size: 14px;
+            min-width: 40px;
+            min-height: 36px;
+            margin: 4px;
+            padding: 4px 12px;
+            }
+            QToolButton:hover {
+            background: #49505a;
+            color: #ffd700;
+            border: 1.2px solid #ffd700;
+            }
+            QToolButton:pressed {
+            background: #353a40;
+            color: #ffd700;
+            border: 1.2px solid #ffd700;
+            }
+            QToolButton:checked {
+            background: #23242b;
+            color: #ffd700;
+            border: 1.2px solid #ffd700;
+            }
+        """)
+
+        # Add buttons to toolbar in logical order with spacers
+        toolbar.addWidget(self.load_btn)
+        toolbar.addSeparator()
+        toolbar.addWidget(self.save_btn)
+        toolbar.addWidget(self.load_show_btn)
+        toolbar.addSeparator()
+        toolbar.addWidget(self.play_pause_btn)
+        toolbar.addWidget(self.stop_btn)
+        toolbar.addSeparator()
+        toolbar.addWidget(self.add_firing_btn)
+        toolbar.addWidget(self.delete_firing_btn)
+        toolbar.addWidget(self.clear_btn)
+        toolbar.addSeparator()
+        toolbar.addWidget(self.pattern_selector)
+        toolbar.addWidget(self.firework_count_spinner_group)
+
+        # Add a stretch to push right-aligned controls (if needed)
+        spacer = QWidget()
+        spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        toolbar.addWidget(spacer)
+
+        # Make sure the toolbar is added to the window
+        # Change from BottomToolBarArea to TopToolBarArea for visibility
+        self.addToolBar(Qt.ToolBarArea.TopToolBarArea, toolbar)
 
         ############################################################
         #                                                          #
@@ -925,6 +997,6 @@ class FireworkShowApp(QMainWindow):
         
         # Add to main layout with proper stretch factors - tab widget gets remaining space
         layout.addWidget(tab_widget, stretch=1)
-    
+
         # Show the window - it's already set to maximized state
         self.show()
