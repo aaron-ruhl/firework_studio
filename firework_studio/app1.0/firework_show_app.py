@@ -35,7 +35,6 @@ from show_file_handler import ShowFileHandler
 from filters import AudioFilter
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from PyQt6.QtWidgets import QToolButton
-
 class CollapsibleWidget(QWidget):
     def __init__(self, title, child_widget, parent=None):
         super().__init__(parent)
@@ -58,6 +57,8 @@ class CollapsibleWidget(QWidget):
             color: #ffd700;
             }
         """)
+        # Set maximum size policy so widget can shrink properly
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
         self.child_widget = child_widget
         self.child_widget.setVisible(True)
         layout = QVBoxLayout(self)
@@ -71,12 +72,85 @@ class CollapsibleWidget(QWidget):
 
     def toggle_child(self, checked):
         self.child_widget.setVisible(checked)
+        # Immediately update geometry to trigger layout recalculation
+        self.updateGeometry()
+        
+        # If we have a reference to the scroll area, adjust its height dynamically
+        main_window = self.window()
+        if main_window and hasattr(main_window, 'scroll_area'):
+            if checked:
+                # Expanded: Allow scroll area to grow
+                # toolbar (36px) + waveform (80px) + spectrogram (80px) + preview (80px) + padding (60px)
+                expanded_height = 36 + 80 + 80 + 80 + 60  # 336px
+                main_window.scroll_area.setMinimumHeight(expanded_height)
+                main_window.scroll_area.setMaximumHeight(600)
+            else:
+                # Collapsed: Shrink scroll area to just preview widget + button height
+                # preview (80px) + button (28px) + padding (20px)
+                collapsed_height = 80 + 28 + 20  # 128px
+                main_window.scroll_area.setMinimumHeight(collapsed_height)
+                main_window.scroll_area.setMaximumHeight(collapsed_height)
+        
+        # Force the main window to adjust its layout
+        if main_window:
+            main_window.updateGeometry()
+            # Force layout update on the central widget
+            central_widget = main_window.centralWidget()
+            if central_widget:
+                central_widget.layout().invalidate()
+                central_widget.layout().activate()
 
     def update_arrow(self, checked):
         self.toggle_btn.setArrowType(Qt.ArrowType.DownArrow if checked else Qt.ArrowType.RightArrow)
     
     def sizeHint(self) -> QSize:
-        return super().sizeHint()
+        if self.child_widget.isVisible():
+            return super().sizeHint()
+        else:
+            # When collapsed, only account for the button height
+            button_height = self.toggle_btn.sizeHint().height()
+            return QSize(super().sizeHint().width(), button_height)
+    
+    def minimumSizeHint(self) -> QSize:
+        # When collapsed, minimum size is just the button
+        if not self.child_widget.isVisible():
+            return self.toggle_btn.minimumSizeHint()
+        return super().minimumSizeHint()
+    
+    def hasHeightForWidth(self) -> bool:
+        return False
+    
+    def heightForWidth(self, width: int) -> int:
+        if self.child_widget.isVisible():
+            return super().sizeHint().height()
+        else:
+            return self.toggle_btn.sizeHint().height()
+        # Expanded: include child_widget size
+        if self.toggle_btn.isChecked() and self.child_widget.isVisible():
+            btn_hint = self.toggle_btn.sizeHint()
+            child_hint = self.child_widget.sizeHint()
+            return QSize(
+                max(btn_hint.width(), child_hint.width()),
+                btn_hint.height() + child_hint.height()
+            )
+        else:
+            # Collapsed: only show button
+            btn_hint = self.toggle_btn.sizeHint()
+            return QSize(btn_hint.width(), btn_hint.height())
+
+    def minimumSizeHint(self) -> QSize:
+        # Expanded: include child_widget minimum size
+        if self.toggle_btn.isChecked() and self.child_widget.isVisible():
+            btn_min = self.toggle_btn.minimumSizeHint()
+            child_min = self.child_widget.minimumSizeHint()
+            return QSize(
+                max(btn_min.width(), child_min.width()),
+                btn_min.height() + child_min.height()
+            )
+        else:
+            # Collapsed: only show button
+            btn_min = self.toggle_btn.minimumSizeHint()
+            return QSize(btn_min.width(), btn_min.height())
 
 
 '''THIS IS THE MAIN VIEW FOR THE FIREWORK STUDIO APPLICATION'''
@@ -1855,13 +1929,54 @@ class FireworkShowApp(QMainWindow):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
 
-        layout = QVBoxLayout(central_widget)
+        # Use a main layout that will contain everything
+        main_layout = QVBoxLayout(central_widget)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+
+        # Create a scroll area for the upper content (waveform + preview)
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll_area.setFrameStyle(0)  # Remove frame
+        scroll_area.setStyleSheet("""
+            QScrollArea { 
+                background-color: #000000; 
+                border: none; 
+            }
+            QScrollArea > QWidget > QWidget { 
+                background-color: #000000; 
+            }
+            QScrollBar:vertical {
+                background-color: #23242b;
+                width: 12px;
+                border-radius: 6px;
+            }
+            QScrollBar::handle:vertical {
+                background-color: #ffd700;
+                border-radius: 6px;
+                min-height: 20px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background-color: #fffbe6;
+            }
+        """)
+        
+        # Content widget for the scroll area
+        scroll_content = QWidget()
+        scroll_content.setStyleSheet("background-color: #000000;")
+        scroll_layout = QVBoxLayout(scroll_content)
+        scroll_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_layout.setSpacing(0)
 
         waveform_container = QWidget()
         waveform_container.setStyleSheet("""
             background-color: #181a20;
             color: #8fb9bd;
         """)
+        # Set maximum size policy for height so collapsible widget works properly
+        waveform_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
         waveform_layout = QVBoxLayout(waveform_container)
 
         waveform_layout.setContentsMargins(40, 0, 40, 0)
@@ -1880,9 +1995,23 @@ class FireworkShowApp(QMainWindow):
 
         # Create but do not show collapsible_waveform yet
         self.collapsible_waveform = CollapsibleWidget("Waveform & Spectrogram", waveform_container)
-        layout.addWidget(self.collapsible_waveform)
+        scroll_layout.addWidget(self.collapsible_waveform)
 
-        layout.addWidget(self.preview_widget, stretch=0, alignment=Qt.AlignmentFlag.AlignBottom)
+        scroll_layout.addWidget(self.preview_widget, stretch=0, alignment=Qt.AlignmentFlag.AlignBottom)
+        
+        # Set the scroll content and add to scroll area
+        scroll_area.setWidget(scroll_content)
+        
+        # Store reference to scroll area for dynamic height adjustment
+        self.scroll_area = scroll_area
+        
+        # Set initial height for scroll area - start expanded (since collapsible widget starts checked/expanded)
+        # Expanded height: toolbar (36px) + waveform (80px) + spectrogram (80px) + preview (80px) + padding
+        expanded_height = 36 + 80 + 80 + 80 + 60  # 336px total with padding
+        collapsed_height = 80 + 28 + 20  # 128px when collapsed
+        
+        scroll_area.setMinimumHeight(expanded_height)
+        scroll_area.setMaximumHeight(600)  # Allow room to grow if needed
 
         tab_widget = QTabWidget()
         tab_widget.setTabPosition(QTabWidget.TabPosition.North)
@@ -1895,7 +2024,10 @@ class FireworkShowApp(QMainWindow):
 
         tab_widget.addTab(self.fireworks_canvas_container, "Preview")
         tab_widget.addTab(create_tab_widget, "Create")
-        layout.addWidget(tab_widget)
+        
+        # Add to main layout with proper stretch factors
+        main_layout.addWidget(scroll_area, stretch=0)  # Fixed size upper area
+        main_layout.addWidget(tab_widget, stretch=1)   # Expandable lower area
     
         # Show the window - it's already set to maximized state
         self.show()
