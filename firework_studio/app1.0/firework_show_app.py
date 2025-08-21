@@ -373,16 +373,21 @@ class FireworkShowApp(QMainWindow):
         #######################################################################
 
 
-        # Create a spectrogram canvas with clear formatting for readability
+        # Create a spectrogram canvas for later use in plot_spectrogram
         self.spectrogram_canvas = FigureCanvas(Figure(figsize=(8, 4)))
         self.spectrogram_canvas.setFixedHeight(80)
         self.spectrogram_ax = self.spectrogram_canvas.figure.subplots()
+        # Set the background color to black for the spectrogram axes and figure
         self.spectrogram_ax.set_facecolor('#181a20')
-        self.spectrogram_canvas.figure.set_facecolor('#23242b')
-        self.spectrogram_ax.tick_params(axis='x', colors='#ffd700', labelsize=10)
-        self.spectrogram_ax.tick_params(axis='y', colors='#ffd700', labelsize=10)
-        self.spectrogram_ax.grid(False)
-        self.spectrogram_canvas.setStyleSheet("background-color: #23242b")
+        self.spectrogram_canvas.figure.set_facecolor('#181a20')
+        # Show a default message (no plot) until audio is loaded
+        self.spectrogram_ax.axis("off")
+        self.spectrogram_ax.text(
+            0.5, 0.5, "Load audio to get started.",
+            color="#ffd700", fontsize=13, ha="center", va="center", transform=self.spectrogram_ax.transAxes,
+            bbox=dict(facecolor="#33353c", edgecolor="none", boxstyle="round,pad=0.5")
+        )
+        self.spectrogram_canvas.draw_idle()
 
         # Add a label to show current frequency (y-axis) in kHz at mouse location
         self.spectrogram_freq_label = QLabel(self.spectrogram_canvas)
@@ -428,6 +433,145 @@ class FireworkShowApp(QMainWindow):
         self.spectrogram_canvas.mpl_connect("motion_notify_event", on_spectrogram_motion)
         self.spectrogram_canvas.mpl_connect("figure_leave_event", on_spectrogram_leave)
         self.spectrogram_canvas.leaveEvent = lambda event: self.spectrogram_freq_label.setVisible(False)
+        
+        ###########################################################
+        #                                                         #
+        #           Canvas for waveform display                   #
+        #                                                         #
+        ###########################################################
+
+        # Create a canvas for displaying the waveform needed here for loading audio
+        def create_waveform_canvas():
+            canvas = FigureCanvas(Figure(figsize=(7, 1)))
+            ax = canvas.figure.subplots()
+            ax.set_facecolor('black')
+            ax.tick_params(axis='x', colors='white')
+            ax.tick_params(axis='y', colors='white')
+            # Remove left/right margin workaround
+            canvas.figure.subplots_adjust(left=0, right=1, top=1, bottom=0)
+            return canvas
+        self.waveform_canvas = create_waveform_canvas()
+        self.waveform_canvas.setFixedHeight(80)
+        self.waveform_canvas.setContentsMargins(0, 0, 0, 0)  # No margin
+
+        # Add NavigationToolbar for zoom/pan (does not disrupt custom selection tool)
+        self.waveform_toolbar = NavigationToolbar2QT(self.waveform_canvas, self)
+        self.waveform_toolbar.setVisible(True)
+
+        # Ensure "Home" button always resets the waveform view, even after selection
+        def reset_waveform_view():
+            # Also clear selection tool region if needed
+            if hasattr(self.waveform_selector, "clear_selection"):
+                self.waveform_selector.clear_selection(redraw=False)
+            legend = self.waveform_canvas.figure.axes[0].get_legend()
+            self.plot_waveform(current_legend=legend)
+            self.plot_spectrogram()
+
+        # Patch the NavigationToolbar "home" button to call our reset
+        for action in self.waveform_toolbar.actions():
+            if hasattr(action, "text") and action.text() == "Home":
+                action.triggered.disconnect()
+                action.triggered.connect(reset_waveform_view)
+                break
+
+        # Style the waveform toolbar for better responsiveness and appearance
+        self.waveform_toolbar.setStyleSheet("""
+            QToolBar {
+            background: #23242b;
+            border: none;
+            min-height: 36px;
+            max-height: 36px;
+            padding: 0px;
+            margin: 0px;
+            }
+            QToolButton {
+            background: #31323a;
+            color: #8fb9bd;  /* Use gray-blue for text to match arrow color */
+            border: 1px solid #444657;
+            border-radius: 4px;
+            font-size: 13px;
+            min-width: 32px;
+            min-height: 28px;
+            margin: 2px;
+            padding: 2px 8px;
+            }
+            QToolButton:hover {
+            background: #49505a;
+            color: #ffd700;
+            border: 1.2px solid #ffd700;
+            }
+            QToolButton:pressed {
+            background: rgba(255, 215, 0, 0.7); /* Light gold, slightly opaque */
+            color: #23242b;
+            border: 1.2px solid #ffd700;
+            }
+            QToolButton:checked {
+            background: rgba(255, 215, 0, 0.7); /* Light gold, slightly opaque */
+            color: #23242b;
+            border: 1.2px solid #ffd700;
+            }
+        """)
+        self.waveform_toolbar.setMovable(False)
+        self.waveform_toolbar.setIconSize(QSize(22, 22))
+
+        # Add mouse hover event to show time label at cursor 
+        self.waveform_time_label = QLabel(self.waveform_canvas)
+        self.waveform_time_label.setStyleSheet(
+            "background: #23242b; color: #ffd700; border: 1px solid #ffd700; border-radius: 4px; padding: 2px 6px; font-size: 13px;"
+        )
+        self.waveform_time_label.setVisible(False)
+
+        # Add a waveform panning/selection tool using matplotlib's SpanSelector
+        self.waveform_selector = WaveformSelectionTool(self.waveform_canvas, main_window=self)
+
+        def on_waveform_motion(event):
+            if event.inaxes and self.audio_data is not None and self.sr is not None:
+                x = event.xdata
+                if x is not None and 0 <= x <= (self.duration if self.duration else len(self.audio_data)/self.sr):
+                    mins = int(x // 60)
+                    secs = int(x % 60)
+                    ms = int((x - int(x)) * 1000)
+                    self.waveform_time_label.setText(f"{mins:02d}:{secs:02d}:{ms:03d}")
+                    # Convert axes coords to widget coords
+                    canvas = self.waveform_canvas
+                    ax = event.inaxes
+                    # Get pixel position of mouse in widget
+                    x_disp, y_disp = canvas.figure.transFigure.inverted().transform(
+                    canvas.figure.transFigure.transform((event.x, event.y))
+                    )
+                    # Use event.x, event.y (pixels) relative to canvas widget
+                    label_width = self.waveform_time_label.sizeHint().width()
+                    label_height = self.waveform_time_label.sizeHint().height()
+                    # Offset label above cursor, keep inside widget
+                    x_widget = int(event.x) - label_width // 2
+                    y_widget = int(event.y) - label_height - 8
+                    x_widget = max(0, min(x_widget, canvas.width() - label_width))
+                    y_widget = max(0, y_widget)
+                    self.waveform_time_label.move(x_widget, y_widget)
+                    self.waveform_time_label.setVisible(True)
+                else:
+                    self.waveform_time_label.setVisible(False)
+            else:
+                self.waveform_time_label.setVisible(False)
+
+        self.waveform_canvas.mpl_connect("motion_notify_event", on_waveform_motion)
+
+        # Hide the label when the mouse leaves the waveform_canvas widget
+        def on_waveform_leave(event):
+            self.waveform_time_label.setVisible(False)
+
+        # Patch the NavigationToolbar "zoom" button to call our zoom_to_selection
+        for action in self.waveform_toolbar.actions():
+            if hasattr(action, "text") and action.text() == "Zoom":
+                action.triggered.disconnect()
+                def zoom_and_keep_toggled():
+                    self.waveform_selector.zoom_to_selection()
+                    action.setChecked(False)  # Keep the button toggled off
+                action.triggered.connect(zoom_and_keep_toggled)
+                break
+
+        self.waveform_canvas.mpl_connect("figure_leave_event", on_waveform_leave)
+        self.waveform_canvas.leaveEvent = lambda event: self.waveform_time_label.setVisible(False)
 
         ############################################################
         #                                                          #
@@ -851,142 +995,6 @@ class FireworkShowApp(QMainWindow):
         create_tab_widget_layout.addWidget(scroll_area)
         create_tab_widget.setLayout(create_tab_widget_layout)
         create_tab_widget.setContentsMargins(0, 0, 0, 0)
-
-        ###########################################################
-        #                                                         #
-        #           Canvas for waveform display                   #
-        #                                                         #
-        ###########################################################
-
-        # Create a canvas for displaying the waveform needed here for loading audio
-        def create_waveform_canvas():
-            canvas = FigureCanvas(Figure(figsize=(7, 1)))
-            ax = canvas.figure.subplots()
-            ax.set_facecolor('black')
-            ax.tick_params(axis='x', colors='white')
-            ax.tick_params(axis='y', colors='white')
-            # Remove left/right margin workaround
-            canvas.figure.subplots_adjust(left=0, right=1, top=1, bottom=0)
-            return canvas
-        self.waveform_canvas = create_waveform_canvas()
-        self.waveform_canvas.setFixedHeight(80)
-        self.waveform_canvas.setContentsMargins(0, 0, 0, 0)  # No margin
-
-        # Add NavigationToolbar for zoom/pan (does not disrupt custom selection tool)
-        self.waveform_toolbar = NavigationToolbar2QT(self.waveform_canvas, self)
-        self.waveform_toolbar.setVisible(True)
-
-        # Ensure "Home" button always resets the waveform view, even after selection
-        def reset_waveform_view():
-            # Also clear selection tool region if needed
-            if hasattr(self.waveform_selector, "clear_selection"):
-                self.waveform_selector.clear_selection(redraw=False)
-            legend = self.waveform_canvas.figure.axes[0].get_legend()
-            self.plot_waveform(current_legend=legend)
-            self.plot_spectrogram()
-
-        # Patch the NavigationToolbar "home" button to call our reset
-        for action in self.waveform_toolbar.actions():
-            if hasattr(action, "text") and action.text() == "Home":
-                action.triggered.disconnect()
-                action.triggered.connect(reset_waveform_view)
-                break
-
-        # Style the waveform toolbar for better responsiveness and appearance
-        self.waveform_toolbar.setStyleSheet("""
-            QToolBar {
-            background: #23242b;
-            border: none;
-            min-height: 36px;
-            max-height: 36px;
-            padding: 0px;
-            margin: 0px;
-            }
-            QToolButton {
-            background: #31323a;
-            color: #8fb9bd;  /* Use gray-blue for text to match arrow color */
-            border: 1px solid #444657;
-            border-radius: 4px;
-            font-size: 13px;
-            min-width: 32px;
-            min-height: 28px;
-            margin: 2px;
-            padding: 2px 8px;
-            }
-            QToolButton:hover {
-            background: #49505a;
-            color: #ffd700;
-            border: 1.2px solid #ffd700;
-            }
-            QToolButton:pressed {
-            background: rgba(255, 215, 0, 0.7); /* Light gold, slightly opaque */
-            color: #23242b;
-            border: 1.2px solid #ffd700;
-            }
-            QToolButton:checked {
-            background: rgba(255, 215, 0, 0.7); /* Light gold, slightly opaque */
-            color: #23242b;
-            border: 1.2px solid #ffd700;
-            }
-        """)
-        self.waveform_toolbar.setMovable(False)
-        self.waveform_toolbar.setIconSize(QSize(22, 22))
-
-        # Add mouse hover event to show time label at cursor 
-        self.waveform_time_label = QLabel(self.waveform_canvas)
-        self.waveform_time_label.setStyleSheet(
-            "background: #23242b; color: #ffd700; border: 1px solid #ffd700; border-radius: 4px; padding: 2px 6px; font-size: 13px;"
-        )
-        self.waveform_time_label.setVisible(False)
-
-        # Add a waveform panning/selection tool using matplotlib's SpanSelector
-        self.waveform_selector = WaveformSelectionTool(self.waveform_canvas, main_window=self)
-
-        def on_waveform_motion(event):
-            if event.inaxes and self.audio_data is not None and self.sr is not None:
-                x = event.xdata
-                if x is not None and 0 <= x <= (self.duration if self.duration else len(self.audio_data)/self.sr):
-                    mins = int(x // 60)
-                    secs = int(x % 60)
-                    ms = int((x - int(x)) * 1000)
-                    self.waveform_time_label.setText(f"{mins:02d}:{secs:02d}:{ms:03d}")
-                    # Convert axes coords to widget coords
-                    canvas = self.waveform_canvas
-                    ax = event.inaxes
-                    # Get pixel position of mouse in widget
-                    x_disp, y_disp = canvas.figure.transFigure.inverted().transform(
-                    canvas.figure.transFigure.transform((event.x, event.y))
-                    )
-                    # Use event.x, event.y (pixels) relative to canvas widget
-                    label_width = self.waveform_time_label.sizeHint().width()
-                    label_height = self.waveform_time_label.sizeHint().height()
-                    # Offset label above cursor, keep inside widget
-                    x_widget = int(event.x) - label_width // 2
-                    y_widget = int(event.y) - label_height - 8
-                    x_widget = max(0, min(x_widget, canvas.width() - label_width))
-                    y_widget = max(0, y_widget)
-                    self.waveform_time_label.move(x_widget, y_widget)
-                    self.waveform_time_label.setVisible(True)
-                else:
-                    self.waveform_time_label.setVisible(False)
-            else:
-                self.waveform_time_label.setVisible(False)
-
-        self.waveform_canvas.mpl_connect("motion_notify_event", on_waveform_motion)
-
-        # Hide the label when the mouse leaves the waveform_canvas widget
-        def on_waveform_leave(event):
-            self.waveform_time_label.setVisible(False)
-
-        # Patch the NavigationToolbar "zoom" button to call our zoom_to_selection
-        for action in self.waveform_toolbar.actions():
-            if hasattr(action, "text") and action.text() == "Zoom":
-                action.triggered.disconnect()
-                action.triggered.connect(lambda: self.waveform_selector.zoom_to_selection())
-                break
-
-        self.waveform_canvas.mpl_connect("figure_leave_event", on_waveform_leave)
-        self.waveform_canvas.leaveEvent = lambda event: self.waveform_time_label.setVisible(False)
 
         ###############################################
         #                                             #
