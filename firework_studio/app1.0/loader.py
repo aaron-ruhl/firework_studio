@@ -97,6 +97,62 @@ class AudioLoader():
                 self.main_window.analyzer.peaks_ready.connect(self.main_window.firework_show_helper.handle_peaks)
                 print("Analysis signals connected successfully")
         
+    def apply_create_tab_settings(self):
+        """Apply current create tab settings to the analyzer"""
+        if hasattr(self.main_window, "analyzer") and self.main_window.analyzer is not None:
+            if hasattr(self.main_window, "create_tab_helper"):
+                helper = self.main_window.create_tab_helper
+                
+                # Apply segment settings
+                self.main_window.analyzer.set_segment_settings(
+                    n_mfcc=helper.n_mfcc_spin.value(),
+                    min_segments=helper.min_segments_spin.value(),
+                    max_segments=helper.max_segments_spin.value(),
+                    dct_type=helper.dct_type_spin.value(),
+                    n_fft=helper.n_fft_spin.value(),
+                    hop_length_segments=helper.hop_length_segments_spin.value()
+                )
+                
+                # Apply onset settings
+                self.main_window.analyzer.set_onset_settings(
+                    min_onsets=helper.min_onsets_spin.value(),
+                    max_onsets=helper.max_onsets_spin.value(),
+                    hop_length_onsets=helper.hop_length_onsets_spin.value(),
+                    backtrack=helper.backtrack_box.currentText() == "True",
+                    normalize=helper.normalize_box.currentText() == "True"
+                )
+                
+                # Apply interesting points settings
+                self.main_window.analyzer.set_interesting_points_settings(
+                    min_points=helper.min_points_spin.value(),
+                    max_points=helper.max_points_spin.value(),
+                    pre_max=helper.pre_max_spin.value(),
+                    post_max=helper.post_max_spin.value(),
+                    pre_avg_distance=helper.pre_avg_distance_spin.value(),
+                    post_avg_distance=helper.post_avg_distance_spin.value(),
+                    delta=helper.delta_spin.value() * 0.1,
+                    moving_avg_wait=helper.moving_avg_wait_spin.value()
+                )
+                
+                # Apply peak settings
+                custom_func = None
+                text = helper.custom_function_edit.text().strip()
+                if text:
+                    try:
+                        if text.startswith("lambda"):
+                            custom_func = eval(text, {"__builtins__": {}}, {})
+                    except Exception:
+                        custom_func = None
+                
+                self.main_window.analyzer.set_peak_settings(
+                    min_peaks=helper.min_peaks_spin.value(),
+                    max_peaks=helper.max_peaks_spin.value(),
+                    scoring=helper.scoring_box.currentText(),
+                    custom_scoring_method=custom_func
+                )
+                
+                print("Applied create tab settings to analyzer")
+        
     def handle_audio(self, reload=False):
         # Start thread to load audio
         if not reload:
@@ -135,6 +191,8 @@ class AudioLoader():
             self.main_window.analyzer = AudioAnalysis(audio_data,audio_datas, sr, duration)
             self.main_window.filter = AudioFilter(sr)  # Initialize filter with sample rate
 
+            # Apply current create tab settings to the newly created analyzer
+            self.apply_create_tab_settings()
 
             self.connect_analysis_signals()
 

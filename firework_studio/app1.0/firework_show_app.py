@@ -35,6 +35,7 @@ from collapsible_widget import CollapsibleWidget
 from filter_dialog import FilterDialog
 from firework_show_helper import FireworkShowHelper
 from create_tab import CreateTabHelper
+from fireworks_menu import MenuBarHelper
 
 '''THIS IS THE MAIN VIEW FOR THE FIREWORK STUDIO APPLICATION'''
 class FireworkShowApp(QMainWindow):
@@ -377,12 +378,11 @@ class FireworkShowApp(QMainWindow):
         self.fireworks_canvas_container = create_fireworks_canvas_container()
         self.fireworks_canvas.setStyleSheet("background-color: #23242b;")  # Set canvas background color
 
-        #######################################################################
-        #                                                                     #
-        #                           Spectrogram Display                       #
-        #                                                                     #
-        #######################################################################
-
+        ##############################################################
+        #                                                            #
+        #     Spectrogram Canvas                                     #
+        #           - (Placed inside waveform canvas below)          #
+        ##############################################################
 
         # Create a spectrogram canvas for plot_spectrogram
         self.spectrogram_canvas = FigureCanvas(Figure(figsize=(8, 4)))
@@ -447,7 +447,7 @@ class FireworkShowApp(QMainWindow):
         
         ###########################################################
         #                                                         #
-        #           Canvas for waveform display                   #
+        #           Waveform Canvas                               #
         #                                                         #
         ###########################################################
 
@@ -590,8 +590,8 @@ class FireworkShowApp(QMainWindow):
         ############################################################
 
         # Instantiate the helper and get the widget for the tab
-        create_tab_helper = CreateTabHelper(self)
-        create_tab_widget = create_tab_helper.create_tab_widget
+        self.create_tab_helper = CreateTabHelper(self)
+        create_tab_widget = self.create_tab_helper.create_tab_widget
 
         ###############################################
         #                                             #
@@ -840,465 +840,14 @@ class FireworkShowApp(QMainWindow):
         self.load_btn.clicked.connect(lambda: self.audio_loader.handle_audio())
         self.load_btn.clicked.connect(self.firework_show_helper.update_firework_show_info)
 
-
-
-
-
-
-
-
-
-
-
         ############################################################
         #                                                          #
-        #                         File menu                        #
-        #                                                          #
-        ###########################################################
-
-        # Ensure the menu bar exists before adding the File menu
-        if self.menuBar() is None:
-            self.setMenuBar(QMenuBar(self))
-        file_menu = self.menuBar().addMenu("&File") #type: ignore
-
-        if file_menu is not None:
-            # Only set stylesheet for the menu bar
-            self.menuBar().setStyleSheet(menu_style) #type: ignore
-
-            # Save Show action
-            save_action = QAction(QIcon(os.path.join("icons", "save.png")), "Save...", self)
-            save_action.setShortcut("Ctrl+S")
-            save_action.triggered.connect(self.save_btn.click)
-            file_menu.addAction(save_action)
-
-            # Load Show action
-            load_action = QAction(QIcon(os.path.join("icons", "load.png")), "Open...", self)
-            load_action.setShortcut("Ctrl+O")
-            load_action.triggered.connect(self.load_show_btn.click)
-            file_menu.addAction(load_action)
-
-            # Clear Show action
-            clear_action = QAction(QIcon(os.path.join("icons", "clear-show.png")), "Clear Show", self)
-            clear_action.setShortcut("C")
-            clear_action.triggered.connect(self.clear_btn.click)
-            file_menu.addAction(clear_action)
-
-            # Exit action
-            exit_action = QAction(QIcon(os.path.join("icons", "exit.png")), "Exit", self)
-            exit_action.setShortcut("Ctrl+Q")
-            exit_action.triggered.connect(self.close)
-            file_menu.addAction(exit_action)
-
-        ############################################################
-        #                                                          #
-        #                         Edit menu                        #
+        #                         Menu Bar                          #
         #                                                          #
         ############################################################
 
-        edit_menu = self.menuBar().addMenu("&Edit") #type: ignore
-        # Set a dark style for the Edit menu to match the rest of the app
-        if edit_menu is not None:
-            # Play/Pause action (styled and with shortcut)
-            play_pause_action = QAction(QIcon(os.path.join("icons", "play.png")), "Play/Pause", self)
-            play_pause_action.setShortcut("Space")
-            play_pause_action.triggered.connect(lambda: self.play_pause_btn.toggle())
-            edit_menu.addAction(play_pause_action)
-
-            # Stop action (styled and with shortcut)
-            stop_action = QAction(QIcon(os.path.join("icons", "stop.png")), "Stop", self)
-            stop_action.setShortcut("S")
-            stop_action.triggered.connect(self.stop_btn.click)
-            edit_menu.addAction(stop_action)
-
-            # Load Audio action
-            load_audio_action = QAction(QIcon(os.path.join("icons", "upload.png")), "Load Audio...", self)
-            load_audio_action.setShortcut("Ctrl+L")
-            load_audio_action.triggered.connect(self.load_btn.click)
-            edit_menu.addAction(load_audio_action)
-
-            # Add separator
-            edit_menu.addSeparator()
-
-            # Add Firing action
-            add_firing_action = QAction(QIcon(os.path.join("icons", "plus.png")), "Add Firing", self)
-            add_firing_action.setShortcut("A")
-            add_firing_action.triggered.connect(self.add_firing_btn.click)
-            edit_menu.addAction(add_firing_action)
-
-            # Delete Firing action
-            delete_firing_action = QAction(QIcon(os.path.join("icons", "delete.png")), "Delete Firing", self)
-            delete_firing_action.setShortcut("D")
-            delete_firing_action.triggered.connect(self.delete_firing_btn.click)
-            edit_menu.addAction(delete_firing_action)
-
-            # Separator
-            edit_menu.addSeparator()
-            # Add a submenu for background selection under Edit menu
-            background_menu = QMenu("Background", self)
-            backgrounds = [
-                ("Night Sky", "night"),
-                ("Sunset", "sunset"),
-                ("City", "city"),
-                ("Mountains", "mountains"),
-                ("Desert", "desert"),
-                ("Custom...", "custom"),
-            ]
-            '''
-            self.background_actions = []
-            for label, bg_name in backgrounds:
-                bg_action = QAction(label, self)
-                bg_action.setCheckable(bg_name != "custom")
-                # Set checked if current background matches
-                if bg_name != "custom":
-                    bg_action.setChecked(getattr(self.fireworks_canvas, "current_background", "night") == bg_name)
-                    self.background_actions.append(bg_action)
-                    def make_bg_handler(bg=bg_name, action=bg_action):
-                        def handler():
-                            self.fireworks_canvas.set_background(bg)
-                            self.fireworks_canvas.current_background = bg
-                            # Uncheck all others, check only this one
-                            for a in self.background_actions:
-                                a.setChecked(a is action)
-                        return handler
-                    bg_action.triggered.connect(make_bg_handler())
-                else:
-                    def custom_bg_handler(action=bg_action):
-                        file_dialog = QFileDialog(self)
-                        file_dialog.setNameFilter("Images (*.png *.jpg *.jpeg *.bmp *.gif)")
-                        if file_dialog.exec():
-                            selected_files = file_dialog.selectedFiles()
-                            if selected_files:
-                                image_path = selected_files[0]
-                                self.fireworks_canvas.set_background("custom", image_path)
-                                self.fireworks_canvas.current_background = "custom"
-                                # Uncheck all preset actions
-                                for a in self.background_actions:
-                                    a.setChecked(False)
-                        # Custom is not checkable
-                    bg_action.triggered.connect(lambda: custom_bg_handler())
-                background_menu.addAction(bg_action)
-            edit_menu.addMenu(background_menu)
-            '''
-            # --- Add Padding submenu ---
-            padding_menu = QMenu("Padding", self)
-            # Store actions so we can update their checked state
-            self.padding_actions = []
-            for pad_value in [5, 10, 15, 20, 25, 50]:
-                pad_action = QAction(f"{pad_value} seconds", self)
-                pad_action.setCheckable(True)
-                pad_action.setChecked(self.padding == pad_value)
-                self.padding_actions.append(pad_action)
-                def make_pad_handler(value=pad_value, action=pad_action):
-                    def handler(checked=False):
-                        self.padding = value  # Ensure self.padding is set
-                        self.audio_loader.set_padding(value)  # Pass to audio_loader
-                        # Uncheck all others, check only this one
-                        for a in self.padding_actions:
-                            a.setChecked(a is action)
-                        # reload or load audio data to add padding if changed
-                        custom_check = self.audio_data is not None
-                        self.audio_loader.handle_audio(reload=custom_check)
-                    return handler
-                pad_action.triggered.connect(make_pad_handler())
-                padding_menu.addAction(pad_action)
-            # Optionally, add a custom padding dialog
-            custom_pad_action = QAction("Custom...", self)
-            def custom_pad_handler():
-                # Ask user for a comma-separated list of paddings
-                text, ok = QInputDialog.getText(
-                    self,
-                    "Set Custom Padding Vector",
-                    "Enter padding (seconds) before each audio file, separated by commas:\n"
-                    "Example: 5,10,5 for 5s before first, 10s before second, 5s before third, etc.",
-                text=",".join(str(v) for v in getattr(self.audio_loader, "padding_vector", [self.padding]))
-                )
-                if ok:
-                    try:
-                        if "[" in text or "]" in text:
-                            text = text.replace("[", "").replace("]", "")
-                        # Parse the input into a list of floats/ints
-                        padding_vector = [float(v.strip()) for v in text.split(",") if v.strip() != ""]
-                        self.audio_loader.set_padding(padding_vector)
-                        self.padding = padding_vector  # Save as a list
-                        # Uncheck all preset actions
-                        for a in self.padding_actions:
-                            a.setChecked(False)
-                        # reload or load audio data to add padding if changed
-                        custom_check = self.audio_data is not None
-                        self.audio_loader.handle_audio(reload=custom_check)
-                    except Exception as e:
-                        toast = ToastDialog(f"Invalid input for padding vector: {e}", parent=self)
-                        toast.show()
-            custom_pad_action.triggered.connect(custom_pad_handler)
-            padding_menu.addAction(custom_pad_action)
-            edit_menu.addMenu(padding_menu)
-
-        ############################################################
-        #                                                          #
-        #                         Analysis menu                    #
-        #                                                          #
-        ############################################################
-
-        analysis_menu = None
-        # Find existing Analysis menu or create it
-        for menu in self.menuBar().findChildren(QMenu):
-            if menu.title() == "&Analysis":
-                analysis_menu = menu
-                break
-        if analysis_menu is None:
-            analysis_menu = self.menuBar().addMenu("&Analysis")
-    
-        if analysis_menu is not None:
-            # Segment Audio action
-            segment_action = QAction("Segment Audio", self)
-            segment_action.setShortcut("Ctrl+M")
-            def segment_audio():
-                if self.analyzer is not None:
-                    # Only show toast the first time segments are found
-                    self.analyzer.analyze_segments()
-                    self._segments_toast_shown = False
-
-                # Display a toast/loading dialog while processing segments
-                toast = ToastDialog("Analyzing segments...")
-                geo = self.geometry() #type: ignore
-                x = geo.x() + geo.width() - toast.width() - 40
-                y = geo.y() + geo.height() - toast.height() - 40
-                toast.move(x, y)
-                toast.show()
-
-                # clear the loading toast and let user know it is not doing anything because no audio is loaded
-                if self.audio_data is None or len(self.audio_data) == 0:
-                    def show_no_audio_toast():
-                        toast = ToastDialog("No audio data available for analysis.", parent=self)
-                        geo = self.geometry()
-                        x = geo.x() + geo.width() - toast.width() - 40
-                        y = geo.y() + geo.height() - toast.height() - 40
-                        toast.move(x, y)
-                        toast.show()
-                        QTimer.singleShot(2500, toast.close)
-                    show_no_audio_toast()
-
-            segment_action.triggered.connect(segment_audio)
-            if analysis_menu is not None:
-                analysis_menu.addAction(segment_action)
-
-            # Interesting Points action
-            interesting_points_action = QAction("Find Interesting Points", self)
-            interesting_points_action.setShortcut("Ctrl+I")
-            def find_interesting_points():
-                # Only show toast the first time interesting points are found
-                if self.analyzer is not None:
-                    self.analyzer.analyze_interesting_points()
-                    self._interesting_points_toast_shown = False
-
-                # Display a toast/loading dialog while processing interesting points
-                toast = ToastDialog("Analyzing interesting points...")
-                geo = self.geometry() #type: ignore
-                x = geo.x() + geo.width() - toast.width() - 40
-                y = geo.y() + geo.height() - toast.height() - 40
-                toast.move(x, y)
-                toast.show()
-
-                # clear the loading toast and let user know it is not doing anything because no audio is loaded
-                if self.audio_data is None or len(self.audio_data) == 0:
-                    def show_no_audio_toast():
-                        toast = ToastDialog("No audio data available for analysis.", parent=self)
-                        geo = self.geometry()
-                        x = geo.x() + geo.width() - toast.width() - 40
-                        y = geo.y() + geo.height() - toast.height() - 40
-                        toast.move(x, y)
-                        toast.show()
-                        QTimer.singleShot(2500, toast.close)
-                    show_no_audio_toast()
-                        
-            interesting_points_action.triggered.connect(find_interesting_points)
-            if analysis_menu is not None:
-                analysis_menu.addAction(interesting_points_action)
-
-            # Onsets action
-            onsets_action = QAction("Find Onsets", self)
-            onsets_action.setShortcut("Ctrl+N")
-            def find_onsets():
-                # Only show toast the first time onsets are found
-                if self.analyzer is not None:
-                    self.analyzer.analyze_onsets()
-                    self._onsets_toast_shown = False
-
-                # Display a toast/loading dialog while processing onsets
-                toast = ToastDialog("Analyzing onsets...")
-                geo = self.geometry() #type: ignore
-                x = geo.x() + geo.width() - toast.width() - 40
-                y = geo.y() + geo.height() - toast.height() - 40
-                toast.move(x, y)
-                toast.show()
-
-                # clear the loading toast and let user know it is not doing anything because no audio is loaded
-                if self.audio_data is None or len(self.audio_data) == 0:
-                    def show_no_audio_toast():
-                        toast = ToastDialog("No audio data available for analysis.", parent=self)
-                        geo = self.geometry()
-                        x = geo.x() + geo.width() - toast.width() - 40
-                        y = geo.y() + geo.height() - toast.height() - 40
-                        toast.move(x, y)
-                        toast.show()
-                        QTimer.singleShot(2500, toast.close)
-                    show_no_audio_toast()
-
-            onsets_action.triggered.connect(find_onsets)
-
-            if analysis_menu is not None:
-                analysis_menu.addAction(onsets_action)
-
-            # Local Maxima action
-            maxima_action = QAction("Find Local Maxima", self)
-            maxima_action.setShortcut("Ctrl+X")
-            def find_local_maxima():
-                # Only show toast the first time local maxima are found
-                if self.analyzer is not None:
-                    self.analyzer.analyze_maxima()
-                    self._peaks_toast_shown = False
-
-                # Display a toast/loading dialog while processing maxima
-                toast = ToastDialog("Analyzing local maxima...")
-                geo = self.geometry() #type: ignore
-                x = geo.x() + geo.width() - toast.width() - 40
-                y = geo.y() + geo.height() - toast.height() - 40
-                toast.move(x, y)
-                toast.show()
-
-                # clear the loading toast and let user know it is not doing anything because no audio is loaded
-                if self.audio_data is None or len(self.audio_data) == 0:
-                    def show_no_audio_toast():
-                        toast = ToastDialog("No audio data available for analysis.", parent=self)
-                        geo = self.geometry()
-                        x = geo.x() + geo.width() - toast.width() - 40
-                        y = geo.y() + geo.height() - toast.height() - 40
-                        toast.move(x, y)
-                        toast.show()
-                        QTimer.singleShot(2500, toast.close)
-                    show_no_audio_toast()
-
-            maxima_action.triggered.connect(find_local_maxima)
-
-            if analysis_menu is not None:
-                analysis_menu.addAction(maxima_action)
-
-            # Add "Apply Filter" action to Analysis menu
-            apply_filter_action = QAction("Apply Filter...", self)
-            apply_filter_action.setShortcut("Ctrl+F")
-
-            def open_filter_dialog():
-                dialog = FilterDialog(self)
-                if dialog.exec():
-                    filter_type, order, cutoff = dialog.get_values()
-                    # Save filter settings to self
-                    self.filter_type = filter_type
-                    self.order = order
-                    self.cutoff = cutoff
-                    self.filter_kwargs = {"order": order, "cutoff": cutoff}
-                    # Apply filter to audio_data and replot
-                    if self.audio_data is not None and self.sr is not None:
-                        try:
-                            # Ensure self.filter is an instance of AudioFilter
-                            if self.filter is None or not hasattr(self.filter, "apply"):
-                                self.filter = AudioFilter(self.sr)  # Initialize filter with sample rate
-                            # Use lowercase for filter type comparison
-                            if filter_type.lower() in ["lowpass", "highpass", "bandpass"]:
-                                kwargs = {"sr": self.sr, "order": order}
-                                if filter_type.lower() == "bandpass":
-                                    # cutoff is a tuple (lowcut, highcut)
-                                    lowcut, highcut = cutoff if isinstance(cutoff, (tuple, list)) and len(cutoff) == 2 else (1000.0, 5000.0)
-                                    kwargs["lowcut"] = lowcut
-                                    kwargs["highcut"] = highcut
-                                else:
-                                    kwargs["cutoff"] = cutoff
-                                filtered = self.filter.apply(self.audio_data, filter_type.lower(), **kwargs)
-                                self.audio_data = filtered
-                                self.firework_show_helper.plot_waveform()
-                                toast = ToastDialog(f"Applied {filter_type} filter!", parent=self)
-                                geo = self.geometry()
-                                x = geo.x() + geo.width() - toast.width() - 40
-                                y = geo.y() + geo.height() - toast.height() - 40
-                                toast.move(x, y)
-                                toast.show()
-                                QTimer.singleShot(2000, toast.close)
-                            else:
-                                toast = ToastDialog(f"Filter type '{filter_type}' is not supported.", parent=self)
-                                toast.show()
-                                QTimer.singleShot(2500, toast.close)
-                        except Exception as e:
-                            toast = ToastDialog(f"Filter error: {e}", parent=self)
-                            toast.show()
-                            QTimer.singleShot(2500, toast.close)
-                            
-
-            apply_filter_action.triggered.connect(open_filter_dialog)
-            if analysis_menu is not None:
-                analysis_menu.addAction(apply_filter_action)
-
-        ############################################################
-        #                                                          #
-        #                         Help menu                        #
-        #                                                          #
-        ############################################################
-
-        if not any(menu.title() == "&Help" for menu in self.menuBar().findChildren(QMenu)):
-            help_menu = self.menuBar().addMenu("&Help")
-            if help_menu is not None:
-                help_action = QAction("How to Use Firework Studio", self)
-                help_action.setShortcut("F1")
-                def show_help_dialog():
-                    help_text = (
-                        "<b>How to Load Multiple Audio Files:</b><br>"
-                        "Click the <b>Load Audio</b> button or use <b>Ctrl+L</b> to select and load audio files.<br>"
-                        "You can load more than one file, and it concatenates them in the same order they are displayed in the file dialog window.<br><br>"
-                        "<b>Changing Number of Firings and Pattern:</b><br>"
-                        "Use the <b>Up/Down arrow keys</b> to change the number of fireworks fired at each time.<br>"
-                        "Use the <b>Left/Right arrow keys</b> to change the firework pattern.<br><br>"
-                        "<b>Saving and Loading a Show:</b><br>"
-                        "Click the <b>Save</b> button or use <b>Ctrl+S</b> to save your show.<br>"
-                        "Click the <b>Load</b> button or use <b>Ctrl+O</b> to load a previously saved show.<br><br>"
-                        "<b>Preview Widget:</b><br>"
-                        "The preview widget lets you select a region of the audio by clicking and dragging.<br>"
-                        "Right-click on the preview widget to access context menu options for firings.<br>"
-                    )
-                    dialog = ToastDialog(help_text, parent=self)
-                    dialog.setWindowTitle("Firework Studio Help")
-                    dialog.setMinimumWidth(500)
-                    dialog.setWindowFlags(dialog.windowFlags() | Qt.WindowType.WindowCloseButtonHint)
-                    # Fade out after 4s unless mouse is inside
-                    dialog.fade_active = False  # Track if fade is running #type: ignore
-
-                    def fade_step(opacity):
-                        if not dialog.fade_active: #type: ignore
-                            return  # Stop fading if fade is cancelled
-                        if opacity > 0:
-                            dialog.setWindowOpacity(opacity)
-                            QTimer.singleShot(50, lambda: fade_step(opacity - 0.04))
-                        else:
-                            dialog.close()
-                            dialog.setWindowOpacity(1.0)
-
-                    def cancel_fade(_event=None):
-                        dialog.fade_active = False #type: ignore
-                        dialog.setWindowOpacity(1.0)
-
-                    def start_fade():
-                        dialog.fade_active = True #type: ignore
-                        fade_step(1.0)
-
-                    # Properly override event handlers
-                    def on_enter(event):
-                        cancel_fade(event)
-                    def on_leave(event):
-                        QTimer.singleShot(4000, start_fade)
-
-                    QTimer.singleShot(400, start_fade)  # Increased from 2500ms to 4000ms
-                    dialog.enterEvent = on_enter
-                    dialog.leaveEvent = on_leave #type: ignore
-                    dialog.show()
-                help_action.triggered.connect(show_help_dialog)
-                help_menu.addAction(help_action)
+        # Instantiate the menu helper
+        self.menu_helper = MenuBarHelper(self, button_style, menu_style)
 
         ############################################################
         #                                                          #

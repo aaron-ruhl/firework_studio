@@ -20,68 +20,59 @@ class AudioAnalysis(QThread):
         self.selected_region = None  # 
         self.duration = duration
 
-        # SEGMENT SETTINGS
-        self.n_mfcc = 13
-        self.min_segments = 2
-        self.max_segments = 12
-        self.dct_type = 2
-        self.n_fft = 2048
-        self.hop_length_segments = 512
-        
+    def set_segment_settings(self, n_mfcc=None, min_segments=None, max_segments=None, dct_type=None, n_fft=None, hop_length_segments=None):
+        if n_mfcc is not None:
+            self.n_mfcc = n_mfcc
+        if min_segments is not None:
+            self.min_segments = min_segments
+        if max_segments is not None:
+            self.max_segments = max_segments
+        if dct_type is not None:
+            self.dct_type = dct_type
+        if n_fft is not None:
+            self.n_fft = n_fft
+        if hop_length_segments is not None:
+            self.hop_length_segments = hop_length_segments
 
-        # INTERESTING POINTS SETTINGS
-        self.min_points = 5
-        self.max_points = 20
-        self.pre_max = 3
-        self.post_max = 3
-        self.pre_avg_distance = 3
-        self.post_avg_distance = 5
-        self.delta = 0.5
-        self.moving_avg_wait = 5
+    def set_interesting_points_settings(self, min_points=None, max_points=None, pre_max=None, post_max=None, pre_avg_distance=None, post_avg_distance=None, delta=None, moving_avg_wait=None):
+        if min_points is not None:
+            self.min_points = min_points
+        if max_points is not None:
+            self.max_points = max_points
+        if pre_max is not None:
+            self.pre_max = pre_max
+        if post_max is not None:
+            self.post_max = post_max
+        if pre_avg_distance is not None:
+            self.pre_avg_distance = pre_avg_distance
+        if post_avg_distance is not None:
+            self.post_avg_distance = post_avg_distance
+        if delta is not None:
+            self.delta = delta
+        if moving_avg_wait is not None:
+            self.moving_avg_wait = moving_avg_wait
 
-        # ONSET SETTINGS
-        self.min_onsets = 5
-        self.max_onsets = 20
-        self.hop_length_onsets = 512
-        self.backtrack = True
-        self.normalize = True
+    def set_onset_settings(self, min_onsets=None, max_onsets=None, hop_length_onsets=None, backtrack=None, normalize=None):
+        if min_onsets is not None:
+            self.min_onsets = min_onsets
+        if max_onsets is not None:
+            self.max_onsets = max_onsets
+        if hop_length_onsets is not None:
+            self.hop_length_onsets = hop_length_onsets
+        if backtrack is not None:
+            self.backtrack = backtrack
+        if normalize is not None:
+            self.normalize = normalize
 
-        # PEAK SETTINGS
-        self.min_peaks = 5
-        self.max_peaks = 20
-        self.scoring = "absolute"  # Options: "absolute", "relative", "sharp", "custom"
-        self.custom_scoring_method = None
-
-    def set_segment_settings(self, n_mfcc=13, min_segments=2, max_segments=19, dct_type=2, n_fft=2048, hop_length_segments=512):
-        self.n_mfcc = n_mfcc
-        self.min_segments = min_segments
-        self.max_segments = max_segments
-        self.dct_type = dct_type
-        self.n_fft = n_fft
-        self.hop_length_segments = hop_length_segments
-
-    def set_interesting_points_settings(self, min_points=5, max_points=20, pre_max=3, post_max=3, pre_avg_distance=3, post_avg_distance=5, delta=0.5, moving_avg_wait=5):
-        self.min_points = min_points
-        self.max_points = max_points
-        self.pre_max = pre_max
-        self.post_max = post_max
-        self.pre_avg_distance = pre_avg_distance
-        self.post_avg_distance = post_avg_distance
-        self.delta = delta
-        self.moving_avg_wait = moving_avg_wait
-
-    def set_onset_settings(self, min_onsets=5, max_onsets=20, hop_length_onsets=512, backtrack=True, normalize=True):
-        self.min_onsets = min_onsets
-        self.max_onsets = max_onsets
-        self.hop_length_onsets = hop_length_onsets
-        self.backtrack = backtrack
-        self.normalize = normalize
-
-    def set_peak_settings(self, min_peaks=10, max_peaks=30, scoring="squared", custom_scoring_method=None):
-        self.min_peaks = min_peaks
-        self.max_peaks = max_peaks
-        self.scoring = scoring
-        self.custom_scoring_method = custom_scoring_method
+    def set_peak_settings(self, min_peaks=None, max_peaks=None, scoring=None, custom_scoring_method=None):
+        if min_peaks is not None:
+            self.min_peaks = min_peaks
+        if max_peaks is not None:
+            self.max_peaks = max_peaks
+        if scoring is not None:
+            self.scoring = scoring
+        if custom_scoring_method is not None:
+            self.custom_scoring_method = custom_scoring_method
 
     def set_selected_region(self, region):
         self.selected_region = region
@@ -294,8 +285,11 @@ class AudioAnalysis(QThread):
             scores = np.abs(np.diff(audio_data_region, 2))[zero_crossings[1:-1]]
         elif self.scoring == "custom":
             # Score extrema by a custom method (higher value = higher score)
-            if self.custom_scoring_method is not None:
+            if hasattr(self, 'custom_scoring_method') and self.custom_scoring_method is not None:
                 scores = self.custom_scoring_method(audio_data_region, zero_crossings)
+            else:
+                # Fallback to absolute scoring if no custom method is defined
+                scores = np.abs(audio_data_region[zero_crossings])
         if len(scores) == 0:
             return peaks
         
@@ -303,7 +297,8 @@ class AudioAnalysis(QThread):
         duration = self.duration if self.selected_region is None else selected_duration
 
         # Set the min and max amount of peaks based on settings
-        target_peaks = max(self.min_peaks, min(self.max_peaks, len(zero_crossings), int(duration // 3)))
+        target_peaks = min(self.max_peaks, max(self.min_peaks, int(duration // 3)))
+        print(target_peaks)
         # If there are fewer zero crossings than target_peaks, use all of them
         if len(zero_crossings) <= target_peaks:
             extrema_indices = zero_crossings
@@ -318,7 +313,7 @@ class AudioAnalysis(QThread):
         refined_indices = []
         for idx in rounded_indices:
             x = idx
-            for _ in range(5):  # 5 iterations of Newton's method
+            for _ in range(2):  # 2 iterations of Newton's method
                 if x <= 0 or x >= len(audio_data_region) - 1:
                     break
                 f_prime = (audio_data_region[x+1] - audio_data_region[x-1]) / 2
