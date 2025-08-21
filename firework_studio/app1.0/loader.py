@@ -186,7 +186,7 @@ class AudioLoader():
             self.main_window.firework_show_helper.plot_waveform() #type: ignore
             self.main_window.firework_show_helper.plot_spectrogram() #type: ignore
             self.main_window.analyzer = AudioAnalysis(audio_data,audio_datas, sr, duration)
-            self.main_window.filter = AudioFilter(sr)  # Initialize filter with sample rate
+            self.main_window.filter = AudioFilter(sr, audio_data)  # Initialize filter with sample rate and audio data
 
             # Apply current create tab settings to the newly created analyzer
             self.apply_create_tab_settings()

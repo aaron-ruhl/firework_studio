@@ -262,7 +262,7 @@ class ShowFileHandler:
 
             # this is setting up analysis and plotting to mimic load audio functionality
             self.main_window.analyzer = AudioAnalysis(audio_data,audio_datas, sr, duration)
-            self.main_window.filter = AudioFilter(sr)  # Initialize filter with sample rate
+            self.main_window.filter = AudioFilter(sr, audio_data)  # Initialize filter with sample rate and audio data
 
             # Apply current create tab settings and connect to the newly created analyzer
             self.main_window.audio_loader.connect_analysis_signals()

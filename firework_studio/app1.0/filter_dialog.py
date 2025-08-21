@@ -2,13 +2,13 @@ from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QComboBox,
     QSpinBox, QDoubleSpinBox, QPushButton
 )
-
 class FilterDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Apply Audio Filter")
         self.setMinimumWidth(320)
         layout = QVBoxLayout(self)
+        self.mw_filter = parent.filter
 
         # Filter type
         layout.addWidget(QLabel("Filter Type:"))
@@ -55,12 +55,50 @@ class FilterDialog(QDialog):
         btn_layout = QHBoxLayout()
         ok_btn = QPushButton("Apply")
         cancel_btn = QPushButton("Cancel")
+        reset_btn = QPushButton("Reset")
         btn_layout.addWidget(ok_btn)
         btn_layout.addWidget(cancel_btn)
+        btn_layout.addWidget(reset_btn)
         layout.addLayout(btn_layout)
 
         ok_btn.clicked.connect(self.accept)
         cancel_btn.clicked.connect(self.reject)
+        reset_btn.clicked.connect(self.reset_filter)
+
+    def reset_filter(self):
+        # Reset UI fields to default values
+        self.type_box.setCurrentIndex(0)
+        self.order_spin.setValue(4)
+        self.cutoff_spin.setValue(1000)
+        self.cutoff_spin2.setValue(5000)
+        self.cutoff_spin2.setVisible(False)
+        self.cutoff_label.setText("Cutoff Frequency (Hz):")
+        
+        # Restore original audio data to main window
+        mw = self.parent()
+        if mw is not None and hasattr(mw, 'reset_filter_to_original'):
+            if mw.reset_filter_to_original():
+                # Show a toast notification
+                from toaster import ToastDialog
+                from PyQt6.QtCore import QTimer
+                toast = ToastDialog("Audio filter reset to original!", parent=mw)
+                geo = mw.geometry()
+                x = geo.x() + geo.width() - toast.width() - 40
+                y = geo.y() + geo.height() - toast.height() - 40
+                toast.move(x, y)
+                toast.show()
+                QTimer.singleShot(2000, toast.close)
+            else:
+                # Show error toast if reset failed
+                from toaster import ToastDialog
+                from PyQt6.QtCore import QTimer
+                toast = ToastDialog("No original audio data to restore!", parent=mw)
+                geo = mw.geometry()
+                x = geo.x() + geo.width() - toast.width() - 40
+                y = geo.y() + geo.height() - toast.height() - 40
+                toast.move(x, y)
+                toast.show()
+                QTimer.singleShot(2000, toast.close)
 
     def get_values(self):
         filter_type = self.type_box.currentText()

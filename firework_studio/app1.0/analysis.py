@@ -298,7 +298,6 @@ class AudioAnalysis(QThread):
 
         # Set the min and max amount of peaks based on settings
         target_peaks = min(self.max_peaks, max(self.min_peaks, int(duration // 3)))
-        print(target_peaks)
         # If there are fewer zero crossings than target_peaks, use all of them
         if len(zero_crossings) <= target_peaks:
             extrema_indices = zero_crossings

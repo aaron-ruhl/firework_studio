@@ -247,7 +247,10 @@ class MenuBarHelper:
                     if mw.audio_data is not None and mw.sr is not None:
                         try:
                             if mw.filter is None or not hasattr(mw.filter, "apply"):
-                                mw.filter = AudioFilter(mw.sr)
+                                mw.filter = AudioFilter(mw.sr, mw.audio_data)
+                            elif mw.filter.original_audio is None:
+                                # Ensure original audio is preserved
+                                mw.filter.original_audio = mw.audio_data.copy()
                             if filter_type.lower() in ["lowpass", "highpass", "bandpass"]:
                                 kwargs = {"sr": mw.sr, "order": order}
                                 if filter_type.lower() == "bandpass":
@@ -259,6 +262,7 @@ class MenuBarHelper:
                                 filtered = mw.filter.apply(mw.audio_data, filter_type.lower(), **kwargs)
                                 mw.audio_data = filtered
                                 mw.firework_show_helper.plot_waveform()
+                                mw.firework_show_helper.plot_spectrogram()
                                 toast = ToastDialog(f"Applied {filter_type} filter!", parent=mw)
                                 geo = mw.geometry()
                                 x = geo.x() + geo.width() - toast.width() - 40

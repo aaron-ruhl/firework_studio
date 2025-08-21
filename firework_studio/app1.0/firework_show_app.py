@@ -90,8 +90,13 @@ class FireworkShowApp(QMainWindow):
         # Set window properties first to prevent flash
         self.setWindowTitle("Firework Studio")
         # Set initial geometry to full screen to prevent small window flash
-        screen = QApplication.primaryScreen().geometry()
-        self.setGeometry(screen)
+        primary_screen = QApplication.primaryScreen()
+        if primary_screen is not None:
+            screen_geometry = primary_screen.geometry()
+        else:
+            # Fallback to a default geometry if no screen is available
+            screen_geometry = self.geometry()
+        self.setGeometry(screen_geometry)
         self.setWindowState(Qt.WindowState.WindowMaximized)
         
         # Set dark palette 
@@ -874,7 +879,7 @@ class FireworkShowApp(QMainWindow):
 
         # Make sure the toolbar is added to the window
         # Change from BottomToolBarArea to TopToolBarArea for visibility
-        self.addToolBar(Qt.ToolBarArea.TopToolBarArea, toolbar)
+        self.addToolBar(Qt.ToolBarArea.BottomToolBarArea, toolbar)
 
         ############################################################
         #                                                          #
@@ -953,5 +958,16 @@ class FireworkShowApp(QMainWindow):
         # Add to main layout with stretch=1 so it takes remaining space and grows/shrinks
         layout.addWidget(tab_widget, stretch=1)
 
-        # Show the window - it's already set to maximized state
-        self.show()
+    def reset_filter_to_original(self):
+        """Reset audio filter and restore original audio data."""
+        if self.filter and self.filter.original_audio is not None:
+            self.audio_data = self.filter.original_audio.copy()
+            # Replot the waveform to show the original audio
+            if hasattr(self, 'firework_show_helper') and self.firework_show_helper:
+                self.firework_show_helper.plot_waveform()
+                self.firework_show_helper.plot_spectrogram()
+            return True
+        return False
+
+    def showEvent(self, event):
+        super().showEvent(event)
