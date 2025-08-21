@@ -1,5 +1,11 @@
 import numpy as np
 import os
+# Set matplotlib backend before any other matplotlib imports to prevent window flash
+import matplotlib
+matplotlib.use('Qt5Agg')  # Force Qt backend, no separate windows
+import matplotlib.pyplot as plt
+# Disable matplotlib interactive mode to prevent any window popups
+plt.ioff()  # Turn off interactive mode
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt import NavigationToolbar2QT
@@ -28,7 +34,6 @@ from waveform_selection import WaveformSelectionTool
 from show_file_handler import ShowFileHandler
 from filters import AudioFilter
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib import pyplot as plt
 from PyQt6.QtWidgets import QToolButton
 
 class CollapsibleWidget(QWidget):
@@ -122,7 +127,16 @@ class FireworkShowApp(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        # Set dark palette before initializing the main window
+        
+        # Set window properties first to prevent flash
+        self.setWindowTitle("Firework Studio")
+        # Set initial geometry to full screen to prevent small window flash
+        from PyQt6.QtWidgets import QApplication
+        screen = QApplication.primaryScreen().geometry()
+        self.setGeometry(screen)
+        self.setWindowState(Qt.WindowState.WindowMaximized)
+        
+        # Set dark palette immediately
         dark_palette = QPalette()
         dark_palette.setColor(QPalette.ColorRole.Window, QColor(30, 30, 30))
         dark_palette.setColor(QPalette.ColorRole.WindowText, QColor(255, 215, 0))
@@ -138,10 +152,6 @@ class FireworkShowApp(QMainWindow):
         dark_palette.setColor(QPalette.ColorRole.HighlightedText, QColor(30, 30, 30))
         self.setPalette(dark_palette)
         self.setAutoFillBackground(True)
-
-        self.setWindowTitle("Firework Studio")
-        self.setGeometry(100, 100, 1800, 1000)
-        self.setMinimumSize(1600, 900)  # Ensure enough room for all widgets
         
         # App Initialization
         self.generating_toast = None
@@ -422,8 +432,8 @@ class FireworkShowApp(QMainWindow):
         self.spectrogram_canvas.setFixedHeight(80)
         self.spectrogram_ax = self.spectrogram_canvas.figure.subplots()
         # Set the background color to black for the spectrogram axes and figure
-        self.spectrogram_ax.set_facecolor('#181a20')
-        self.spectrogram_canvas.figure.set_facecolor('#181a20')
+        self.spectrogram_ax.set_facecolor("#000000")
+        self.spectrogram_canvas.figure.set_facecolor("#000000")
         # Show a default message (no plot) until audio is loaded
         self.spectrogram_ax.axis("off")
         self.spectrogram_ax.text(
@@ -500,7 +510,6 @@ class FireworkShowApp(QMainWindow):
 
         # Add NavigationToolbar for zoom/pan (does not disrupt custom selection tool)
         self.waveform_toolbar = NavigationToolbar2QT(self.waveform_canvas, self)
-        self.waveform_toolbar.setVisible(True)
 
         # Ensure "Home" button always resets the waveform view, even after selection
         def reset_waveform_view():
@@ -1854,10 +1863,16 @@ class FireworkShowApp(QMainWindow):
             color: #8fb9bd;
         """)
         waveform_layout = QVBoxLayout(waveform_container)
+
         waveform_layout.setContentsMargins(40, 0, 40, 0)
         waveform_layout.setSpacing(0)
+        waveform_container.setStyleSheet("""
+            background-color: #000000;
+            color: #8fb9bd;
+        """)
         waveform_layout.addWidget(self.waveform_toolbar)
         waveform_layout.addWidget(self.waveform_canvas)
+
         self.spectrogram_canvas.setContentsMargins(0, 0, 0, 0)
         self.spectrogram_canvas.setFixedHeight(80)
         self.spectrogram_canvas.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
@@ -1865,7 +1880,6 @@ class FireworkShowApp(QMainWindow):
 
         # Create but do not show collapsible_waveform yet
         self.collapsible_waveform = CollapsibleWidget("Waveform & Spectrogram", waveform_container)
-        self.collapsible_waveform.setVisible(False)
         layout.addWidget(self.collapsible_waveform)
 
         layout.addWidget(self.preview_widget, stretch=0, alignment=Qt.AlignmentFlag.AlignBottom)
@@ -1882,24 +1896,9 @@ class FireworkShowApp(QMainWindow):
         tab_widget.addTab(self.fireworks_canvas_container, "Preview")
         tab_widget.addTab(create_tab_widget, "Create")
         layout.addWidget(tab_widget)
-        
-        # Show collapsible waveform after window is shown to avoid flash
-        QTimer.singleShot(0, lambda: self.collapsible_waveform.setVisible(True))
-        
-        #############################################################
-        #                                                         #
-        #        Set dark theme palette and styles for the app    #
-        #                                                         #
-        ###########################################################
-
-        dark_palette = self.palette()
-        dark_palette.setColor(self.backgroundRole(), QColor(30, 30, 30))
-        dark_palette.setColor(self.foregroundRole(), QColor(255, 215, 0))     # Light gold text
-        dark_palette.setColor(QPalette.ColorRole.Window, QColor(30, 30, 30))
-        self.setPalette(dark_palette)
-
-        # Show the window maximized after all UI setup is complete to avoid white flash
-        self.showMaximized()
+    
+        # Show the window - it's already set to maximized state
+        self.show()
 
     ###############################################################
     #                                                             #
@@ -1960,7 +1959,7 @@ class FireworkShowApp(QMainWindow):
                 ax.plot(times_ds, envelope_min, color="#5fd7e6", linewidth=0.7, alpha=0.9)
             else:
                 ax.plot(times, audio_to_plot, color="#8fb9bd", linewidth=1.2, alpha=0.95, antialiased=True)
-            ax.set_facecolor('#181a20')
+            ax.set_facecolor("#000000")
             ax.tick_params(axis='y', colors='white')
             # Plot segment times in gold
             if self.segment_times is not None and isinstance(self.segment_times, (list, tuple)):
