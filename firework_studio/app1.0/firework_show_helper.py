@@ -3,6 +3,7 @@ import librosa
 from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QComboBox, QSpinBox
 from toaster import ToastDialog
+import threading
 
 import librosa.display
 
@@ -11,25 +12,34 @@ class FireworkShowHelper:
         self.main_window = main_window
 
     def plot_spectrogram(self):
-        mw = self.main_window
-        if mw.audio_data is not None and mw.sr is not None:
-            mw.spectrogram_ax.clear()
-            S = librosa.stft(mw.audio_data, n_fft=2048, hop_length=512)
-            S_db = librosa.amplitude_to_db(np.abs(S), ref=np.max)
-            img = librosa.display.specshow(
-                S_db, ax=mw.spectrogram_ax, sr=mw.sr, hop_length=512,
-                x_axis='time', y_axis='linear', cmap='magma'
-            )
-            mw.spectrogram_ax.grid(False)
-            mw.spectrogram_canvas.figure.subplots_adjust(left=0, right=1, top=1, bottom=0)
-            mw.spectrogram_ax.set_xlabel("")
-            mw.spectrogram_ax.set_ylabel("")
-            mw.spectrogram_ax.set_xticks([])
-            mw.spectrogram_ax.set_yticks([])
+
+        def worker():
+            mw = self.main_window
+            ax = mw.spectrogram_ax
+            ax.clear()
+            if mw.audio_data is not None and mw.sr is not None:
+                S = np.abs(librosa.stft(mw.audio_data, n_fft=2048, hop_length=512))
+                S_db = librosa.amplitude_to_db(S, ref=np.max)
+                # Downsample spectrogram for plotting if too large
+                max_points = 2000
+                if S_db.shape[1] > max_points:
+                    factor = S_db.shape[1] // max_points
+                    S_db_ds = S_db[:, :factor * max_points].reshape(S_db.shape[0], -1, factor).mean(axis=2)
+                else:
+                    S_db_ds = S_db
+                librosa.display.specshow(
+                    S_db_ds, ax=ax, sr=mw.sr, hop_length=512 * (factor if S_db.shape[1] > max_points else 1),
+                    x_axis='time', y_axis='linear', cmap='magma'
+                )
+                ax.set(
+                    xlabel="", ylabel="",
+                    xticks=[], yticks=[]
+                )
+                ax.grid(False)
+                mw.spectrogram_canvas.figure.subplots_adjust(left=0, right=1, top=1, bottom=0)
             mw.spectrogram_canvas.draw_idle()
-        else:
-            mw.spectrogram_ax.clear()
-            mw.spectrogram_canvas.draw_idle()
+
+        threading.Thread(target=worker, daemon=True).start()
 
     def plot_waveform(self, current_legend=None):
         mw = self.main_window
