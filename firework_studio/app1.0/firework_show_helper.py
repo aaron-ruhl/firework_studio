@@ -30,7 +30,8 @@ class FireworkShowHelper:
                     # n_fft should be large enough for good freq resolution, but not too large
                     n_fft = min(2048, max(512, factor * 2))
                     hop_length = max(1, factor)
-                    S = np.abs(librosa.stft(audio_data, n_fft=n_fft, hop_length=hop_length))
+                    # Adjust center=False to align spectrogram with waveform (no padding)
+                    S = np.abs(librosa.stft(audio_data, n_fft=n_fft, hop_length=hop_length, center=False))
                     S_db = librosa.amplitude_to_db(S, ref=np.max)
                     # Downsample spectrogram for plotting if too large
                     if S_db.shape[1] > max_points:
@@ -41,7 +42,9 @@ class FireworkShowHelper:
                         factor = 1
                     # Calculate time axis to match waveform
                     n_frames = S_db_ds.shape[1]
-                    times = np.linspace(0, len(audio_data) / sr, n_frames)
+                    # Offset time axis by half window to better align with waveform
+                    times = np.linspace(0, len(audio_data) / sr, n_frames, endpoint=False)
+                    times += (n_fft / 2) / sr
                     extent = [times[0], times[-1], 0, sr // 2]
                     # Use different alpha for overlays
                     ax.imshow(
