@@ -2,6 +2,10 @@ from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QComboBox,
     QSpinBox, QDoubleSpinBox, QPushButton
 )
+
+from toaster import ToastDialog
+from PyQt6.QtCore import QTimer
+
 class FilterDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -79,8 +83,6 @@ class FilterDialog(QDialog):
         if mw is not None and hasattr(mw, 'reset_filter_to_original'):
             if mw.reset_filter_to_original():
                 # Show a toast notification
-                from toaster import ToastDialog
-                from PyQt6.QtCore import QTimer
                 toast = ToastDialog("Audio filter reset to original!", parent=mw)
                 geo = mw.geometry()
                 x = geo.x() + geo.width() - toast.width() - 40
@@ -90,8 +92,6 @@ class FilterDialog(QDialog):
                 QTimer.singleShot(2000, toast.close)
             else:
                 # Show error toast if reset failed
-                from toaster import ToastDialog
-                from PyQt6.QtCore import QTimer
                 toast = ToastDialog("No original audio data to restore!", parent=mw)
                 geo = mw.geometry()
                 x = geo.x() + geo.width() - toast.width() - 40
