@@ -232,7 +232,7 @@ class ShowFileHandler:
                 toast.move(x, y)
                 toast.show()
                 QTimer.singleShot(2500, toast.close)
-                self.main_window.update_firework_show_info()
+                self.main_window.firework_show_helper.update_firework_show_info()
             elif audio_data is None:
                 self.main_window.status_bar.showMessage("No audio loaded.")
 
@@ -261,8 +261,8 @@ class ShowFileHandler:
             self.main_window.analyzer = AudioAnalysis(audio_data,audio_datas, sr, duration)
             self.main_window.filter = AudioFilter(sr)  # Initialize filter with sample rate
             self.main_window.audio_loader.connect_analysis_signals()
-            self.main_window.plot_waveform()
-            self.main_window.plot_spectrogram()
+            self.main_window.firework_show_helper.plot_waveform()
+            self.main_window.firework_show_helper.plot_spectrogram()
 
             def show_loaded_toast():
                 toast = ToastDialog("Show loaded!", parent=self.main_window)

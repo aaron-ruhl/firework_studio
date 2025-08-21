@@ -80,13 +80,13 @@ class AudioLoader():
     def connect_analysis_signals(self):
         # As soon as data is loaded signals for analysis are connected
         if hasattr(self.main_window, "handle_segments"):
-            self.main_window.analyzer.segments_ready.connect(self.main_window.handle_segments)
+            self.main_window.analyzer.segments_ready.connect(self.main_window.firework_show_helper.handle_segments)
         if hasattr(self.main_window, "handle_interesting_points"):
-            self.main_window.analyzer.interesting_points_ready.connect(self.main_window.handle_interesting_points)
+            self.main_window.analyzer.interesting_points_ready.connect(self.main_window.firework_show_helper.handle_interesting_points)
         if hasattr(self.main_window, "handle_onsets"):
-            self.main_window.analyzer.onsets_ready.connect(self.main_window.handle_onsets)
+            self.main_window.analyzer.onsets_ready.connect(self.main_window.firework_show_helper.handle_onsets)
         if hasattr(self.main_window, "handle_peaks"):
-            self.main_window.analyzer.peaks_ready.connect(self.main_window.handle_peaks)
+            self.main_window.analyzer.peaks_ready.connect(self.main_window.firework_show_helper.handle_peaks)
         #if hasattr(self.main_window, "handle_beats"):
         #    self.analyzer.beats_ready.connect(self.main_window.handle_beats)
         
@@ -123,8 +123,8 @@ class AudioLoader():
         if audio_data is not None:
             self.main_window.clear_show() #type: ignore
             self.main_window.preview_widget.set_show_data(audio_data, sr, self.segment_times, None, duration) #type: ignore
-            self.main_window.plot_waveform() #type: ignore
-            self.main_window.plot_spectrogram() #type: ignore
+            self.main_window.firework_show_helper.plot_waveform() #type: ignore
+            self.main_window.firework_show_helper.plot_spectrogram() #type: ignore
             self.main_window.analyzer = AudioAnalysis(audio_data,audio_datas, sr, duration)
             self.main_window.filter = AudioFilter(sr)  # Initialize filter with sample rate
 

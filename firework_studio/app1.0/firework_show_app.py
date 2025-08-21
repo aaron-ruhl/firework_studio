@@ -23,7 +23,7 @@ from PyQt6.QtWidgets import (
     QSizePolicy, QStatusBar, QGroupBox, QComboBox,
     QMenuBar, QWidgetAction, QSpinBox, QInputDialog,
     QTabWidget, QLineEdit, QScrollArea, QDoubleSpinBox,
-    QDialog
+    QDialog, QToolButton
 )
 
 from firework_canvas_2 import FireworksCanvas
@@ -34,124 +34,9 @@ from waveform_selection import WaveformSelectionTool
 from show_file_handler import ShowFileHandler
 from filters import AudioFilter
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
-from PyQt6.QtWidgets import QToolButton
-class CollapsibleWidget(QWidget):
-    def __init__(self, title, child_widget, parent=None):
-        super().__init__(parent)
-        self.toggle_btn = QToolButton(text=title)
-        self.toggle_btn.setCheckable(True)
-        self.toggle_btn.setChecked(True)
-        self.toggle_btn.setArrowType(Qt.ArrowType.DownArrow)
-        self.toggle_btn.setStyleSheet("""
-            QToolButton {
-            background: #23242b;
-            color: #ffd700;
-            border: 1px solid #444657;
-            border-radius: 4px;
-            font-size: 13px;
-            min-height: 28px;
-            padding: 2px 8px;
-            }
-            QToolButton:checked {
-            background: #31323a;
-            color: #ffd700;
-            }
-        """)
-        # Set maximum size policy so widget can shrink properly
-        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
-        self.child_widget = child_widget
-        self.child_widget.setVisible(True)
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
-        layout.addWidget(self.toggle_btn)
-        layout.addWidget(self.child_widget)
-        self.toggle_btn.toggled.connect(self.toggle_child)
-        self.toggle_btn.toggled.connect(self.update_arrow)
-        self.update_arrow(self.toggle_btn.isChecked())
-
-    def toggle_child(self, checked):
-        self.child_widget.setVisible(checked)
-        # Immediately update geometry to trigger layout recalculation
-        self.updateGeometry()
-        
-        # If we have a reference to the scroll area, adjust its height dynamically
-        main_window = self.window()
-        if main_window and hasattr(main_window, 'scroll_area'):
-            if checked:
-                # Expanded: Allow scroll area to grow
-                # toolbar (36px) + waveform (80px) + spectrogram (80px) + preview (80px) + padding (60px)
-                expanded_height = 36 + 80 + 80 + 80 + 60  # 336px
-                main_window.scroll_area.setMinimumHeight(expanded_height)
-                main_window.scroll_area.setMaximumHeight(600)
-            else:
-                # Collapsed: Shrink scroll area to just preview widget + button height
-                # preview (80px) + button (28px) + padding (20px)
-                collapsed_height = 80 + 28 + 20  # 128px
-                main_window.scroll_area.setMinimumHeight(collapsed_height)
-                main_window.scroll_area.setMaximumHeight(collapsed_height)
-        
-        # Force the main window to adjust its layout
-        if main_window:
-            main_window.updateGeometry()
-            # Force layout update on the central widget
-            central_widget = main_window.centralWidget()
-            if central_widget:
-                central_widget.layout().invalidate()
-                central_widget.layout().activate()
-
-    def update_arrow(self, checked):
-        self.toggle_btn.setArrowType(Qt.ArrowType.DownArrow if checked else Qt.ArrowType.RightArrow)
-    
-    def sizeHint(self) -> QSize:
-        if self.child_widget.isVisible():
-            return super().sizeHint()
-        else:
-            # When collapsed, only account for the button height
-            button_height = self.toggle_btn.sizeHint().height()
-            return QSize(super().sizeHint().width(), button_height)
-    
-    def minimumSizeHint(self) -> QSize:
-        # When collapsed, minimum size is just the button
-        if not self.child_widget.isVisible():
-            return self.toggle_btn.minimumSizeHint()
-        return super().minimumSizeHint()
-    
-    def hasHeightForWidth(self) -> bool:
-        return False
-    
-    def heightForWidth(self, width: int) -> int:
-        if self.child_widget.isVisible():
-            return super().sizeHint().height()
-        else:
-            return self.toggle_btn.sizeHint().height()
-        # Expanded: include child_widget size
-        if self.toggle_btn.isChecked() and self.child_widget.isVisible():
-            btn_hint = self.toggle_btn.sizeHint()
-            child_hint = self.child_widget.sizeHint()
-            return QSize(
-                max(btn_hint.width(), child_hint.width()),
-                btn_hint.height() + child_hint.height()
-            )
-        else:
-            # Collapsed: only show button
-            btn_hint = self.toggle_btn.sizeHint()
-            return QSize(btn_hint.width(), btn_hint.height())
-
-    def minimumSizeHint(self) -> QSize:
-        # Expanded: include child_widget minimum size
-        if self.toggle_btn.isChecked() and self.child_widget.isVisible():
-            btn_min = self.toggle_btn.minimumSizeHint()
-            child_min = self.child_widget.minimumSizeHint()
-            return QSize(
-                max(btn_min.width(), child_min.width()),
-                btn_min.height() + child_min.height()
-            )
-        else:
-            # Collapsed: only show button
-            btn_min = self.toggle_btn.minimumSizeHint()
-            return QSize(btn_min.width(), btn_min.height())
-
+from collapsible_widget import CollapsibleWidget
+from filter_dialog import FilterDialog
+from firework_show_helper import FireworkShowHelper
 
 '''THIS IS THE MAIN VIEW FOR THE FIREWORK STUDIO APPLICATION'''
 class FireworkShowApp(QMainWindow):
@@ -172,9 +57,9 @@ class FireworkShowApp(QMainWindow):
                 self.segment_times = []
                 self.points = []
                 self.onsets = []  
-            self.plot_waveform()  # Update waveform after clearing
-            self.update_firework_show_info()  # Update info after clearing
-            
+            self.firework_show_helper.plot_waveform()  # Update waveform after clearing
+            self.firework_show_helper.update_firework_show_info()  # Update info after clearing
+
             def show_cleared_toast():
                 toast = ToastDialog("Show cleared!", parent=self)
                 geo = self.geometry()
@@ -201,16 +86,16 @@ class FireworkShowApp(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        
+        self.firework_show_helper = FireworkShowHelper(self)
         # Set window properties first to prevent flash
         self.setWindowTitle("Firework Studio")
         # Set initial geometry to full screen to prevent small window flash
         from PyQt6.QtWidgets import QApplication
         screen = QApplication.primaryScreen().geometry()
         self.setGeometry(screen)
-        self.setWindowState(Qt.WindowState.WindowMaximized)
+        self.setWindowState(Qt.WindowState.WindowFullScreen)
         
-        # Set dark palette immediately
+        # Set dark palette 
         dark_palette = QPalette()
         dark_palette.setColor(QPalette.ColorRole.Window, QColor(30, 30, 30))
         dark_palette.setColor(QPalette.ColorRole.WindowText, QColor(255, 215, 0))
@@ -501,7 +386,7 @@ class FireworkShowApp(QMainWindow):
         #######################################################################
 
 
-        # Create a spectrogram canvas for later use in plot_spectrogram
+        # Create a spectrogram canvas for plot_spectrogram
         self.spectrogram_canvas = FigureCanvas(Figure(figsize=(8, 4)))
         self.spectrogram_canvas.setFixedHeight(80)
         self.spectrogram_ax = self.spectrogram_canvas.figure.subplots()
@@ -591,8 +476,8 @@ class FireworkShowApp(QMainWindow):
             if hasattr(self.waveform_selector, "clear_selection"):
                 self.waveform_selector.clear_selection(redraw=False)
             legend = self.waveform_canvas.figure.axes[0].get_legend()
-            self.plot_waveform(current_legend=legend)
-            self.plot_spectrogram()
+            self.firework_show_helper.plot_waveform(current_legend=legend)
+            self.firework_show_helper.plot_spectrogram()
 
         # Patch the NavigationToolbar "home" button to call our reset
         for action in self.waveform_toolbar.actions():
@@ -707,7 +592,6 @@ class FireworkShowApp(QMainWindow):
         ############################################################
 
         # This will be the "Create" tab content
-
         create_tab_widget = QWidget()
 
         # Create a scroll area for the tab content
@@ -1123,6 +1007,16 @@ class FireworkShowApp(QMainWindow):
         create_tab_widget.setLayout(create_tab_widget_layout)
         create_tab_widget.setContentsMargins(0, 0, 0, 0)
 
+
+
+
+
+
+
+
+
+
+
         ###############################################
         #                                             #
         #        Play/Pause button                    #
@@ -1202,7 +1096,7 @@ class FireworkShowApp(QMainWindow):
                 if self.audio_data is None:
                     return
                 self.firework_firing = self.preview_widget.add_time()
-                self.update_firework_show_info()
+                self.firework_show_helper.update_firework_show_info()
                 # Immediately update the status bar to reflect the new firing count
                 if hasattr(self, "status_bar") and self.status_bar is not None:
                     self.status_bar.showMessage(self.firework_show_info)
@@ -1227,7 +1121,7 @@ class FireworkShowApp(QMainWindow):
                 if self.audio_data is None:
                     return
                 self.firework_firing = self.preview_widget.remove_selected_firing()
-                self.update_firework_show_info()
+                self.firework_show_helper.update_firework_show_info()
             btn.clicked.connect(remove_firing_and_update_info)
             return btn
 
@@ -1261,7 +1155,7 @@ class FireworkShowApp(QMainWindow):
             def on_pattern_changed(index):
                 pattern = combo.itemData(index)
                 self.preview_widget.set_pattern(pattern)
-                self.update_firework_show_info()
+                self.firework_show_helper.update_firework_show_info()
             combo.currentIndexChanged.connect(on_pattern_changed)
             layout.addWidget(combo)
             group_box.setVisible(False)
@@ -1288,7 +1182,7 @@ class FireworkShowApp(QMainWindow):
             # Set default firework count
             def on_count_changed(value):
                 self.preview_widget.set_number_firings(value)
-                self.update_firework_show_info()
+                self.firework_show_helper.update_firework_show_info()
             spinner.valueChanged.connect(on_count_changed)
             layout.addWidget(spinner)
             group_box.setVisible(False)  # Hide the group box initially
@@ -1325,6 +1219,11 @@ class FireworkShowApp(QMainWindow):
         self.status_bar.showMessage(self.firework_show_info)
         self.status_bar.repaint()  # Force repaint to ensure visibility
 
+        # Ensure status bar stays visible in fullscreen by raising it above other widgets
+        self.status_bar.raise_()
+        # Optionally, set a custom style for the status bar (without z-index, which is unsupported in Qt)
+        self.status_bar.setStyleSheet("QStatusBar { background: #23242b; color: #ffd700; }")
+
         #################################################################
         #                                                               # 
         #        Save and Load Show buttons                             #
@@ -1349,7 +1248,31 @@ class FireworkShowApp(QMainWindow):
         self.save_btn.setIcon(QIcon(os.path.join("icons", "save.png")))
         self.load_show_btn = create_load_show_btn()
         self.load_show_btn.setIcon(QIcon(os.path.join("icons", "load.png")))
-        # Add a spacer after save/load buttons for better layout
+        
+       ###########################################################
+       #                                                         #
+       #              Load Audio Button                          #
+       #                                                         #
+       ###########################################################
+
+        # Create a button to load audio files
+        self.load_btn = QPushButton()
+        self.load_btn.setIcon(QIcon(os.path.join("icons", "upload.png")))
+        self.audio_loader = AudioLoader(self)
+        self.load_btn.setStyleSheet(button_style)
+
+        self.load_btn.clicked.connect(lambda: self.audio_loader.handle_audio())
+        self.load_btn.clicked.connect(self.firework_show_helper.update_firework_show_info)
+
+
+
+
+
+
+
+
+
+
 
         ############################################################
         #                                                          #
@@ -1390,6 +1313,152 @@ class FireworkShowApp(QMainWindow):
             exit_action.triggered.connect(self.close)
             file_menu.addAction(exit_action)
 
+        ############################################################
+        #                                                          #
+        #                         Edit menu                        #
+        #                                                          #
+        ############################################################
+
+        # Ensure the menu bar exists before adding the Edit menu
+        if self.menuBar() is None:
+            self.setMenuBar(QMenuBar(self))
+        edit_menu = self.menuBar().addMenu("&Edit") #type: ignore
+        # Set a dark style for the Edit menu to match the rest of the app
+        if edit_menu is not None:
+            # Play/Pause action (styled and with shortcut)
+            play_pause_action = QAction(QIcon(os.path.join("icons", "play.png")), "Play/Pause", self)
+            play_pause_action.setShortcut("Space")
+            play_pause_action.triggered.connect(lambda: self.play_pause_btn.toggle())
+            edit_menu.addAction(play_pause_action)
+
+            # Stop action (styled and with shortcut)
+            stop_action = QAction(QIcon(os.path.join("icons", "stop.png")), "Stop", self)
+            stop_action.setShortcut("S")
+            stop_action.triggered.connect(self.stop_btn.click)
+            edit_menu.addAction(stop_action)
+
+            # Load Audio action
+            load_audio_action = QAction(QIcon(os.path.join("icons", "upload.png")), "Load Audio...", self)
+            load_audio_action.setShortcut("Ctrl+L")
+            load_audio_action.triggered.connect(self.load_btn.click)
+            edit_menu.addAction(load_audio_action)
+
+            # Add separator
+            edit_menu.addSeparator()
+
+            # Add Firing action
+            add_firing_action = QAction(QIcon(os.path.join("icons", "plus.png")), "Add Firing", self)
+            add_firing_action.setShortcut("A")
+            add_firing_action.triggered.connect(self.add_firing_btn.click)
+            edit_menu.addAction(add_firing_action)
+
+            # Delete Firing action
+            delete_firing_action = QAction(QIcon(os.path.join("icons", "delete.png")), "Delete Firing", self)
+            delete_firing_action.setShortcut("D")
+            delete_firing_action.triggered.connect(self.delete_firing_btn.click)
+            edit_menu.addAction(delete_firing_action)
+
+            # Separator
+            edit_menu.addSeparator()
+            # Add a submenu for background selection under Edit menu
+            background_menu = QMenu("Background", self)
+            backgrounds = [
+                ("Night Sky", "night"),
+                ("Sunset", "sunset"),
+                ("City", "city"),
+                ("Mountains", "mountains"),
+                ("Desert", "desert"),
+                ("Custom...", "custom"),
+            ]
+            '''
+            self.background_actions = []
+            for label, bg_name in backgrounds:
+                bg_action = QAction(label, self)
+                bg_action.setCheckable(bg_name != "custom")
+                # Set checked if current background matches
+                if bg_name != "custom":
+                    bg_action.setChecked(getattr(self.fireworks_canvas, "current_background", "night") == bg_name)
+                    self.background_actions.append(bg_action)
+                    def make_bg_handler(bg=bg_name, action=bg_action):
+                        def handler():
+                            self.fireworks_canvas.set_background(bg)
+                            self.fireworks_canvas.current_background = bg
+                            # Uncheck all others, check only this one
+                            for a in self.background_actions:
+                                a.setChecked(a is action)
+                        return handler
+                    bg_action.triggered.connect(make_bg_handler())
+                else:
+                    def custom_bg_handler(action=bg_action):
+                        file_dialog = QFileDialog(self)
+                        file_dialog.setNameFilter("Images (*.png *.jpg *.jpeg *.bmp *.gif)")
+                        if file_dialog.exec():
+                            selected_files = file_dialog.selectedFiles()
+                            if selected_files:
+                                image_path = selected_files[0]
+                                self.fireworks_canvas.set_background("custom", image_path)
+                                self.fireworks_canvas.current_background = "custom"
+                                # Uncheck all preset actions
+                                for a in self.background_actions:
+                                    a.setChecked(False)
+                        # Custom is not checkable
+                    bg_action.triggered.connect(lambda: custom_bg_handler())
+                background_menu.addAction(bg_action)
+            edit_menu.addMenu(background_menu)
+            '''
+            # --- Add Padding submenu ---
+            padding_menu = QMenu("Padding", self)
+            # Store actions so we can update their checked state
+            self.padding_actions = []
+            for pad_value in [5, 10, 15, 20, 25, 50]:
+                pad_action = QAction(f"{pad_value} seconds", self)
+                pad_action.setCheckable(True)
+                pad_action.setChecked(self.padding == pad_value)
+                self.padding_actions.append(pad_action)
+                def make_pad_handler(value=pad_value, action=pad_action):
+                    def handler(checked=False):
+                        self.padding = value  # Ensure self.padding is set
+                        self.audio_loader.set_padding(value)  # Pass to audio_loader
+                        # Uncheck all others, check only this one
+                        for a in self.padding_actions:
+                            a.setChecked(a is action)
+                        # reload or load audio data to add padding if changed
+                        custom_check = self.audio_data is not None
+                        self.audio_loader.handle_audio(reload=custom_check)
+                    return handler
+                pad_action.triggered.connect(make_pad_handler())
+                padding_menu.addAction(pad_action)
+            # Optionally, add a custom padding dialog
+            custom_pad_action = QAction("Custom...", self)
+            def custom_pad_handler():
+                # Ask user for a comma-separated list of paddings
+                text, ok = QInputDialog.getText(
+                    self,
+                    "Set Custom Padding Vector",
+                    "Enter padding (seconds) before each audio file, separated by commas:\n"
+                    "Example: 5,10,5 for 5s before first, 10s before second, 5s before third, etc.",
+                text=",".join(str(v) for v in getattr(self.audio_loader, "padding_vector", [self.padding]))
+                )
+                if ok:
+                    try:
+                        if "[" in text or "]" in text:
+                            text = text.replace("[", "").replace("]", "")
+                        # Parse the input into a list of floats/ints
+                        padding_vector = [float(v.strip()) for v in text.split(",") if v.strip() != ""]
+                        self.audio_loader.set_padding(padding_vector)
+                        self.padding = padding_vector  # Save as a list
+                        # Uncheck all preset actions
+                        for a in self.padding_actions:
+                            a.setChecked(False)
+                        # reload or load audio data to add padding if changed
+                        custom_check = self.audio_data is not None
+                        self.audio_loader.handle_audio(reload=custom_check)
+                    except Exception as e:
+                        toast = ToastDialog(f"Invalid input for padding vector: {e}", parent=self)
+                        toast.show()
+            custom_pad_action.triggered.connect(custom_pad_handler)
+            padding_menu.addAction(custom_pad_action)
+            edit_menu.addMenu(padding_menu)
 
         ############################################################
         #                                                          #
@@ -1550,81 +1619,6 @@ class FireworkShowApp(QMainWindow):
         apply_filter_action.setShortcut("Ctrl+F")
 
         def open_filter_dialog():
-
-            class FilterDialog(QDialog):
-                def __init__(self, parent=None):
-                    super().__init__(parent)
-                    self.setWindowTitle("Apply Audio Filter")
-                    self.setMinimumWidth(320)
-                    layout = QVBoxLayout(self)
-
-                    # Filter type
-                    layout.addWidget(QLabel("Filter Type:"))
-                    self.type_box = QComboBox()
-                    self.type_box.addItems(["lowpass", "highpass", "bandpass"])
-                    layout.addWidget(self.type_box)
-
-                    # Order
-                    layout.addWidget(QLabel("Order:"))
-                    self.order_spin = QSpinBox()
-                    self.order_spin.setRange(1, 12)
-                    self.order_spin.setValue(4)
-                    layout.addWidget(self.order_spin)
-
-                    # Cutoff(s)
-                    self.cutoff_layout = QHBoxLayout()
-                    self.cutoff_label = QLabel("Cutoff Frequency (Hz):")
-                    self.cutoff_layout.addWidget(self.cutoff_label)
-                    self.cutoff_spin = QDoubleSpinBox()
-                    self.cutoff_spin.setRange(20, 20000)
-                    self.cutoff_spin.setValue(1000)
-                    self.cutoff_spin.setDecimals(1)
-                    self.cutoff_layout.addWidget(self.cutoff_spin)
-                    # For bandpass, add second cutoff
-                    self.cutoff_spin2 = QDoubleSpinBox()
-                    self.cutoff_spin2.setRange(20, 20000)
-                    self.cutoff_spin2.setValue(5000)
-                    self.cutoff_spin2.setDecimals(1)
-                    self.cutoff_spin2.setVisible(False)
-                    self.cutoff_layout.addWidget(self.cutoff_spin2)
-                    layout.addLayout(self.cutoff_layout)
-
-                    def update_cutoff_fields():
-                        filter_type = self.type_box.currentText()
-                        if filter_type == "bandpass":
-                            self.cutoff_label.setText("Cutoff Range (Hz):")
-                            self.cutoff_spin2.setVisible(True)
-                        else:
-                            self.cutoff_label.setText("Cutoff Frequency (Hz):")
-                            self.cutoff_spin2.setVisible(False)
-                    self.type_box.currentIndexChanged.connect(lambda _: update_cutoff_fields())
-
-                    # Buttons
-                    btn_layout = QHBoxLayout()
-                    ok_btn = QPushButton("Apply")
-                    cancel_btn = QPushButton("Cancel")
-                    btn_layout.addWidget(ok_btn)
-                    btn_layout.addWidget(cancel_btn)
-                    layout.addLayout(btn_layout)
-
-                    ok_btn.clicked.connect(self.accept)
-                    cancel_btn.clicked.connect(self.reject)
-
-                def get_values(self):
-                    filter_type = self.type_box.currentText()
-                    order = self.order_spin.value()
-                    if filter_type == "bandpass":
-                        lowcut = self.cutoff_spin.value()
-                        highcut = self.cutoff_spin2.value()
-                        # Ensure both are valid floats and lowcut < highcut
-                        if lowcut is None or highcut is None or not isinstance(lowcut, float) or not isinstance(highcut, float):
-                            cutoff = (1000.0, 5000.0)
-                        else:
-                            cutoff = (min(lowcut, highcut), max(lowcut, highcut))
-                    else:
-                        cutoff = self.cutoff_spin.value()
-                    return filter_type, order, cutoff
-
             dialog = FilterDialog(self)
             if dialog.exec():
                 filter_type, order, cutoff = dialog.get_values()
@@ -1651,7 +1645,7 @@ class FireworkShowApp(QMainWindow):
                                 kwargs["cutoff"] = cutoff
                             filtered = self.filter.apply(self.audio_data, filter_type.lower(), **kwargs)
                             self.audio_data = filtered
-                            self.plot_waveform()
+                            self.firework_show_helper.plot_waveform()
                             toast = ToastDialog(f"Applied {filter_type} filter!", parent=self)
                             geo = self.geometry()
                             x = geo.x() + geo.width() - toast.width() - 40
@@ -1672,168 +1666,6 @@ class FireworkShowApp(QMainWindow):
         apply_filter_action.triggered.connect(open_filter_dialog)
         if analysis_menu is not None:
             analysis_menu.addAction(apply_filter_action)
-            
-       ###########################################################
-       #                                                         #
-       #              Load Audio Button                          #
-       #                                                         #
-       ###########################################################
-
-        # Create a button to load audio files
-        self.load_btn = QPushButton()
-        self.load_btn.setIcon(QIcon(os.path.join("icons", "upload.png")))
-        self.audio_loader = AudioLoader(self)
-        self.load_btn.setStyleSheet(button_style)
-
-        self.load_btn.clicked.connect(lambda: self.audio_loader.handle_audio())
-        self.load_btn.clicked.connect(self.update_firework_show_info)
-
-        ############################################################
-        #                                                          #
-        #                         Edit menu                        #
-        #                                                          #
-        ############################################################
-
-        # Ensure the menu bar exists before adding the Edit menu
-        if self.menuBar() is None:
-            self.setMenuBar(QMenuBar(self))
-        edit_menu = self.menuBar().addMenu("&Edit") #type: ignore
-        # Set a dark style for the Edit menu to match the rest of the app
-        if edit_menu is not None:
-            # Play/Pause action (styled and with shortcut)
-            play_pause_action = QAction(QIcon(os.path.join("icons", "play.png")), "Play/Pause", self)
-            play_pause_action.setShortcut("Space")
-            play_pause_action.triggered.connect(lambda: self.play_pause_btn.toggle())
-            edit_menu.addAction(play_pause_action)
-
-            # Stop action (styled and with shortcut)
-            stop_action = QAction(QIcon(os.path.join("icons", "stop.png")), "Stop", self)
-            stop_action.setShortcut("S")
-            stop_action.triggered.connect(self.stop_btn.click)
-            edit_menu.addAction(stop_action)
-
-            # Load Audio action
-            load_audio_action = QAction(QIcon(os.path.join("icons", "upload.png")), "Load Audio...", self)
-            load_audio_action.setShortcut("Ctrl+L")
-            load_audio_action.triggered.connect(self.load_btn.click)
-            edit_menu.addAction(load_audio_action)
-
-            # Add separator
-            edit_menu.addSeparator()
-
-            # Add Firing action
-            add_firing_action = QAction(QIcon(os.path.join("icons", "plus.png")), "Add Firing", self)
-            add_firing_action.setShortcut("A")
-            add_firing_action.triggered.connect(self.add_firing_btn.click)
-            edit_menu.addAction(add_firing_action)
-
-            # Delete Firing action
-            delete_firing_action = QAction(QIcon(os.path.join("icons", "delete.png")), "Delete Firing", self)
-            delete_firing_action.setShortcut("D")
-            delete_firing_action.triggered.connect(self.delete_firing_btn.click)
-            edit_menu.addAction(delete_firing_action)
-
-            # Separator
-            edit_menu.addSeparator()
-            # Add a submenu for background selection under Edit menu
-            background_menu = QMenu("Background", self)
-            backgrounds = [
-                ("Night Sky", "night"),
-                ("Sunset", "sunset"),
-                ("City", "city"),
-                ("Mountains", "mountains"),
-                ("Desert", "desert"),
-                ("Custom...", "custom"),
-            ]
-            '''
-            self.background_actions = []
-            for label, bg_name in backgrounds:
-                bg_action = QAction(label, self)
-                bg_action.setCheckable(bg_name != "custom")
-                # Set checked if current background matches
-                if bg_name != "custom":
-                    bg_action.setChecked(getattr(self.fireworks_canvas, "current_background", "night") == bg_name)
-                    self.background_actions.append(bg_action)
-                    def make_bg_handler(bg=bg_name, action=bg_action):
-                        def handler():
-                            self.fireworks_canvas.set_background(bg)
-                            self.fireworks_canvas.current_background = bg
-                            # Uncheck all others, check only this one
-                            for a in self.background_actions:
-                                a.setChecked(a is action)
-                        return handler
-                    bg_action.triggered.connect(make_bg_handler())
-                else:
-                    def custom_bg_handler(action=bg_action):
-                        file_dialog = QFileDialog(self)
-                        file_dialog.setNameFilter("Images (*.png *.jpg *.jpeg *.bmp *.gif)")
-                        if file_dialog.exec():
-                            selected_files = file_dialog.selectedFiles()
-                            if selected_files:
-                                image_path = selected_files[0]
-                                self.fireworks_canvas.set_background("custom", image_path)
-                                self.fireworks_canvas.current_background = "custom"
-                                # Uncheck all preset actions
-                                for a in self.background_actions:
-                                    a.setChecked(False)
-                        # Custom is not checkable
-                    bg_action.triggered.connect(lambda: custom_bg_handler())
-                background_menu.addAction(bg_action)
-            edit_menu.addMenu(background_menu)
-            '''
-            # --- Add Padding submenu ---
-            padding_menu = QMenu("Padding", self)
-            # Store actions so we can update their checked state
-            self.padding_actions = []
-            for pad_value in [5, 10, 15, 20, 25, 50]:
-                pad_action = QAction(f"{pad_value} seconds", self)
-                pad_action.setCheckable(True)
-                pad_action.setChecked(self.padding == pad_value)
-                self.padding_actions.append(pad_action)
-                def make_pad_handler(value=pad_value, action=pad_action):
-                    def handler(checked=False):
-                        self.padding = value  # Ensure self.padding is set
-                        self.audio_loader.set_padding(value)  # Pass to audio_loader
-                        # Uncheck all others, check only this one
-                        for a in self.padding_actions:
-                            a.setChecked(a is action)
-                        # reload or load audio data to add padding if changed
-                        custom_check = self.audio_data is not None
-                        self.audio_loader.handle_audio(reload=custom_check)
-                    return handler
-                pad_action.triggered.connect(make_pad_handler())
-                padding_menu.addAction(pad_action)
-            # Optionally, add a custom padding dialog
-            custom_pad_action = QAction("Custom...", self)
-            def custom_pad_handler():
-                # Ask user for a comma-separated list of paddings
-                text, ok = QInputDialog.getText(
-                    self,
-                    "Set Custom Padding Vector",
-                    "Enter padding (seconds) before each audio file, separated by commas:\n"
-                    "Example: 5,10,5 for 5s before first, 10s before second, 5s before third, etc.",
-                text=",".join(str(v) for v in getattr(self.audio_loader, "padding_vector", [self.padding]))
-                )
-                if ok:
-                    try:
-                        if "[" in text or "]" in text:
-                            text = text.replace("[", "").replace("]", "")
-                        # Parse the input into a list of floats/ints
-                        padding_vector = [float(v.strip()) for v in text.split(",") if v.strip() != ""]
-                        self.audio_loader.set_padding(padding_vector)
-                        self.padding = padding_vector  # Save as a list
-                        # Uncheck all preset actions
-                        for a in self.padding_actions:
-                            a.setChecked(False)
-                        # reload or load audio data to add padding if changed
-                        custom_check = self.audio_data is not None
-                        self.audio_loader.handle_audio(reload=custom_check)
-                    except Exception as e:
-                        toast = ToastDialog(f"Invalid input for padding vector: {e}", parent=self)
-                        toast.show()
-            custom_pad_action.triggered.connect(custom_pad_handler)
-            padding_menu.addAction(custom_pad_action)
-            edit_menu.addMenu(padding_menu)
 
         ############################################################
         #                                                          #
@@ -1929,46 +1761,10 @@ class FireworkShowApp(QMainWindow):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
 
-        # Use a main layout that will contain everything
-        main_layout = QVBoxLayout(central_widget)
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(0)
-
-        # Create a scroll area for the upper content (waveform + preview)
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        scroll_area.setFrameStyle(0)  # Remove frame
-        scroll_area.setStyleSheet("""
-            QScrollArea { 
-                background-color: #000000; 
-                border: none; 
-            }
-            QScrollArea > QWidget > QWidget { 
-                background-color: #000000; 
-            }
-            QScrollBar:vertical {
-                background-color: #23242b;
-                width: 12px;
-                border-radius: 6px;
-            }
-            QScrollBar::handle:vertical {
-                background-color: #ffd700;
-                border-radius: 6px;
-                min-height: 20px;
-            }
-            QScrollBar::handle:vertical:hover {
-                background-color: #fffbe6;
-            }
-        """)
-        
-        # Content widget for the scroll area
-        scroll_content = QWidget()
-        scroll_content.setStyleSheet("background-color: #000000;")
-        scroll_layout = QVBoxLayout(scroll_content)
-        scroll_layout.setContentsMargins(0, 0, 0, 0)
-        scroll_layout.setSpacing(0)
+        # Use a simple vertical layout without scroll area
+        layout = QVBoxLayout(central_widget)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
 
         waveform_container = QWidget()
         waveform_container.setStyleSheet("""
@@ -1995,23 +1791,9 @@ class FireworkShowApp(QMainWindow):
 
         # Create but do not show collapsible_waveform yet
         self.collapsible_waveform = CollapsibleWidget("Waveform & Spectrogram", waveform_container)
-        scroll_layout.addWidget(self.collapsible_waveform)
+        layout.addWidget(self.collapsible_waveform)
 
-        scroll_layout.addWidget(self.preview_widget, stretch=0, alignment=Qt.AlignmentFlag.AlignBottom)
-        
-        # Set the scroll content and add to scroll area
-        scroll_area.setWidget(scroll_content)
-        
-        # Store reference to scroll area for dynamic height adjustment
-        self.scroll_area = scroll_area
-        
-        # Set initial height for scroll area - start expanded (since collapsible widget starts checked/expanded)
-        # Expanded height: toolbar (36px) + waveform (80px) + spectrogram (80px) + preview (80px) + padding
-        expanded_height = 36 + 80 + 80 + 80 + 60  # 336px total with padding
-        collapsed_height = 80 + 28 + 20  # 128px when collapsed
-        
-        scroll_area.setMinimumHeight(expanded_height)
-        scroll_area.setMaximumHeight(600)  # Allow room to grow if needed
+        layout.addWidget(self.preview_widget, stretch=0, alignment=Qt.AlignmentFlag.AlignBottom)
 
         tab_widget = QTabWidget()
         tab_widget.setTabPosition(QTabWidget.TabPosition.North)
@@ -2025,371 +1807,8 @@ class FireworkShowApp(QMainWindow):
         tab_widget.addTab(self.fireworks_canvas_container, "Preview")
         tab_widget.addTab(create_tab_widget, "Create")
         
-        # Add to main layout with proper stretch factors
-        main_layout.addWidget(scroll_area, stretch=0)  # Fixed size upper area
-        main_layout.addWidget(tab_widget, stretch=1)   # Expandable lower area
+        # Add to main layout with proper stretch factors - tab widget gets remaining space
+        layout.addWidget(tab_widget, stretch=1)
     
         # Show the window - it's already set to maximized state
         self.show()
-
-    ###############################################################
-    #                                                             #
-    #                     HELPER FUNCTIONS                        #
-    #                                                             #
-    ###############################################################
-
-    def plot_spectrogram(self):
-        if self.audio_data is not None and self.sr is not None:
-            self.spectrogram_ax.clear()
-            # Compute the spectrogram using librosa
-            S = librosa.stft(self.audio_data, n_fft=2048, hop_length=512)
-            S_db = librosa.amplitude_to_db(np.abs(S), ref=np.max)
-            img = librosa.display.specshow(
-                S_db, ax=self.spectrogram_ax, sr=self.sr, hop_length=512,
-                x_axis='time', y_axis='linear', cmap='magma'
-            )
-            self.spectrogram_ax.grid(False)
-
-            # Remove all margins/padding so plot fills the canvas
-            self.spectrogram_canvas.figure.subplots_adjust(left=0, right=1, top=1, bottom=0)
-
-            self.spectrogram_ax.set_xlabel("")
-            self.spectrogram_ax.set_ylabel("")
-            self.spectrogram_ax.set_xticks([])
-            self.spectrogram_ax.set_yticks([])
-
-            self.spectrogram_canvas.draw_idle()
-        else:
-            self.spectrogram_ax.clear()
-            self.spectrogram_canvas.draw_idle()
-
-    def plot_waveform(self, current_legend=None):
-        audio_to_plot = self.audio_data
-
-        ax = self.waveform_canvas.figure.axes[0]
-        ax.clear()  # Clear the previous plot
-        if audio_to_plot is not None:
-            '''            # If a filter is applied, use it to process audio (currently not functional)
-            if hasattr(self, "filter") and self.filter is not None:
-                # Apply the filter to the audio data
-                audio_to_plot = self.filter["instance"].apply(audio_to_plot, self.filter["type"], **self.filter["kwargs"])
-            '''
-            # Create time axis in seconds
-            times = np.linspace(0, len(audio_to_plot) / self.sr, num=len(audio_to_plot))  # type: ignore
-            # Downsample for dense signals to avoid smudging
-            max_points = 2000  # Adjust for performance/detail
-            if len(audio_to_plot) > max_points:
-                factor = len(audio_to_plot) // max_points
-                # Use min/max envelope for better visibility
-                audio_data_reshaped = audio_to_plot[:factor * max_points].reshape(-1, factor)
-                envelope_min = audio_data_reshaped.min(axis=1)
-                envelope_max = audio_data_reshaped.max(axis=1)
-                times_ds = times[:factor * max_points].reshape(-1, factor)
-                times_ds = times_ds.mean(axis=1)
-                ax.fill_between(times_ds, envelope_min, envelope_max, color="#8fb9bd", alpha=0.7, linewidth=0)
-                ax.plot(times_ds, envelope_max, color="#5fd7e6", linewidth=0.7, alpha=0.9)
-                ax.plot(times_ds, envelope_min, color="#5fd7e6", linewidth=0.7, alpha=0.9)
-            else:
-                ax.plot(times, audio_to_plot, color="#8fb9bd", linewidth=1.2, alpha=0.95, antialiased=True)
-            ax.set_facecolor("#000000")
-            ax.tick_params(axis='y', colors='white')
-            # Plot segment times in gold
-            if self.segment_times is not None and isinstance(self.segment_times, (list, tuple)):
-                for t in self.segment_times:
-                    if t is not None and isinstance(t, (int, float)) and np.isfinite(t):
-                        ax.axvline(x=t, color="#ffd700", linestyle="--", linewidth=1.2, alpha=0.9)
-            self.waveform_canvas.draw_idle()  # Ensure segment lines are drawn
-            # Update the waveform selector's original limits after redraw
-            if hasattr(self, 'waveform_selector'):
-                self.waveform_selector.update_original_limits()
-            if self.duration is not None and self.sr is not None:
-                ax.set_xlim(0, self.duration)
-            elif audio_to_plot is not None and self.sr is not None:
-                ax.set_xlim(0, len(audio_to_plot) / self.sr)
-            else:
-                ax.set_xlim(0, 1)
-            
-            # Update the waveform selector's original limits to match the new axis limits
-            if hasattr(self, 'waveform_selector') and hasattr(self.waveform_selector, 'update_original_limits'):
-                self.waveform_selector.update_original_limits()
-                
-            ax.set_xlabel("Time (s)", color='white')
-            ax.set_ylabel("Amplitude", color='white')
-            # Add grid lines in white, with some transparency for subtlety
-            ax.grid(True, color="#888888", alpha=0.3, linestyle="--", linewidth=0.8)
-        else:
-            ax.set_title("No audio loaded", color='white')
-            ax.set_xticks([])
-            ax.set_yticks([])
-        
-        # Check for analysis and replot if it was there
-        if current_legend is not None:
-            if self.segment_times is not None and isinstance(self.segment_times, (list, tuple)):
-                self.handle_segments(self.segment_times)  # Reapply segments if needed
-            if self.points is not None and isinstance(self.points, (list, tuple)):
-                self.handle_interesting_points(self.points)  # Reapply points if needed
-            if self.onsets is not None and isinstance(self.onsets, (list, tuple)):
-                self.handle_onsets(self.onsets)  # Reapply onsets if needed
-            if self.peaks is not None and isinstance(self.peaks, (list, tuple)):
-                self.handle_peaks(self.peaks)  # Reapply peaks if needed
-
-        self.waveform_canvas.draw_idle()
-        # Update the waveform selector's original limits after redraw
-        if hasattr(self, 'waveform_selector'):
-            self.waveform_selector.update_original_limits()
-        
-    def update_firework_show_info(self):
-        # Updates the variable called firework_show_info, not the actual show.
-        # This is just for displaying information as it changes
-        # Format duration as mm:ss if available
-        if self.duration is not None:
-            mins, secs = divmod(int(self.duration), 60)
-            duration_str = f"{mins:02d}:{secs:02d}"
-        else:
-            duration_str = "N/A"
-        # Always get the latest firings from the preview widget if possible
-        if hasattr(self, "preview_widget") and hasattr(self.preview_widget, "firework_times"):
-            firing_count = len(self.preview_widget.firework_times) if self.preview_widget.firework_times is not None else 0
-
-        # Get current pattern from pattern_selector
-        pattern = "N/A"
-        if hasattr(self, "pattern_selector"):
-            combo = self.pattern_selector.findChild(QComboBox)
-            if combo is not None:
-                pattern = combo.currentText()
-
-        # Get number of firings from firework_count_spinner_group
-        number_firings = "N/A"
-        if hasattr(self, "firework_count_spinner_group"):
-            spinner = self.firework_count_spinner_group.findChild(QSpinBox)
-            if spinner is not None:
-                number_firings = spinner.value()
-        # Build info string for status bar (single line, spaced, with separators)
-        self.firework_show_info = (
-            f"🎆 Pattern: {pattern} | "
-            f"Amount: {number_firings} | "
-            f"Firings: {firing_count} 🎆"
-            f"   🎵 SR: {self.sr if self.sr is not None else 'N/A'} | "
-            f"Duration: {duration_str} | "
-            f"Segments: {len(self.segment_times) if self.segment_times is not None else 0} "
-            f"🎵"
-        )
-        if hasattr(self, "status_bar") and self.status_bar is not None:
-            self.status_bar.showMessage(self.firework_show_info)
-            self.status_bar.repaint()  # Force repaint to ensure update
-        return
-
-    def handle_segments(self, segment_times): 
-        # Always update self.segments with the new segments
-        if self.segment_times is None or self.segment_times == []:
-            self.segment_times = list(segment_times)
-            new_segments = list(segment_times)
-        else:
-            # Only add segments not already present
-            new_segments = [s for s in segment_times if s not in self.segment_times]
-            self.segment_times.extend(new_segments)
-
-        ax = self.waveform_canvas.figure.axes[0]
-        # Remove previous segment lines (by clearing and replotting)
-        # Only plot one legend entry for all segments
-        if self.segment_times is not None:
-            for t in self.segment_times:
-                if isinstance(t, (int, float)) and np.isscalar(t) and not isinstance(t, complex):
-                    ax.axvline(x=float(t), color="#ffd700", linestyle="--", linewidth=1.2, alpha=0.9, label=None)
-                elif isinstance(t, (np.ndarray, list, tuple)):
-                    for tt in np.atleast_1d(t):
-                        if isinstance(tt, (int, float)) and np.isscalar(tt) and not isinstance(tt, complex):
-                            ax.axvline(x=float(tt), color="#ffd700", linestyle="--", linewidth=1.2, alpha=0.9, label=None)
-            # Add a single legend entry if not present
-            legend = ax.get_legend()
-            labels = [l.get_text() for l in legend.get_texts()] if legend else []
-            if "Segment" not in labels:
-                ax.axvline(x=0, color="#ffd700", linestyle="--", linewidth=1.2, alpha=0.9, label="Segment")
-                leg = ax.legend(
-                    loc="upper right",
-                    framealpha=0.3,
-                    fontsize=7,  # Make legend font small
-                    markerscale=0.7,
-                    handlelength=1.2,
-                    borderpad=0.3,
-                    labelspacing=0.2,
-                    handletextpad=0.3,
-                    borderaxespad=0.2,
-                )
-                if leg:
-                    leg.get_frame().set_alpha(0.3)
-        
-        def show_segments_toast():
-            toast = ToastDialog(f"Found {len(new_segments)//2 + 1} segments!", parent=self) # segments are between two lines so divided by 2
-            geo = self.geometry()
-            x = geo.x() + geo.width() - toast.width() - 40
-            y = geo.y() + geo.height() - toast.height() - 40
-            toast.move(x, y)
-            toast.show()
-            QTimer.singleShot(2500, toast.close)
-        if hasattr(self, "_segments_toast_shown") and not self._segments_toast_shown:
-            show_segments_toast()
-            self._segments_toast_shown = True
-
-        self.update_firework_show_info()  # Update info with new segment count
-        self.waveform_canvas.draw_idle()
-        # Update the waveform selector's original limits after redraw
-        if hasattr(self, 'waveform_selector'):
-            self.waveform_selector.update_original_limits()
-
-    def handle_interesting_points(self, points):
-        # Always update self.points with the new points
-        # Append new points to self.points, avoiding duplicates
-        if self.points is None or self.points == []:
-            self.points = list(points)
-            new_points = list(points)
-        else:
-            # Only add points not already present
-            new_points = [p for p in points if p not in self.points]
-            self.points.extend(new_points)
-
-        ax = self.waveform_canvas.figure.axes[0]
-        # Only plot one legend entry for all interesting points
-        if self.points is not None and isinstance(self.points, (list, tuple, np.ndarray)):
-            for t in self.points:
-                if isinstance(t, (int, float)) and np.isscalar(t) and not isinstance(t, complex):
-                    ax.axvline(x=float(t), color="#ff6f00", linestyle=":", linewidth=1.5, alpha=0.8, label=None)
-            legend = ax.get_legend()
-            labels = [l.get_text() for l in legend.get_texts()] if legend else []
-            if "Interesting Point" not in labels:
-                ax.axvline(x=0, color="#ff6f00", linestyle=":", linewidth=1.5, alpha=0.8, label="Interesting Point")
-                leg = ax.legend(
-                    loc="upper right",
-                    framealpha=0.3,
-                    fontsize=7,
-                    markerscale=0.7,
-                    handlelength=1.2,
-                    borderpad=0.3,
-                    labelspacing=0.2,
-                    handletextpad=0.3,
-                    borderaxespad=0.2,
-                )
-                if leg:
-                    leg.get_frame().set_alpha(0.3)
-        
-        def show_interesting_toast():
-                toast = ToastDialog(f"Found {len(new_points)} interesting points!", parent=self)
-                geo = self.geometry()
-                x = geo.x() + geo.width() - toast.width() - 40
-                y = geo.y() + geo.height() - toast.height() - 40
-                toast.move(x, y)
-                toast.show()
-                QTimer.singleShot(2500, toast.close)
-        if hasattr(self, "_interesting_points_toast_shown") and not self._interesting_points_toast_shown:
-            show_interesting_toast()
-            self._interesting_points_toast_shown = True
-        self.waveform_canvas.draw_idle()
-        # Update the waveform selector's original limits after redraw
-        if hasattr(self, 'waveform_selector'):
-            self.waveform_selector.update_original_limits()
-
-    def handle_onsets(self, onsets):
-        # Always update self.onsets with the new onsets
-        # Append new onsets to self.onsets, avoiding duplicates
-        if self.onsets is None or self.onsets == []:
-            self.onsets = list(onsets)
-            new_onsets = list(onsets)
-        else:
-            # Only add onsets not already present
-            new_onsets = [o for o in onsets if o not in self.onsets]
-            self.onsets.extend(new_onsets)
-
-        ax = self.waveform_canvas.figure.axes[0]
-        # Only plot one legend entry for all onsets
-        if self.onsets is not None and isinstance(self.onsets, (list, tuple, np.ndarray)):
-            for t in self.onsets:
-                if isinstance(t, (int, float)) and np.isscalar(t) and not isinstance(t, complex):
-                    ax.axvline(x=float(t), color="#00ff6f", linestyle="-.", linewidth=1.5, alpha=0.8, label=None)
-            legend = ax.get_legend()
-            labels = [l.get_text() for l in legend.get_texts()] if legend else []
-            if "Onset" not in labels:
-                ax.axvline(x=0, color="#00ff6f", linestyle="-.", linewidth=1.5, alpha=0.8, label="Onset")
-                leg = ax.legend(
-                    loc="upper right",
-                    framealpha=0.3,
-                    fontsize=7,
-                    markerscale=0.7,
-                    handlelength=1.2,
-                    borderpad=0.3,
-                    labelspacing=0.2,
-                    handletextpad=0.3,
-                    borderaxespad=0.2,
-                )
-                if leg:
-                    leg.get_frame().set_alpha(0.3)
-        
-        def show_onset_toast():
-            toast = ToastDialog(f"Found {len(new_onsets)} onsets!", parent=self)
-            geo = self.geometry()
-            x = geo.x() + geo.width() - toast.width() - 40
-            y = geo.y() + geo.height() - toast.height() - 40
-            toast.move(x, y)
-            toast.show()
-            QTimer.singleShot(2500, toast.close)
-
-        if hasattr(self, "_onsets_toast_shown") and not self._onsets_toast_shown:
-            show_onset_toast()
-            self._onsets_toast_shown = True
-
-        self.waveform_canvas.draw_idle()
-        # Update the waveform selector's original limits after redraw
-        if hasattr(self, 'waveform_selector'):
-            self.waveform_selector.update_original_limits()
-
-    def handle_peaks(self, peaks):
-        # Always update self.peaks with the new peaks
-        # Append new peaks to self.peaks, avoiding duplicates
-        if self.peaks is None or self.peaks == []:
-            self.peaks = list(peaks)
-            new_peaks = list(peaks)
-        else:
-            # Only add peaks not already present
-            new_peaks = [p for p in peaks if p not in self.peaks]
-            self.peaks.extend(new_peaks)
-
-        ax = self.waveform_canvas.figure.axes[0]
-        # Only plot one legend entry for all peaks
-        if self.peaks is not None and isinstance(self.peaks, (list, tuple, np.ndarray)):
-            for t in self.peaks:
-                if isinstance(t, (int, float)) and np.isscalar(t) and not isinstance(t, complex):
-                    ax.axvline(x=float(t), color="#ff00ff", linestyle="--", linewidth=1.5, alpha=0.8, label=None)
-            legend = ax.get_legend()
-            labels = [l.get_text() for l in legend.get_texts()] if legend else []
-            if "Peak" not in labels:
-                ax.axvline(x=0, color="#ff00ff", linestyle="--", linewidth=1.5, alpha=0.8, label="Peak")
-                leg = ax.legend(
-                    loc="upper right",
-                    framealpha=0.3,
-                    fontsize=7,
-                    markerscale=0.7,
-                    handlelength=1.2,
-                    borderpad=0.3,
-                    labelspacing=0.2,
-                    handletextpad=0.3,
-                    borderaxespad=0.2,
-                )
-                if leg:
-                    leg.get_frame().set_alpha(0.3)
-
-        def show_peaks_toast():
-            toast = ToastDialog(f"Found {len(new_peaks)} peaks!", parent=self)
-            geo = self.geometry()
-            x = geo.x() + geo.width() - toast.width() - 40
-            y = geo.y() + geo.height() - toast.height() - 40
-            toast.move(x, y)
-            toast.show()
-            QTimer.singleShot(2500, toast.close)
-
-        if not hasattr(self, "_peaks_toast_shown") or not self._peaks_toast_shown:
-            show_peaks_toast()
-            self._peaks_toast_shown = True
-
-        self.waveform_canvas.draw_idle()
-        # Update the waveform selector's original limits after redraw
-        if hasattr(self, 'waveform_selector'):
-            self.waveform_selector.update_original_limits()
