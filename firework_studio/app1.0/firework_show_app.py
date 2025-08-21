@@ -399,54 +399,6 @@ class FireworkShowApp(QMainWindow):
             bbox=dict(facecolor="#33353c", edgecolor="none", boxstyle="round,pad=0.5")
         )
         self.spectrogram_canvas.draw_idle()
-
-        # Add a label to show current frequency (y-axis) in kHz at mouse location
-        self.spectrogram_freq_label = QLabel(self.spectrogram_canvas)
-        self.spectrogram_freq_label.setStyleSheet(
-            "background: #23242b; color: #ffd700; border: 1px solid #ffd700; border-radius: 4px; padding: 2px 6px; font-size: 13px;"
-        )
-        self.spectrogram_freq_label.setVisible(False)
-
-        def on_spectrogram_motion(event):
-            if (
-                event.inaxes == self.spectrogram_ax
-                and event.xdata is not None
-                and event.ydata is not None
-                and self.audio_data is not None
-                and self.sr is not None
-            ):
-                freq_khz = event.ydata / 1000.0
-                x, y = event.xdata, event.ydata
-                # Ensure audio_data is a numpy array
-                audio_np = np.array(self.audio_data)
-                S = librosa.stft(audio_np, n_fft=2048, hop_length=512)
-                S_db = librosa.amplitude_to_db(np.abs(S), ref=np.max)
-                times = librosa.frames_to_time(np.arange(S_db.shape[1]), sr=self.sr, hop_length=512)
-                freqs = librosa.fft_frequencies(sr=self.sr, n_fft=2048)
-                time_idx = np.argmin(np.abs(times - x))
-                freq_idx = np.argmin(np.abs(freqs - y))
-                db_val = S_db[freq_idx, time_idx] if 0 <= freq_idx < S_db.shape[0] and 0 <= time_idx < S_db.shape[1] else None
-                if db_val is not None:
-                    self.spectrogram_freq_label.setText(f"{db_val:.1f} dB @ {freq_khz:.2f} kHz")
-                else:
-                    self.spectrogram_freq_label.setText(f"{freq_khz:.2f} kHz")
-                label_width = self.spectrogram_freq_label.sizeHint().width()
-                label_height = self.spectrogram_freq_label.sizeHint().height()
-                x_widget = int(event.x) - label_width // 2
-                y_widget = int(event.y) - label_height - 8
-                x_widget = max(0, min(x_widget, self.spectrogram_canvas.width() - label_width))
-                y_widget = max(0, y_widget)
-                self.spectrogram_freq_label.move(x_widget, y_widget)
-                self.spectrogram_freq_label.setVisible(True)
-            else:
-                self.spectrogram_freq_label.setVisible(False)
-
-        def on_spectrogram_leave(event):
-            self.spectrogram_freq_label.setVisible(False)
-
-        self.spectrogram_canvas.mpl_connect("motion_notify_event", on_spectrogram_motion)
-        self.spectrogram_canvas.mpl_connect("figure_leave_event", on_spectrogram_leave)
-        self.spectrogram_canvas.leaveEvent = lambda event: self.spectrogram_freq_label.setVisible(False)
         
         ###########################################################
         #                                                         #
