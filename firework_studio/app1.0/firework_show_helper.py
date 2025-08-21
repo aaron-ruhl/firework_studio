@@ -298,7 +298,10 @@ class FireworkShowHelper:
             toast.move(x, y)
             toast.show()
             QTimer.singleShot(2500, toast.close)
-        if not hasattr(mw, "_peaks_toast_shown") or not mw._peaks_toast_shown:
+        # Ensure the attribute exists and is initialized
+        if not hasattr(mw, "_peaks_toast_shown"):
+            mw._peaks_toast_shown = False
+        if mw._peaks_toast_shown is False:
             show_peaks_toast()
             mw._peaks_toast_shown = True
         mw.waveform_canvas.draw_idle()
