@@ -79,16 +79,23 @@ class AudioLoader():
 
     def connect_analysis_signals(self):
         # As soon as data is loaded signals for analysis are connected
-        if hasattr(self.main_window, "handle_segments"):
-            self.main_window.analyzer.segments_ready.connect(self.main_window.firework_show_helper.handle_segments)
-        if hasattr(self.main_window, "handle_interesting_points"):
-            self.main_window.analyzer.interesting_points_ready.connect(self.main_window.firework_show_helper.handle_interesting_points)
-        if hasattr(self.main_window, "handle_onsets"):
-            self.main_window.analyzer.onsets_ready.connect(self.main_window.firework_show_helper.handle_onsets)
-        if hasattr(self.main_window, "handle_peaks"):
-            self.main_window.analyzer.peaks_ready.connect(self.main_window.firework_show_helper.handle_peaks)
-        #if hasattr(self.main_window, "handle_beats"):
-        #    self.analyzer.beats_ready.connect(self.main_window.handle_beats)
+        if hasattr(self.main_window, "analyzer") and self.main_window.analyzer is not None:
+            if hasattr(self.main_window, "firework_show_helper"):
+                try:
+                    # Disconnect existing connections to avoid duplicates
+                    self.main_window.analyzer.segments_ready.disconnect()
+                    self.main_window.analyzer.interesting_points_ready.disconnect()
+                    self.main_window.analyzer.onsets_ready.disconnect()
+                    self.main_window.analyzer.peaks_ready.disconnect()
+                except:
+                    pass  # Ignore if no connections exist
+                
+                # Connect the signals
+                self.main_window.analyzer.segments_ready.connect(self.main_window.firework_show_helper.handle_segments)
+                self.main_window.analyzer.interesting_points_ready.connect(self.main_window.firework_show_helper.handle_interesting_points)
+                self.main_window.analyzer.onsets_ready.connect(self.main_window.firework_show_helper.handle_onsets)
+                self.main_window.analyzer.peaks_ready.connect(self.main_window.firework_show_helper.handle_peaks)
+                print("Analysis signals connected successfully")
         
     def handle_audio(self, reload=False):
         # Start thread to load audio
