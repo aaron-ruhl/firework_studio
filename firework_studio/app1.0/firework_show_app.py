@@ -368,8 +368,8 @@ class FireworkShowApp(QMainWindow):
             layout.setContentsMargins(0, 0, 0, 0)
             layout.setSpacing(0)
             layout.addWidget(self.fireworks_canvas)
-            # Ensure fireworks stay within the visible area by setting a minimum height
-            container.setMinimumHeight(700)
+            # Ensure fireworks stay within the visible area by setting a reasonable minimum height
+            container.setMinimumHeight(300)
             container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
             self.fireworks_canvas.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
             self.fireworks_canvas.set_fireworks_enabled(False)  # Disable fireworks initially since it is technically starting in a paused state
@@ -979,10 +979,13 @@ class FireworkShowApp(QMainWindow):
 
         # Create but do not show collapsible_waveform yet
         self.collapsible_waveform = CollapsibleWidget("Waveform & Spectrogram", waveform_container)
-        layout.addWidget(self.collapsible_waveform)
+        # Add with stretch=0 so it only takes needed space
+        layout.addWidget(self.collapsible_waveform, stretch=0)
 
-        layout.addWidget(self.preview_widget, stretch=0, alignment=Qt.AlignmentFlag.AlignBottom)
+        # Add preview timeline widget after collapsible widget with stretch=0 so it stays fixed size
+        layout.addWidget(self.preview_widget, stretch=0)
 
+        # Add tab widget after preview widget with stretch=1 so it expands/contracts
         tab_widget = QTabWidget()
         tab_widget.setTabPosition(QTabWidget.TabPosition.North)
         tab_widget.setStyleSheet("""
@@ -995,7 +998,7 @@ class FireworkShowApp(QMainWindow):
         tab_widget.addTab(self.fireworks_canvas_container, "Preview")
         tab_widget.addTab(create_tab_widget, "Create")
         
-        # Add to main layout with proper stretch factors - tab widget gets remaining space
+        # Add to main layout with stretch=1 so it takes remaining space and grows/shrinks
         layout.addWidget(tab_widget, stretch=1)
 
         # Show the window - it's already set to maximized state
