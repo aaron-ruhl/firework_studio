@@ -29,6 +29,50 @@ from show_file_handler import ShowFileHandler
 from filters import AudioFilter
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib import pyplot as plt
+from PyQt6.QtWidgets import QToolButton
+
+class CollapsibleWidget(QWidget):
+    def __init__(self, title, child_widget, parent=None):
+        super().__init__(parent)
+        self.toggle_btn = QToolButton(text=title)
+        self.toggle_btn.setCheckable(True)
+        self.toggle_btn.setChecked(True)
+        self.toggle_btn.setArrowType(Qt.ArrowType.DownArrow)
+        self.toggle_btn.setStyleSheet("""
+            QToolButton {
+            background: #23242b;
+            color: #ffd700;
+            border: 1px solid #444657;
+            border-radius: 4px;
+            font-size: 13px;
+            min-height: 28px;
+            padding: 2px 8px;
+            }
+            QToolButton:checked {
+            background: #31323a;
+            color: #ffd700;
+            }
+        """)
+        self.child_widget = child_widget
+        self.child_widget.setVisible(True)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.addWidget(self.toggle_btn)
+        layout.addWidget(self.child_widget)
+        self.toggle_btn.toggled.connect(self.toggle_child)
+        self.toggle_btn.toggled.connect(self.update_arrow)
+        self.update_arrow(self.toggle_btn.isChecked())
+
+    def toggle_child(self, checked):
+        self.child_widget.setVisible(checked)
+
+    def update_arrow(self, checked):
+        self.toggle_btn.setArrowType(Qt.ArrowType.DownArrow if checked else Qt.ArrowType.RightArrow)
+    
+    def sizeHint(self) -> QSize:
+        return super().sizeHint()
+
 
 '''THIS IS THE MAIN VIEW FOR THE FIREWORK STUDIO APPLICATION'''
 class FireworkShowApp(QMainWindow):
@@ -721,7 +765,7 @@ class FireworkShowApp(QMainWindow):
         segment_layout.addWidget(min_segments_spin)
         max_segments_spin = QSpinBox()
         max_segments_spin.setRange(2, 50)
-        max_segments_spin.setValue(12)
+        max_segments_spin.setValue(19)
         max_segments_spin.setPrefix("Max: ")
         max_segments_spin.setStyleSheet("font-size: 10px;")
         segment_layout.addWidget(max_segments_spin)
@@ -867,18 +911,18 @@ class FireworkShowApp(QMainWindow):
         peak_layout = QVBoxLayout()
         min_peaks_spin = QSpinBox()
         min_peaks_spin.setRange(1, 100)
-        min_peaks_spin.setValue(5)
+        min_peaks_spin.setValue(10)
         min_peaks_spin.setPrefix("Min: ")
         min_peaks_spin.setStyleSheet("font-size: 10px;")
         peak_layout.addWidget(min_peaks_spin)
         max_peaks_spin = QSpinBox()
         max_peaks_spin.setRange(1, 100)
-        max_peaks_spin.setValue(20)
+        max_peaks_spin.setValue(30)
         max_peaks_spin.setPrefix("Max: ")
         max_peaks_spin.setStyleSheet("font-size: 10px;")
         peak_layout.addWidget(max_peaks_spin)
         scoring_box = QComboBox()
-        scoring_box.addItems(["absolute", "relative", "sharp", "custom"])
+        scoring_box.addItems(["squared", "absolute", "relative", "sharp", "custom"])
         scoring_box.setCurrentIndex(0)
         scoring_box.setMinimumWidth(100)
         scoring_box.setMaximumWidth(140)
@@ -1798,32 +1842,33 @@ class FireworkShowApp(QMainWindow):
         #        Overall UI Elements layout                        #
         #                                                          #
         #############################################################
+        # Delay showing the collapsible waveform until after the window is shown to avoid flash
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
 
         layout = QVBoxLayout(central_widget)
-        # Add the preview widget and waveform canvas below
 
-        # Create a container for the waveform toolbar and canvas with black background
         waveform_container = QWidget()
         waveform_container.setStyleSheet("""
             background-color: #181a20;
-            color: #8fb9bd;  /* Blue-gray text to match navigation toolbar arrows */
-        """)  # Match plot background and set text color
+            color: #8fb9bd;
+        """)
         waveform_layout = QVBoxLayout(waveform_container)
-        waveform_layout.setContentsMargins(40, 0, 40, 0)  # Left/right gap
+        waveform_layout.setContentsMargins(40, 0, 40, 0)
         waveform_layout.setSpacing(0)
         waveform_layout.addWidget(self.waveform_toolbar)
         waveform_layout.addWidget(self.waveform_canvas)
-        # Add spectrogram canvas with no extra margins or spacing
         self.spectrogram_canvas.setContentsMargins(0, 0, 0, 0)
         self.spectrogram_canvas.setFixedHeight(80)
         self.spectrogram_canvas.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         waveform_layout.addWidget(self.spectrogram_canvas)
-        layout.addWidget(waveform_container)
+
+        # Create but do not show collapsible_waveform yet
+        self.collapsible_waveform = CollapsibleWidget("Waveform & Spectrogram", waveform_container)
+        self.collapsible_waveform.setVisible(False)
+        layout.addWidget(self.collapsible_waveform)
 
         layout.addWidget(self.preview_widget, stretch=0, alignment=Qt.AlignmentFlag.AlignBottom)
-        # Add a tabbed window with Preview and Create tabs
 
         tab_widget = QTabWidget()
         tab_widget.setTabPosition(QTabWidget.TabPosition.North)
@@ -1834,14 +1879,14 @@ class FireworkShowApp(QMainWindow):
             QTabBar::tab:hover { background: #49505a; color: #ffd700; }
         """)
 
-        # First tab: Preview (fireworks_canvas_container)
         tab_widget.addTab(self.fireworks_canvas_container, "Preview")
-
         tab_widget.addTab(create_tab_widget, "Create")
-
         layout.addWidget(tab_widget)
         
-        ###########################################################
+        # Show collapsible waveform after window is shown to avoid flash
+        QTimer.singleShot(0, lambda: self.collapsible_waveform.setVisible(True))
+        
+        #############################################################
         #                                                         #
         #        Set dark theme palette and styles for the app    #
         #                                                         #

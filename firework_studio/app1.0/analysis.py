@@ -52,7 +52,7 @@ class AudioAnalysis(QThread):
         self.scoring = "absolute"  # Options: "absolute", "relative", "sharp", "custom"
         self.custom_scoring_method = None
 
-    def set_segment_settings(self, n_mfcc=13, min_segments=2, max_segments=12, dct_type=2, n_fft=2048, hop_length_segments=512):
+    def set_segment_settings(self, n_mfcc=13, min_segments=2, max_segments=19, dct_type=2, n_fft=2048, hop_length_segments=512):
         self.n_mfcc = n_mfcc
         self.min_segments = min_segments
         self.max_segments = max_segments
@@ -77,7 +77,7 @@ class AudioAnalysis(QThread):
         self.backtrack = backtrack
         self.normalize = normalize
 
-    def set_peak_settings(self, min_peaks=5, max_peaks=20, scoring="absolute", custom_scoring_method=None):
+    def set_peak_settings(self, min_peaks=10, max_peaks=30, scoring="squared", custom_scoring_method=None):
         self.min_peaks = min_peaks
         self.max_peaks = max_peaks
         self.scoring = scoring
@@ -280,7 +280,10 @@ class AudioAnalysis(QThread):
         # Find zero crossings in first derivative (potential extrema)
         zero_crossings = np.where(np.diff(np.sign(first_deriv)))[0]
 
-        if self.scoring == "absolute":
+        if self.scoring == "squared":
+            # Score extrema by the squared value of the audio signal at zero crossing (higher value = higher score)
+            scores = audio_data_region[zero_crossings]**2
+        elif self.scoring == "absolute":
             # Score extrema by the absolute value of the audio signal at zero crossing (higher value = higher score)
             scores = np.abs(audio_data_region[zero_crossings])
         elif self.scoring == "relative":
