@@ -28,6 +28,7 @@ from waveform_selection import WaveformSelectionTool
 from show_file_handler import ShowFileHandler
 from filters import AudioFilter
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib import pyplot as plt
 
 '''THIS IS THE MAIN VIEW FOR THE FIREWORK STUDIO APPLICATION'''
 class FireworkShowApp(QMainWindow):
@@ -365,6 +366,54 @@ class FireworkShowApp(QMainWindow):
         self.fireworks_canvas_container = create_fireworks_canvas_container()
         self.fireworks_canvas.setStyleSheet("background-color: #23242b;")  # Set canvas background color
 
+        #######################################################################
+        #                                                                     #
+        #                           Spectrogram Display                       #
+        #                                                                     #
+        #######################################################################
+
+
+        # Create a spectrogram canvas with clear formatting for readability
+        self.spectrogram_canvas = FigureCanvas(Figure(figsize=(8, 4)))
+        self.spectrogram_canvas.setFixedHeight(80)
+        self.spectrogram_ax = self.spectrogram_canvas.figure.subplots()
+        self.spectrogram_ax.set_facecolor('#181a20')
+        self.spectrogram_canvas.figure.set_facecolor('#23242b')
+        self.spectrogram_ax.tick_params(axis='x', colors='#ffd700', labelsize=10)
+        self.spectrogram_ax.tick_params(axis='y', colors='#ffd700', labelsize=10)
+        self.spectrogram_ax.grid(False)
+        self.spectrogram_canvas.setStyleSheet("background-color: #23242b")
+
+        # Add a label to show current frequency (y-axis) in kHz at mouse location
+        self.spectrogram_freq_label = QLabel(self.spectrogram_canvas)
+        self.spectrogram_freq_label.setStyleSheet(
+            "background: #23242b; color: #ffd700; border: 1px solid #ffd700; border-radius: 4px; padding: 2px 6px; font-size: 13px;"
+        )
+        self.spectrogram_freq_label.setVisible(False)
+
+        def on_spectrogram_motion(event):
+            if event.inaxes == self.spectrogram_ax and event.ydata is not None:
+                freq_khz = event.ydata / 1000.0
+                self.spectrogram_freq_label.setText(f"{freq_khz:.2f} kHz")
+                # Position label near mouse, keep inside widget
+                label_width = self.spectrogram_freq_label.sizeHint().width()
+                label_height = self.spectrogram_freq_label.sizeHint().height()
+                x_widget = int(event.x) - label_width // 2
+                y_widget = int(event.y) - label_height - 8
+                x_widget = max(0, min(x_widget, self.spectrogram_canvas.width() - label_width))
+                y_widget = max(0, y_widget)
+                self.spectrogram_freq_label.move(x_widget, y_widget)
+                self.spectrogram_freq_label.setVisible(True)
+            else:
+                self.spectrogram_freq_label.setVisible(False)
+
+        def on_spectrogram_leave(event):
+            self.spectrogram_freq_label.setVisible(False)
+
+        self.spectrogram_canvas.mpl_connect("motion_notify_event", on_spectrogram_motion)
+        self.spectrogram_canvas.mpl_connect("figure_leave_event", on_spectrogram_leave)
+        self.spectrogram_canvas.leaveEvent = lambda event: self.spectrogram_freq_label.setVisible(False)
+
         ############################################################
         #                                                          #
         #                   Create Tab Widget                      #
@@ -478,21 +527,8 @@ class FireworkShowApp(QMainWindow):
         main_layout.setContentsMargins(0, 0, 0, 0)  # Remove left/right margins
         content_widget.setContentsMargins(0, 0, 0, 0)  # Remove left/right margins
 
-        # Create a spectrogram canvas with clear formatting for readability
-        self.spectrogram_canvas = FigureCanvas(Figure(figsize=(8, 2.5)))
-        self.spectrogram_canvas.setFixedHeight(260)
-        self.spectrogram_ax = self.spectrogram_canvas.figure.subplots()
-        self.spectrogram_ax.set_facecolor('#181a20')
-        self.spectrogram_canvas.figure.set_facecolor('#23242b')
-        self.spectrogram_ax.set_title("Spectrogram", color="#ffd700", fontsize=14, pad=12)
-        self.spectrogram_ax.set_xlabel("Time (s)", color="#ffd700", fontsize=12, labelpad=8)
-        self.spectrogram_ax.set_ylabel("Frequency (Hz)", color="#ffd700", fontsize=12, labelpad=8, rotation=90)
-        self.spectrogram_ax.tick_params(axis='x', colors='#ffd700', labelsize=10)
-        self.spectrogram_ax.tick_params(axis='y', colors='#ffd700', labelsize=10)
-        self.spectrogram_ax.grid(False)
-        self.spectrogram_canvas.setStyleSheet("background-color: #23242b")
-
-        main_layout.addWidget(self.spectrogram_canvas)
+        # Placeholder for additional vertical sections
+        main_layout.addWidget(QLabel("Lay down firing..."))
 
         # Add a professional label for "Analysis Settings"
         analysis_label = QLabel("Analysis Settings")
@@ -791,9 +827,6 @@ class FireworkShowApp(QMainWindow):
         # Add the horizontal analysis section to the main vertical layout
         main_layout.addLayout(analysis_section)
 
-        # Placeholder for additional vertical sections
-        main_layout.addWidget(QLabel("Lay down firing..."))
-
         content_widget.setLayout(main_layout)
         scroll_area.setWidget(content_widget)
         scroll_area.setContentsMargins(0, 0, 0, 0)
@@ -809,6 +842,7 @@ class FireworkShowApp(QMainWindow):
         #           Canvas for waveform display                   #
         #                                                         #
         ###########################################################
+
         # Create a canvas for displaying the waveform needed here for loading audio
         def create_waveform_canvas():
             canvas = FigureCanvas(Figure(figsize=(7, 1)))
@@ -834,6 +868,7 @@ class FireworkShowApp(QMainWindow):
                 self.waveform_selector.clear_selection(redraw=False)
             legend = self.waveform_canvas.figure.axes[0].get_legend()
             self.plot_waveform(current_legend=legend)
+            self.plot_spectrogram()
 
         # Patch the NavigationToolbar "home" button to call our reset
         for action in self.waveform_toolbar.actions():
@@ -1750,6 +1785,11 @@ class FireworkShowApp(QMainWindow):
         waveform_layout.setSpacing(0)
         waveform_layout.addWidget(self.waveform_toolbar)
         waveform_layout.addWidget(self.waveform_canvas)
+        # Add spectrogram canvas with no extra margins or spacing
+        self.spectrogram_canvas.setContentsMargins(0, 0, 0, 0)
+        self.spectrogram_canvas.setFixedHeight(80)
+        self.spectrogram_canvas.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        waveform_layout.addWidget(self.spectrogram_canvas)
         layout.addWidget(waveform_container)
 
         layout.addWidget(self.preview_widget, stretch=0, alignment=Qt.AlignmentFlag.AlignBottom)
@@ -1802,32 +1842,19 @@ class FireworkShowApp(QMainWindow):
                 S_db, ax=self.spectrogram_ax, sr=self.sr, hop_length=512,
                 x_axis='time', y_axis='linear', cmap='magma'
             )
-            # Dark theme formatting
-            self.spectrogram_ax.set_facecolor('#181a20')
-            self.spectrogram_ax.figure.set_facecolor('#23242b')
-            self.spectrogram_ax.set_title("Spectrogram", color="#ffd700", fontsize=14, pad=12)
-            self.spectrogram_ax.set_xlabel("Time (s)", color="#ffd700", fontsize=12, labelpad=8)
-            self.spectrogram_ax.set_ylabel("Frequency (Hz)", color="#ffd700", fontsize=12, labelpad=8, rotation=90)
-            self.spectrogram_ax.tick_params(axis='x', colors='#ffd700', labelsize=10)
-            self.spectrogram_ax.tick_params(axis='y', colors='#ffd700', labelsize=10)
-            # Remove grid for cleaner look
             self.spectrogram_ax.grid(False)
-            # Colorbar styling
-            cbar = self.spectrogram_ax.figure.colorbar(img, ax=self.spectrogram_ax, format="%+2.0f dB", pad=0.02)
-            cbar.set_label("dB", color="#ffd700", fontsize=11)
-            cbar.ax.yaxis.set_tick_params(color='#ffd700', labelsize=9)
-            plt = cbar.ax
-            plt.set_facecolor('#23242b')
-            for label in plt.get_yticklabels():
-                label.set_color('#ffd700')
+
+            # Remove all margins/padding so plot fills the canvas
+            self.spectrogram_canvas.figure.subplots_adjust(left=0, right=1, top=1, bottom=0)
+
+            self.spectrogram_ax.set_xlabel("")
+            self.spectrogram_ax.set_ylabel("")
+            self.spectrogram_ax.set_xticks([])
+            self.spectrogram_ax.set_yticks([])
+
             self.spectrogram_canvas.draw_idle()
         else:
             self.spectrogram_ax.clear()
-            self.spectrogram_ax.set_facecolor('#181a20')
-            self.spectrogram_ax.figure.set_facecolor('#23242b')
-            self.spectrogram_ax.set_title("No audio loaded", color="#ffd700", fontsize=14)
-            self.spectrogram_ax.set_xticks([])
-            self.spectrogram_ax.set_yticks([])
             self.spectrogram_canvas.draw_idle()
 
     def plot_waveform(self, current_legend=None):
