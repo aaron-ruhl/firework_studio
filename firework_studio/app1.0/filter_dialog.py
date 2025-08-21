@@ -7,12 +7,13 @@ from toaster import ToastDialog
 from PyQt6.QtCore import QTimer
 
 class FilterDialog(QDialog):
-    def __init__(self, parent=None):
-        super().__init__(parent)
+    def __init__(self, main_window=None):
+        super().__init__(main_window)
         self.setWindowTitle("Apply Audio Filter")
         self.setMinimumWidth(320)
         layout = QVBoxLayout(self)
-        self.mw_filter = parent.filter
+        self.main_window = main_window
+        self.mw_filter = getattr(self.main_window, 'filter', None)
 
         # Filter type
         layout.addWidget(QLabel("Filter Type:"))
@@ -79,8 +80,8 @@ class FilterDialog(QDialog):
         self.cutoff_label.setText("Cutoff Frequency (Hz):")
         
         # Restore original audio data to main window
-        mw = self.parent()
-        if mw is not None and hasattr(mw, 'reset_filter_to_original'):
+        mw = self.main_window
+        if mw is not None and hasattr(mw, 'reset_filter_to_original') and callable(getattr(mw, 'reset_filter_to_original', None)):
             if mw.reset_filter_to_original():
                 # Show a toast notification
                 toast = ToastDialog("Audio filter reset to original!", parent=mw)
@@ -93,6 +94,16 @@ class FilterDialog(QDialog):
             else:
                 # Show error toast if reset failed
                 toast = ToastDialog("No original audio data to restore!", parent=mw)
+                geo = mw.geometry()
+                x = geo.x() + geo.width() - toast.width() - 40
+                y = geo.y() + geo.height() - toast.height() - 40
+                toast.move(x, y)
+                toast.show()
+                QTimer.singleShot(2000, toast.close)
+        else:
+            # Show error toast if method does not exist
+            if mw is not None:
+                toast = ToastDialog("Reset filter method not available!", parent=mw)
                 geo = mw.geometry()
                 x = geo.x() + geo.width() - toast.width() - 40
                 y = geo.y() + geo.height() - toast.height() - 40
