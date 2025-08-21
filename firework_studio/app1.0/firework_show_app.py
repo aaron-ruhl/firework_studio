@@ -392,9 +392,24 @@ class FireworkShowApp(QMainWindow):
         self.spectrogram_freq_label.setVisible(False)
 
         def on_spectrogram_motion(event):
-            if event.inaxes == self.spectrogram_ax and event.ydata is not None:
+            if event.inaxes == self.spectrogram_ax and event.xdata is not None and event.ydata is not None:
                 freq_khz = event.ydata / 1000.0
-                self.spectrogram_freq_label.setText(f"{freq_khz:.2f} kHz")
+                # Get dB value at mouse location
+                x, y = event.xdata, event.ydata
+                # Find nearest pixel in spectrogram data
+                S = librosa.stft(self.audio_data, n_fft=2048, hop_length=512)
+                S_db = librosa.amplitude_to_db(np.abs(S), ref=np.max)
+                # Convert axes coords to spectrogram array indices
+                times = librosa.frames_to_time(np.arange(S_db.shape[1]), sr=self.sr, hop_length=512)
+                freqs = librosa.fft_frequencies(sr=self.sr, n_fft=2048)
+                # Find closest indices
+                time_idx = np.argmin(np.abs(times - x))
+                freq_idx = np.argmin(np.abs(freqs - y))
+                db_val = S_db[freq_idx, time_idx] if 0 <= freq_idx < S_db.shape[0] and 0 <= time_idx < S_db.shape[1] else None
+                if db_val is not None:
+                    self.spectrogram_freq_label.setText(f"{db_val:.1f} dB @ {freq_khz:.2f} kHz")
+                else:
+                    self.spectrogram_freq_label.setText(f"{freq_khz:.2f} kHz")
                 # Position label near mouse, keep inside widget
                 label_width = self.spectrogram_freq_label.sizeHint().width()
                 label_height = self.spectrogram_freq_label.sizeHint().height()
@@ -962,6 +977,13 @@ class FireworkShowApp(QMainWindow):
         # Hide the label when the mouse leaves the waveform_canvas widget
         def on_waveform_leave(event):
             self.waveform_time_label.setVisible(False)
+
+        # Patch the NavigationToolbar "zoom" button to call our zoom_to_selection
+        for action in self.waveform_toolbar.actions():
+            if hasattr(action, "text") and action.text() == "Zoom":
+                action.triggered.disconnect()
+                action.triggered.connect(lambda: self.waveform_selector.zoom_to_selection())
+                break
 
         self.waveform_canvas.mpl_connect("figure_leave_event", on_waveform_leave)
         self.waveform_canvas.leaveEvent = lambda event: self.waveform_time_label.setVisible(False)

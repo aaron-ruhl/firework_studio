@@ -66,11 +66,17 @@ class WaveformSelectionTool:
             self.main_window.status_bar.showMessage(
                 f"Selected region: {start} - {end}"
             )
-            # Only update the selected region for visual feedback, do not filter or add firings
-            self.main_window.preview_widget.set_selected_region((xmin, xmax))
             if self.main_window and hasattr(self.main_window, 'analyzer') and self.main_window.analyzer:
                 self.main_window.analyzer.set_selected_region((xmin, xmax))
+
+    def zoom_to_selection(self):
+        if self.selected_region:
+            xmin, xmax = self.selected_region
+            # Only update the selected region for visual feedback, do not filter or add firings
+            self.main_window.preview_widget.set_selected_region((xmin, xmax))
             self.main_window.preview_widget.update()
+            # Update the spectrogram view
+            self.main_window.spectrogram_canvas.draw_idle()
             # Set waveform and spectrogram limits without triggering a redraw here
             self.ax.set_xlim(xmin, xmax)
             self.main_window.spectrogram_ax.set_xlim((xmin, xmax))
