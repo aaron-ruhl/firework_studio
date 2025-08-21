@@ -10,7 +10,6 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt import NavigationToolbar2QT
 import librosa
-import librosa.display
 
 from PyQt6.QtCore import Qt, QTimer, QSize
 from PyQt6.QtGui import (
@@ -19,11 +18,10 @@ from PyQt6.QtGui import (
 )
 from PyQt6.QtWidgets import (
     QMenu, QMainWindow, QWidget, QVBoxLayout, 
-    QHBoxLayout, QPushButton, QLabel, QFileDialog, 
-    QSizePolicy, QStatusBar, QGroupBox, QComboBox,
-    QMenuBar, QWidgetAction, QSpinBox, QInputDialog,
-    QTabWidget, QLineEdit, QScrollArea, QDoubleSpinBox,
-    QDialog, QToolButton
+    QHBoxLayout, QPushButton, QLabel, QSizePolicy, 
+    QStatusBar, QGroupBox, QComboBox,
+    QMenuBar, QSpinBox, QInputDialog,
+    QTabWidget, QLineEdit, QScrollArea, 
 )
 
 from firework_canvas_2 import FireworksCanvas
@@ -33,10 +31,10 @@ from toaster import ToastDialog
 from waveform_selection import WaveformSelectionTool
 from show_file_handler import ShowFileHandler
 from filters import AudioFilter
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from collapsible_widget import CollapsibleWidget
 from filter_dialog import FilterDialog
 from firework_show_helper import FireworkShowHelper
+from create_tab import CreateTabHelper
 
 '''THIS IS THE MAIN VIEW FOR THE FIREWORK STUDIO APPLICATION'''
 class FireworkShowApp(QMainWindow):
@@ -591,431 +589,9 @@ class FireworkShowApp(QMainWindow):
         #                                                          #
         ############################################################
 
-        # This will be the "Create" tab content
-        create_tab_widget = QWidget()
-
-        # Create a scroll area for the tab content
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setStyleSheet("""
-            QWidget {
-            background-color: #23242b;
-            color: #ffd700;
-            font-size: 15px;
-            font-family: 'Segoe UI', 'Arial', sans-serif;
-            }
-            QGroupBox {
-            background-color: #181a20;
-            border: 2px solid #ffd700;
-            border-radius: 8px;
-            color: #ffd700;
-            font-size: 16px;
-            font-weight: bold;
-            margin-top: 12px;
-            margin-bottom: 12px;
-            padding: 8px 12px;
-            }
-            QGroupBox:title {
-            subcontrol-origin: margin;
-            subcontrol-position: top left;
-            padding: 0 8px;
-            color: #ffd700;
-            font-size: 16px;
-            font-weight: bold;
-            }
-            QLabel {
-            color: #ffd700;
-            font-size: 15px;
-            font-weight: 500;
-            padding: 4px 0;
-            }
-            QComboBox, QSpinBox {
-            background-color: #23242b;
-            color: #ffd700;
-            border: 2px solid #ffd700;
-            border-radius: 6px;
-            font-size: 15px;
-            font-weight: bold;
-            min-width: 60px;
-            min-height: 32px;
-            padding: 4px 12px;
-            margin: 4px 0;
-            }
-            QPushButton {
-            background-color: #ffd700;
-            color: #23242b;
-            border: 2px solid #ffd700;
-            border-radius: 6px;
-            font-size: 15px;
-            font-weight: bold;
-            min-width: 80px;
-            min-height: 32px;
-            margin: 6px 0;
-            }
-            QPushButton:hover {
-            background-color: #fffbe6;
-            color: #23242b;
-            border: 2px solid #ffd700;
-            }
-            QMenu {
-            background-color: #23242b;
-            color: #ffd700;
-            border: 2px solid #ffd700;
-            border-radius: 8px;
-            font-size: 15px;
-            padding: 8px 0px;
-            }
-            QTabWidget::pane {
-            border: 2px solid #ffd700;
-            background: #23242b;
-            }
-            QTabBar::tab {
-            background: #181a20;
-            color: #ffd700;
-            border: 2px solid #ffd700;
-            border-radius: 6px;
-            min-width: 140px;
-            min-height: 36px;
-            font-size: 15px;
-            font-weight: bold;
-            margin: 4px;
-            }
-            QTabBar::tab:selected {
-            background: #ffd700;
-            color: #23242b;
-            border: 2px solid #ffd700;
-            }
-            QTabBar::tab:hover {
-            background-color: #fffbe6;
-            color: #23242b;
-            }
-        """)
-
-        # Create the actual content widget and layout
-        content_widget = QWidget()
-        main_layout = QVBoxLayout(content_widget)
-        main_layout.setContentsMargins(0, 0, 0, 0)  # Remove left/right margins
-        content_widget.setContentsMargins(0, 0, 0, 0)  # Remove left/right margins
-
-        # Placeholder for additional vertical sections
-        main_layout.addWidget(QLabel("Lay down firing..."))
-
-        # Add a professional label for "Analysis Settings"
-        analysis_label = QLabel("Analysis Settings")
-        analysis_label.setStyleSheet("""
-            QLabel {
-                color: #ffd700;
-                font-size: 20px;
-                font-weight: bold;
-                letter-spacing: 1px;
-                padding: 8px 0 12px 0;
-                border-bottom: 2px solid #ffd700;
-                margin-bottom: 12px;
-                background: transparent;
-            }
-        """)
-        analysis_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        main_layout.addWidget(analysis_label)
-        # Responsive horizontal layout for analysis section
-        analysis_section = QHBoxLayout()
-        analysis_section.setSpacing(12)
-        analysis_section.setContentsMargins(0, 0, 0, 0)
-        
-        # --- Segment Settings ---
-        segment_group = QGroupBox("Segment Settings")
-        segment_layout = QVBoxLayout()
-        min_segments_spin = QSpinBox()
-        min_segments_spin.setRange(1, 50)
-        min_segments_spin.setValue(2)
-        min_segments_spin.setPrefix("Min: ")
-        min_segments_spin.setStyleSheet("font-size: 10px;")
-        segment_layout.addWidget(min_segments_spin)
-        max_segments_spin = QSpinBox()
-        max_segments_spin.setRange(2, 50)
-        max_segments_spin.setValue(19)
-        max_segments_spin.setPrefix("Max: ")
-        max_segments_spin.setStyleSheet("font-size: 10px;")
-        segment_layout.addWidget(max_segments_spin)
-        n_mfcc_spin = QSpinBox()
-        n_mfcc_spin.setRange(1, 40)
-        n_mfcc_spin.setValue(13)
-        n_mfcc_spin.setPrefix("MFCC: ")
-        n_mfcc_spin.setStyleSheet("font-size: 10px;")
-        segment_layout.addWidget(n_mfcc_spin)
-        dct_type_spin = QSpinBox()
-        dct_type_spin.setRange(1, 4)
-        dct_type_spin.setValue(2)
-        dct_type_spin.setPrefix("DCT: ")
-        dct_type_spin.setStyleSheet("font-size: 10px;")
-        segment_layout.addWidget(dct_type_spin)
-        n_fft_spin = QSpinBox()
-        n_fft_spin.setRange(256, 8192)
-        n_fft_spin.setValue(2048)
-        n_fft_spin.setPrefix("FFT: ")
-        n_fft_spin.setStyleSheet("font-size: 10px;")
-        segment_layout.addWidget(n_fft_spin)
-        hop_length_segments_spin = QSpinBox()
-        hop_length_segments_spin.setRange(64, 4096)
-        hop_length_segments_spin.setValue(512)
-        hop_length_segments_spin.setPrefix("Hop: ")
-        hop_length_segments_spin.setStyleSheet("font-size: 10px;")
-        segment_layout.addWidget(hop_length_segments_spin)
-        segment_group.setLayout(segment_layout)
-        segment_group.setMinimumWidth(220)
-        segment_group.setMaximumWidth(260)
-        analysis_section.addWidget(segment_group)
-
-        # --- Onset Settings ---
-        onset_group = QGroupBox("Onset Settings")
-        onset_layout = QVBoxLayout()
-        min_onsets_spin = QSpinBox()
-        min_onsets_spin.setRange(1, 100)
-        min_onsets_spin.setValue(5)
-        min_onsets_spin.setPrefix("Min: ")
-        min_onsets_spin.setStyleSheet("font-size: 10px;")
-        onset_layout.addWidget(min_onsets_spin)
-        max_onsets_spin = QSpinBox()
-        max_onsets_spin.setRange(1, 100)
-        max_onsets_spin.setValue(20)
-        max_onsets_spin.setPrefix("Max: ")
-        max_onsets_spin.setStyleSheet("font-size: 10px;")
-        onset_layout.addWidget(max_onsets_spin)
-        hop_length_onsets_spin = QSpinBox()
-        hop_length_onsets_spin.setRange(64, 4096)
-        hop_length_onsets_spin.setValue(512)
-        hop_length_onsets_spin.setPrefix("Hop: ")
-        hop_length_onsets_spin.setStyleSheet("font-size: 10px;")
-        onset_layout.addWidget(hop_length_onsets_spin)
-        backtrack_box = QComboBox()
-        backtrack_box.addItems(["True", "False"])
-        backtrack_box.setCurrentIndex(0)
-        backtrack_box.setEditable(False)
-        backtrack_box.setMinimumWidth(80)
-        backtrack_box.setMaximumWidth(120)
-        backtrack_box.setStyleSheet("font-size: 10px;")
-        backtrack_label = QLabel(
-            "<b>Backtrack:</b><br>"
-            "This is primarily useful when using onsets as slice points for segmentation.<br>"
-            "If enabled, detected onsets are shifted to the nearest preceding peak in the signal."
-        )
-        backtrack_label.setWordWrap(True)
-        backtrack_label.setStyleSheet("font-size: 11px; color: #ffd700; padding: 2px 0;")
-        backtrack_label.setMinimumHeight(9)
-        onset_layout.addWidget(backtrack_label)
-        onset_layout.addWidget(backtrack_box)
-        normalize_box = QComboBox()
-        normalize_box.addItems(["True", "False"])
-        normalize_box.setCurrentIndex(1)
-        normalize_box.setEditable(False)
-        normalize_box.setMinimumWidth(80)
-        normalize_box.setMaximumWidth(120)
-        normalize_box.setStyleSheet("font-size: 10px;")
-        onset_layout.addWidget(QLabel("Normalize:"))
-        onset_layout.addWidget(normalize_box)
-        onset_group.setLayout(onset_layout)
-        onset_group.setMinimumWidth(220)
-        onset_group.setMaximumWidth(260)
-        analysis_section.addWidget(onset_group)
-
-        # --- Interesting Points Settings ---
-        points_group = QGroupBox("Interesting Points Settings")
-        points_layout = QVBoxLayout()
-        min_points_spin = QSpinBox()
-        min_points_spin.setRange(1, 100)
-        min_points_spin.setValue(5)
-        min_points_spin.setPrefix("Min: ")
-        min_points_spin.setStyleSheet("font-size: 10px;")
-        points_layout.addWidget(min_points_spin)
-        max_points_spin = QSpinBox()
-        max_points_spin.setRange(1, 100)
-        max_points_spin.setValue(20)
-        max_points_spin.setPrefix("Max: ")
-        max_points_spin.setStyleSheet("font-size: 10px;")
-        points_layout.addWidget(max_points_spin)
-        pre_max_spin = QSpinBox()
-        pre_max_spin.setRange(0, 20)
-        pre_max_spin.setValue(3)
-        pre_max_spin.setPrefix("PreMax: ")
-        pre_max_spin.setStyleSheet("font-size: 10px;")
-        points_layout.addWidget(pre_max_spin)
-        post_max_spin = QSpinBox()
-        post_max_spin.setRange(0, 20)
-        post_max_spin.setValue(3)
-        post_max_spin.setPrefix("PostMax: ")
-        post_max_spin.setStyleSheet("font-size: 10px;")
-        points_layout.addWidget(post_max_spin)
-        pre_avg_distance_spin = QSpinBox()
-        pre_avg_distance_spin.setRange(0, 20)
-        pre_avg_distance_spin.setValue(3)
-        pre_avg_distance_spin.setPrefix("PreAvgDist: ")
-        pre_avg_distance_spin.setStyleSheet("font-size: 10px;")
-        points_layout.addWidget(pre_avg_distance_spin)
-        post_avg_distance_spin = QSpinBox()
-        post_avg_distance_spin.setRange(0, 20)
-        post_avg_distance_spin.setValue(5)
-        post_avg_distance_spin.setPrefix("PostAvgDist: ")
-        post_avg_distance_spin.setStyleSheet("font-size: 10px;")
-        points_layout.addWidget(post_avg_distance_spin)
-        delta_spin = QSpinBox()
-        delta_spin.setRange(0, 100)
-        delta_spin.setValue(5)
-        delta_spin.setPrefix("Delta x0.1: ")
-        delta_spin.setStyleSheet("font-size: 10px;")
-        points_layout.addWidget(delta_spin)
-        moving_avg_wait_spin = QSpinBox()
-        moving_avg_wait_spin.setRange(0, 20)
-        moving_avg_wait_spin.setValue(5)
-        moving_avg_wait_spin.setPrefix("MA Wait: ")
-        moving_avg_wait_spin.setStyleSheet("font-size: 10px;")
-        points_layout.addWidget(moving_avg_wait_spin)
-        points_group.setLayout(points_layout)
-        points_group.setMinimumWidth(220)
-        points_group.setMaximumWidth(260)
-        analysis_section.addWidget(points_group)
-
-        # --- Peak Settings ---
-        peak_group = QGroupBox("Peak Settings")
-        peak_layout = QVBoxLayout()
-        min_peaks_spin = QSpinBox()
-        min_peaks_spin.setRange(1, 100)
-        min_peaks_spin.setValue(10)
-        min_peaks_spin.setPrefix("Min: ")
-        min_peaks_spin.setStyleSheet("font-size: 10px;")
-        peak_layout.addWidget(min_peaks_spin)
-        max_peaks_spin = QSpinBox()
-        max_peaks_spin.setRange(1, 100)
-        max_peaks_spin.setValue(30)
-        max_peaks_spin.setPrefix("Max: ")
-        max_peaks_spin.setStyleSheet("font-size: 10px;")
-        peak_layout.addWidget(max_peaks_spin)
-        scoring_box = QComboBox()
-        scoring_box.addItems(["squared", "absolute", "relative", "sharp", "custom"])
-        scoring_box.setCurrentIndex(0)
-        scoring_box.setMinimumWidth(100)
-        scoring_box.setMaximumWidth(140)
-        scoring_box.setStyleSheet("font-size: 10px;")
-        label = QLabel(
-            "<b>Scoring:</b><br>"
-            "This enables the user to set the scoring method used to determine which peaks to keep.<br>"
-            "<b>Current options:</b> <code>absolute</code>, <code>relative</code>, <code>sharp</code>, <code>custom</code>."
-        )
-        label.setWordWrap(True)
-        label.setStyleSheet("font-size: 11px; color: #ffd700; padding: 2px 0;")
-        label.setMinimumHeight(9)
-        peak_layout.addWidget(label)
-        peak_layout.addWidget(scoring_box)
-        custom_function_edit = QLineEdit()
-        custom_function_edit.setPlaceholderText("custom_scoring_method(audio_data_region, zero_crossings)")
-        custom_function_edit.setStyleSheet("font-size: 10px;")
-        label = QLabel(
-            "<b>Custom Function:</b><br>"
-            "Define a lambda function for custom peak scoring.<br>"
-            "Example: <br><code>lambda audio_data_region, zero_crossings: np.abs(audio_data_region[zero_crossings])</code><br>"
-            "<b>Arguments:</b>"
-            "<ul>"
-            "<li><b>audio_data_region</b>: The audio currently selected by the user.</li>"
-            "<li><b>zero_crossings</b>: Locations of detected zero crossings (all found peaks).</li>"
-            "</ul>"
-        )
-        label.setWordWrap(True)
-        label.setStyleSheet("font-size: 11px; color: #ffd700; padding: 2px 0;")
-        label.setMinimumHeight(9)
-        peak_layout.addWidget(label)
-        peak_layout.addWidget(custom_function_edit)
-        peak_group.setLayout(peak_layout)
-        peak_group.setMinimumWidth(280)
-        peak_group.setMaximumWidth(400)
-        analysis_section.addWidget(peak_group, stretch=2)
-
-        # --- Connect fields to analyzer setters ---
-        def update_segment_settings():
-            if self.analyzer is not None:
-                self.analyzer.set_segment_settings(
-                n_mfcc=n_mfcc_spin.value(),
-                min_segments=min_segments_spin.value(),
-                max_segments=max_segments_spin.value(),
-                dct_type=dct_type_spin.value(),
-                n_fft=n_fft_spin.value(),
-                hop_length_segments=hop_length_segments_spin.value()
-                )
-        for spin in [n_mfcc_spin, min_segments_spin, dct_type_spin, n_fft_spin, hop_length_segments_spin]:
-            spin.valueChanged.connect(update_segment_settings)
-        min_segments_spin.valueChanged.connect(update_segment_settings)
-        max_segments_spin.valueChanged.connect(update_segment_settings)
-
-        def update_onset_settings():
-            if self.analyzer is not None:
-                self.analyzer.set_onset_settings(
-                min_onsets=min_onsets_spin.value(),
-                max_onsets=max_onsets_spin.value(),
-                hop_length_onsets=hop_length_onsets_spin.value(),
-                backtrack=backtrack_box.currentText() == "True",
-                normalize=normalize_box.currentText() == "True"
-                )
-        for spin in [min_onsets_spin, max_onsets_spin, hop_length_onsets_spin]:
-            spin.valueChanged.connect(update_onset_settings)
-        backtrack_box.currentIndexChanged.connect(update_onset_settings)
-        normalize_box.currentIndexChanged.connect(update_onset_settings)
-
-        def update_points_settings():
-            if self.analyzer is not None:
-                self.analyzer.set_interesting_points_settings(
-                    min_points=min_points_spin.value(),
-                    max_points=max_points_spin.value(),
-                    pre_max=pre_max_spin.value(),
-                    post_max=post_max_spin.value(),
-                    pre_avg_distance=pre_avg_distance_spin.value(),
-                    post_avg_distance=post_avg_distance_spin.value(),
-                    delta=delta_spin.value() * 0.1,
-                    moving_avg_wait=moving_avg_wait_spin.value()
-                )
-        for spin in [min_points_spin, max_points_spin, pre_max_spin, post_max_spin, pre_avg_distance_spin, post_avg_distance_spin, delta_spin, moving_avg_wait_spin]:
-            spin.valueChanged.connect(update_points_settings)
-
-        def update_peak_settings():
-            custom_func = None
-            text = custom_function_edit.text().strip()
-            if text:
-                try:
-                    # Only allow lambda expressions for safety
-                    if text.startswith("lambda"):
-                        custom_func = eval(text, {"__builtins__": {}}, {})
-                except Exception:
-                    custom_func = None
-            if self.analyzer is not None:
-                self.analyzer.set_peak_settings(
-                    min_peaks=min_peaks_spin.value(),
-                    max_peaks=max_peaks_spin.value(),
-                    scoring=scoring_box.currentText(),
-                    custom_scoring_method=custom_func
-                )
-        for spin in [min_peaks_spin, max_peaks_spin]:
-            spin.valueChanged.connect(update_peak_settings)
-        scoring_box.currentIndexChanged.connect(update_peak_settings)
-        custom_function_edit.textChanged.connect(update_peak_settings)
-
-        # Add the horizontal analysis section to the main vertical layout
-        main_layout.addLayout(analysis_section)
-
-        content_widget.setLayout(main_layout)
-        scroll_area.setWidget(content_widget)
-        scroll_area.setContentsMargins(0, 0, 0, 0)
-        # Set the scroll area as the only child of the tab widget
-        create_tab_widget_layout = QVBoxLayout(create_tab_widget)
-        create_tab_widget_layout.setContentsMargins(0, 8, 0, 8)
-        create_tab_widget_layout.addWidget(scroll_area)
-        create_tab_widget.setLayout(create_tab_widget_layout)
-        create_tab_widget.setContentsMargins(0, 0, 0, 0)
-
-
-
-
-
-
-
-
-
-
+        # Instantiate the helper and get the widget for the tab
+        create_tab_helper = CreateTabHelper(self)
+        create_tab_widget = create_tab_helper.create_tab_widget
 
         ###############################################
         #                                             #
@@ -1319,9 +895,6 @@ class FireworkShowApp(QMainWindow):
         #                                                          #
         ############################################################
 
-        # Ensure the menu bar exists before adding the Edit menu
-        if self.menuBar() is None:
-            self.setMenuBar(QMenuBar(self))
         edit_menu = self.menuBar().addMenu("&Edit") #type: ignore
         # Set a dark style for the Edit menu to match the rest of the app
         if edit_menu is not None:
@@ -1466,206 +1039,202 @@ class FireworkShowApp(QMainWindow):
         #                                                          #
         ############################################################
 
-        # Ensure the menu bar exists before adding the Analysis menu
-        menu_bar = self.menuBar()
-        if menu_bar is None:
-            menu_bar = QMenuBar(self)
-            self.setMenuBar(menu_bar)
         analysis_menu = None
         # Find existing Analysis menu or create it
-        for menu in menu_bar.findChildren(QMenu):
+        for menu in self.menuBar().findChildren(QMenu):
             if menu.title() == "&Analysis":
                 analysis_menu = menu
                 break
         if analysis_menu is None:
-            analysis_menu = menu_bar.addMenu("&Analysis")
-        
-        # Segment Audio action
-        segment_action = QAction("Segment Audio", self)
-        segment_action.setShortcut("Ctrl+M")
-        def segment_audio():
-            if self.analyzer is not None:
-                # Only show toast the first time segments are found
-                self.analyzer.analyze_segments()
-                self._segments_toast_shown = False
-
-            # Display a toast/loading dialog while processing segments
-            toast = ToastDialog("Analyzing segments...")
-            geo = self.geometry() #type: ignore
-            x = geo.x() + geo.width() - toast.width() - 40
-            y = geo.y() + geo.height() - toast.height() - 40
-            toast.move(x, y)
-            toast.show()
-
-            # clear the loading toast and let user know it is not doing anything because no audio is loaded
-            if self.audio_data is None or len(self.audio_data) == 0:
-                def show_no_audio_toast():
-                    toast = ToastDialog("No audio data available for analysis.", parent=self)
-                    geo = self.geometry()
-                    x = geo.x() + geo.width() - toast.width() - 40
-                    y = geo.y() + geo.height() - toast.height() - 40
-                    toast.move(x, y)
-                    toast.show()
-                    QTimer.singleShot(2500, toast.close)
-                show_no_audio_toast()
-
-        segment_action.triggered.connect(segment_audio)
+            analysis_menu = self.menuBar().addMenu("&Analysis")
+    
         if analysis_menu is not None:
-            analysis_menu.addAction(segment_action)
+            # Segment Audio action
+            segment_action = QAction("Segment Audio", self)
+            segment_action.setShortcut("Ctrl+M")
+            def segment_audio():
+                if self.analyzer is not None:
+                    # Only show toast the first time segments are found
+                    self.analyzer.analyze_segments()
+                    self._segments_toast_shown = False
 
-        # Interesting Points action
-        interesting_points_action = QAction("Find Interesting Points", self)
-        interesting_points_action.setShortcut("Ctrl+I")
-        def find_interesting_points():
-            # Only show toast the first time interesting points are found
-            if self.analyzer is not None:
-                self.analyzer.analyze_interesting_points()
-                self._interesting_points_toast_shown = False
+                # Display a toast/loading dialog while processing segments
+                toast = ToastDialog("Analyzing segments...")
+                geo = self.geometry() #type: ignore
+                x = geo.x() + geo.width() - toast.width() - 40
+                y = geo.y() + geo.height() - toast.height() - 40
+                toast.move(x, y)
+                toast.show()
 
-            # Display a toast/loading dialog while processing interesting points
-            toast = ToastDialog("Analyzing interesting points...")
-            geo = self.geometry() #type: ignore
-            x = geo.x() + geo.width() - toast.width() - 40
-            y = geo.y() + geo.height() - toast.height() - 40
-            toast.move(x, y)
-            toast.show()
-
-            # clear the loading toast and let user know it is not doing anything because no audio is loaded
-            if self.audio_data is None or len(self.audio_data) == 0:
-                def show_no_audio_toast():
-                    toast = ToastDialog("No audio data available for analysis.", parent=self)
-                    geo = self.geometry()
-                    x = geo.x() + geo.width() - toast.width() - 40
-                    y = geo.y() + geo.height() - toast.height() - 40
-                    toast.move(x, y)
-                    toast.show()
-                    QTimer.singleShot(2500, toast.close)
-                show_no_audio_toast()
-                    
-        interesting_points_action.triggered.connect(find_interesting_points)
-        if analysis_menu is not None:
-            analysis_menu.addAction(interesting_points_action)
-
-        # Onsets action
-        onsets_action = QAction("Find Onsets", self)
-        onsets_action.setShortcut("Ctrl+N")
-        def find_onsets():
-            # Only show toast the first time onsets are found
-            if self.analyzer is not None:
-                self.analyzer.analyze_onsets()
-                self._onsets_toast_shown = False
-
-            # Display a toast/loading dialog while processing onsets
-            toast = ToastDialog("Analyzing onsets...")
-            geo = self.geometry() #type: ignore
-            x = geo.x() + geo.width() - toast.width() - 40
-            y = geo.y() + geo.height() - toast.height() - 40
-            toast.move(x, y)
-            toast.show()
-
-            # clear the loading toast and let user know it is not doing anything because no audio is loaded
-            if self.audio_data is None or len(self.audio_data) == 0:
-                def show_no_audio_toast():
-                    toast = ToastDialog("No audio data available for analysis.", parent=self)
-                    geo = self.geometry()
-                    x = geo.x() + geo.width() - toast.width() - 40
-                    y = geo.y() + geo.height() - toast.height() - 40
-                    toast.move(x, y)
-                    toast.show()
-                    QTimer.singleShot(2500, toast.close)
-                show_no_audio_toast()
-
-        onsets_action.triggered.connect(find_onsets)
-
-        if analysis_menu is not None:
-            analysis_menu.addAction(onsets_action)
-
-        # Local Maxima action
-        maxima_action = QAction("Find Local Maxima", self)
-        maxima_action.setShortcut("Ctrl+X")
-        def find_local_maxima():
-            # Only show toast the first time local maxima are found
-            if self.analyzer is not None:
-                self.analyzer.analyze_maxima()
-                self._peaks_toast_shown = False
-
-            # Display a toast/loading dialog while processing maxima
-            toast = ToastDialog("Analyzing local maxima...")
-            geo = self.geometry() #type: ignore
-            x = geo.x() + geo.width() - toast.width() - 40
-            y = geo.y() + geo.height() - toast.height() - 40
-            toast.move(x, y)
-            toast.show()
-
-            # clear the loading toast and let user know it is not doing anything because no audio is loaded
-            if self.audio_data is None or len(self.audio_data) == 0:
-                def show_no_audio_toast():
-                    toast = ToastDialog("No audio data available for analysis.", parent=self)
-                    geo = self.geometry()
-                    x = geo.x() + geo.width() - toast.width() - 40
-                    y = geo.y() + geo.height() - toast.height() - 40
-                    toast.move(x, y)
-                    toast.show()
-                    QTimer.singleShot(2500, toast.close)
-                show_no_audio_toast()
-
-        maxima_action.triggered.connect(find_local_maxima)
-
-        if analysis_menu is not None:
-            analysis_menu.addAction(maxima_action)
-
-        # Add "Apply Filter" action to Analysis menu
-        apply_filter_action = QAction("Apply Filter...", self)
-        apply_filter_action.setShortcut("Ctrl+F")
-
-        def open_filter_dialog():
-            dialog = FilterDialog(self)
-            if dialog.exec():
-                filter_type, order, cutoff = dialog.get_values()
-                # Save filter settings to self
-                self.filter_type = filter_type
-                self.order = order
-                self.cutoff = cutoff
-                self.filter_kwargs = {"order": order, "cutoff": cutoff}
-                # Apply filter to audio_data and replot
-                if self.audio_data is not None and self.sr is not None:
-                    try:
-                        # Ensure self.filter is an instance of AudioFilter
-                        if self.filter is None or not hasattr(self.filter, "apply"):
-                            self.filter = AudioFilter(self.sr)  # Initialize filter with sample rate
-                        # Use lowercase for filter type comparison
-                        if filter_type.lower() in ["lowpass", "highpass", "bandpass"]:
-                            kwargs = {"sr": self.sr, "order": order}
-                            if filter_type.lower() == "bandpass":
-                                # cutoff is a tuple (lowcut, highcut)
-                                lowcut, highcut = cutoff if isinstance(cutoff, (tuple, list)) and len(cutoff) == 2 else (1000.0, 5000.0)
-                                kwargs["lowcut"] = lowcut
-                                kwargs["highcut"] = highcut
-                            else:
-                                kwargs["cutoff"] = cutoff
-                            filtered = self.filter.apply(self.audio_data, filter_type.lower(), **kwargs)
-                            self.audio_data = filtered
-                            self.firework_show_helper.plot_waveform()
-                            toast = ToastDialog(f"Applied {filter_type} filter!", parent=self)
-                            geo = self.geometry()
-                            x = geo.x() + geo.width() - toast.width() - 40
-                            y = geo.y() + geo.height() - toast.height() - 40
-                            toast.move(x, y)
-                            toast.show()
-                            QTimer.singleShot(2000, toast.close)
-                        else:
-                            toast = ToastDialog(f"Filter type '{filter_type}' is not supported.", parent=self)
-                            toast.show()
-                            QTimer.singleShot(2500, toast.close)
-                    except Exception as e:
-                        toast = ToastDialog(f"Filter error: {e}", parent=self)
+                # clear the loading toast and let user know it is not doing anything because no audio is loaded
+                if self.audio_data is None or len(self.audio_data) == 0:
+                    def show_no_audio_toast():
+                        toast = ToastDialog("No audio data available for analysis.", parent=self)
+                        geo = self.geometry()
+                        x = geo.x() + geo.width() - toast.width() - 40
+                        y = geo.y() + geo.height() - toast.height() - 40
+                        toast.move(x, y)
                         toast.show()
                         QTimer.singleShot(2500, toast.close)
-                        
+                    show_no_audio_toast()
 
-        apply_filter_action.triggered.connect(open_filter_dialog)
-        if analysis_menu is not None:
-            analysis_menu.addAction(apply_filter_action)
+            segment_action.triggered.connect(segment_audio)
+            if analysis_menu is not None:
+                analysis_menu.addAction(segment_action)
+
+            # Interesting Points action
+            interesting_points_action = QAction("Find Interesting Points", self)
+            interesting_points_action.setShortcut("Ctrl+I")
+            def find_interesting_points():
+                # Only show toast the first time interesting points are found
+                if self.analyzer is not None:
+                    self.analyzer.analyze_interesting_points()
+                    self._interesting_points_toast_shown = False
+
+                # Display a toast/loading dialog while processing interesting points
+                toast = ToastDialog("Analyzing interesting points...")
+                geo = self.geometry() #type: ignore
+                x = geo.x() + geo.width() - toast.width() - 40
+                y = geo.y() + geo.height() - toast.height() - 40
+                toast.move(x, y)
+                toast.show()
+
+                # clear the loading toast and let user know it is not doing anything because no audio is loaded
+                if self.audio_data is None or len(self.audio_data) == 0:
+                    def show_no_audio_toast():
+                        toast = ToastDialog("No audio data available for analysis.", parent=self)
+                        geo = self.geometry()
+                        x = geo.x() + geo.width() - toast.width() - 40
+                        y = geo.y() + geo.height() - toast.height() - 40
+                        toast.move(x, y)
+                        toast.show()
+                        QTimer.singleShot(2500, toast.close)
+                    show_no_audio_toast()
+                        
+            interesting_points_action.triggered.connect(find_interesting_points)
+            if analysis_menu is not None:
+                analysis_menu.addAction(interesting_points_action)
+
+            # Onsets action
+            onsets_action = QAction("Find Onsets", self)
+            onsets_action.setShortcut("Ctrl+N")
+            def find_onsets():
+                # Only show toast the first time onsets are found
+                if self.analyzer is not None:
+                    self.analyzer.analyze_onsets()
+                    self._onsets_toast_shown = False
+
+                # Display a toast/loading dialog while processing onsets
+                toast = ToastDialog("Analyzing onsets...")
+                geo = self.geometry() #type: ignore
+                x = geo.x() + geo.width() - toast.width() - 40
+                y = geo.y() + geo.height() - toast.height() - 40
+                toast.move(x, y)
+                toast.show()
+
+                # clear the loading toast and let user know it is not doing anything because no audio is loaded
+                if self.audio_data is None or len(self.audio_data) == 0:
+                    def show_no_audio_toast():
+                        toast = ToastDialog("No audio data available for analysis.", parent=self)
+                        geo = self.geometry()
+                        x = geo.x() + geo.width() - toast.width() - 40
+                        y = geo.y() + geo.height() - toast.height() - 40
+                        toast.move(x, y)
+                        toast.show()
+                        QTimer.singleShot(2500, toast.close)
+                    show_no_audio_toast()
+
+            onsets_action.triggered.connect(find_onsets)
+
+            if analysis_menu is not None:
+                analysis_menu.addAction(onsets_action)
+
+            # Local Maxima action
+            maxima_action = QAction("Find Local Maxima", self)
+            maxima_action.setShortcut("Ctrl+X")
+            def find_local_maxima():
+                # Only show toast the first time local maxima are found
+                if self.analyzer is not None:
+                    self.analyzer.analyze_maxima()
+                    self._peaks_toast_shown = False
+
+                # Display a toast/loading dialog while processing maxima
+                toast = ToastDialog("Analyzing local maxima...")
+                geo = self.geometry() #type: ignore
+                x = geo.x() + geo.width() - toast.width() - 40
+                y = geo.y() + geo.height() - toast.height() - 40
+                toast.move(x, y)
+                toast.show()
+
+                # clear the loading toast and let user know it is not doing anything because no audio is loaded
+                if self.audio_data is None or len(self.audio_data) == 0:
+                    def show_no_audio_toast():
+                        toast = ToastDialog("No audio data available for analysis.", parent=self)
+                        geo = self.geometry()
+                        x = geo.x() + geo.width() - toast.width() - 40
+                        y = geo.y() + geo.height() - toast.height() - 40
+                        toast.move(x, y)
+                        toast.show()
+                        QTimer.singleShot(2500, toast.close)
+                    show_no_audio_toast()
+
+            maxima_action.triggered.connect(find_local_maxima)
+
+            if analysis_menu is not None:
+                analysis_menu.addAction(maxima_action)
+
+            # Add "Apply Filter" action to Analysis menu
+            apply_filter_action = QAction("Apply Filter...", self)
+            apply_filter_action.setShortcut("Ctrl+F")
+
+            def open_filter_dialog():
+                dialog = FilterDialog(self)
+                if dialog.exec():
+                    filter_type, order, cutoff = dialog.get_values()
+                    # Save filter settings to self
+                    self.filter_type = filter_type
+                    self.order = order
+                    self.cutoff = cutoff
+                    self.filter_kwargs = {"order": order, "cutoff": cutoff}
+                    # Apply filter to audio_data and replot
+                    if self.audio_data is not None and self.sr is not None:
+                        try:
+                            # Ensure self.filter is an instance of AudioFilter
+                            if self.filter is None or not hasattr(self.filter, "apply"):
+                                self.filter = AudioFilter(self.sr)  # Initialize filter with sample rate
+                            # Use lowercase for filter type comparison
+                            if filter_type.lower() in ["lowpass", "highpass", "bandpass"]:
+                                kwargs = {"sr": self.sr, "order": order}
+                                if filter_type.lower() == "bandpass":
+                                    # cutoff is a tuple (lowcut, highcut)
+                                    lowcut, highcut = cutoff if isinstance(cutoff, (tuple, list)) and len(cutoff) == 2 else (1000.0, 5000.0)
+                                    kwargs["lowcut"] = lowcut
+                                    kwargs["highcut"] = highcut
+                                else:
+                                    kwargs["cutoff"] = cutoff
+                                filtered = self.filter.apply(self.audio_data, filter_type.lower(), **kwargs)
+                                self.audio_data = filtered
+                                self.firework_show_helper.plot_waveform()
+                                toast = ToastDialog(f"Applied {filter_type} filter!", parent=self)
+                                geo = self.geometry()
+                                x = geo.x() + geo.width() - toast.width() - 40
+                                y = geo.y() + geo.height() - toast.height() - 40
+                                toast.move(x, y)
+                                toast.show()
+                                QTimer.singleShot(2000, toast.close)
+                            else:
+                                toast = ToastDialog(f"Filter type '{filter_type}' is not supported.", parent=self)
+                                toast.show()
+                                QTimer.singleShot(2500, toast.close)
+                        except Exception as e:
+                            toast = ToastDialog(f"Filter error: {e}", parent=self)
+                            toast.show()
+                            QTimer.singleShot(2500, toast.close)
+                            
+
+            apply_filter_action.triggered.connect(open_filter_dialog)
+            if analysis_menu is not None:
+                analysis_menu.addAction(apply_filter_action)
 
         ############################################################
         #                                                          #
@@ -1673,13 +1242,8 @@ class FireworkShowApp(QMainWindow):
         #                                                          #
         ############################################################
 
-        # Add Help menu only once
-        menu_bar = self.menuBar()
-        if menu_bar is None:
-            menu_bar = QMenuBar(self)
-            self.setMenuBar(menu_bar)
-        if not any(menu.title() == "&Help" for menu in menu_bar.findChildren(QMenu)):
-            help_menu = menu_bar.addMenu("&Help")
+        if not any(menu.title() == "&Help" for menu in self.menuBar().findChildren(QMenu)):
+            help_menu = self.menuBar().addMenu("&Help")
             if help_menu is not None:
                 help_action = QAction("How to Use Firework Studio", self)
                 help_action.setShortcut("F1")
