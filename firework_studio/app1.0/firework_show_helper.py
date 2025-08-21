@@ -5,36 +5,60 @@ from PyQt6.QtWidgets import QComboBox, QSpinBox
 from toaster import ToastDialog
 import threading
 
-import librosa.display
-
 class FireworkShowHelper:
     def __init__(self, main_window):
         self.main_window = main_window
 
     def plot_spectrogram(self):
-
         def worker():
             mw = self.main_window
             ax = mw.spectrogram_ax
             ax.clear()
             if mw.audio_data is not None and mw.sr is not None:
-                S = np.abs(librosa.stft(mw.audio_data, n_fft=2048, hop_length=512))
-                S_db = librosa.amplitude_to_db(S, ref=np.max)
-                # Downsample spectrogram for plotting if too large
+                # Support for multiple audio tracks (list/tuple of arrays)
+                audio_datas = mw.audio_data if isinstance(mw.audio_data, (list, tuple)) else [mw.audio_data]
+                sr = mw.sr
+                duration = max(len(ad) for ad in audio_datas) / sr  # Use max duration
+
+                # Match max_points to waveform downsampling for consistent time axis
                 max_points = 2000
-                if S_db.shape[1] > max_points:
-                    factor = S_db.shape[1] // max_points
-                    S_db_ds = S_db[:, :factor * max_points].reshape(S_db.shape[0], -1, factor).mean(axis=2)
-                else:
-                    S_db_ds = S_db
-                librosa.display.specshow(
-                    S_db_ds, ax=ax, sr=mw.sr, hop_length=512 * (factor if S_db.shape[1] > max_points else 1),
-                    x_axis='time', y_axis='linear', cmap='magma'
-                )
+                # Calculate n_fft and hop_length so that spectrogram time bins match waveform downsampling
+                # waveform: factor = len(audio_data) // max_points
+                # spectrogram: n_frames = 1 + (len(audio_data) - n_fft) // hop_length
+                for idx, audio_data in enumerate(audio_datas):
+                    factor = len(audio_data) // max_points if len(audio_data) > max_points else 1
+                    # n_fft should be large enough for good freq resolution, but not too large
+                    n_fft = min(2048, max(512, factor * 2))
+                    hop_length = max(1, factor)
+                    S = np.abs(librosa.stft(audio_data, n_fft=n_fft, hop_length=hop_length))
+                    S_db = librosa.amplitude_to_db(S, ref=np.max)
+                    # Downsample spectrogram for plotting if too large
+                    if S_db.shape[1] > max_points:
+                        factor = S_db.shape[1] // max_points
+                        S_db_ds = S_db[:, :factor * max_points].reshape(S_db.shape[0], -1, factor).mean(axis=2)
+                    else:
+                        S_db_ds = S_db
+                        factor = 1
+                    # Calculate time axis to match waveform
+                    n_frames = S_db_ds.shape[1]
+                    times = np.linspace(0, len(audio_data) / sr, n_frames)
+                    extent = [times[0], times[-1], 0, sr // 2]
+                    # Use different alpha for overlays
+                    ax.imshow(
+                        S_db_ds,
+                        aspect='auto',
+                        origin='lower',
+                        cmap='magma',
+                        extent=extent,
+                        alpha=1.0 if len(audio_datas) == 1 else 0.7 - 0.2 * idx
+                    )
+
                 ax.set(
-                    xlabel="", ylabel="",
-                    xticks=[], yticks=[]
+                    xlabel="Time (s)", ylabel="Frequency (Hz)"
                 )
+                # Ensure consistent time axis for all audio files
+                ax.set_xlim(0, duration)
+                ax.set_ylim(0, sr // 2)
                 ax.grid(False)
                 mw.spectrogram_canvas.figure.subplots_adjust(left=0, right=1, top=1, bottom=0)
             mw.spectrogram_canvas.draw_idle()
