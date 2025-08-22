@@ -428,6 +428,35 @@ class FireworkShowApp(QMainWindow):
         # Add NavigationToolbar for zoom/pan (does not disrupt custom selection tool)
         self.waveform_toolbar = NavigationToolbar2QT(self.waveform_canvas, self)
 
+        # Hide the left/right arrow buttons on the waveform toolbar
+        for action in self.waveform_toolbar.actions():
+            if hasattr(action, "icon") and action.icon():
+                icon_name = action.icon().name() if hasattr(action.icon(), "name") else ""
+                # Hide actions with standard left/right arrow icons
+                if icon_name in ["matplotlib.toolbar_prev", "matplotlib.toolbar_next"]:
+                    action.setVisible(False)
+                # Alternatively, check by text if icon name is unavailable
+                if hasattr(action, "text") and action.text() in ["Back", "Forward"]:
+                    action.setVisible(False)
+
+        # Add custom Undo and Redo buttons for marking actions
+        self.undo_btn = QPushButton()
+        self.undo_btn.setIcon(QIcon(os.path.join("icons", "undo.png")))
+        self.undo_btn.setStyleSheet(button_style)
+        self.undo_btn.setToolTip("Undo last marking")
+        self.undo_btn.clicked.connect(self.firework_show_helper.undo_last_marking)
+
+        self.redo_btn = QPushButton()
+        self.redo_btn.setIcon(QIcon(os.path.join("icons", "redo.png")))
+        self.redo_btn.setStyleSheet(button_style)
+        self.redo_btn.setToolTip("Redo last marking")
+        self.redo_btn.clicked.connect(self.firework_show_helper.redo_last_marking)
+
+        # Add these buttons to the waveform toolbar
+        self.waveform_toolbar.addSeparator()
+        self.waveform_toolbar.addWidget(self.undo_btn)
+        self.waveform_toolbar.addWidget(self.redo_btn)
+                    
         # Ensure "Home" button always resets the waveform view, even after selection
         def reset_waveform_view():
             # Also clear selection tool region if needed

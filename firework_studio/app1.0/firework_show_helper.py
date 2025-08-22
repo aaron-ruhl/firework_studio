@@ -6,46 +6,39 @@ from toaster import ToastDialog
 import threading
 
 class MarkingStack:
-        def __init__(self):
-            self.stack = []
-            self.redo_stack = []
+    def __init__(self):
+        self.stack = []
+        self.redo_stack = []
 
-        def push(self, marking_type, new_items):
-            self.stack.append({'type': marking_type, 'items': list(new_items)})
-            self.redo_stack.clear()  # Clear redo history on new action
+    def push(self, marking_type, new_items):
+        self.stack.append({'type': marking_type, 'items': list(new_items)})
+        self.redo_stack.clear()  # Clear redo history on new action
 
-        def pop(self):
-            if self.stack:
-                entry = self.stack.pop()
-                self.redo_stack.append(entry)
-                return entry
-            return None
+    def undo(self):
+        if self.stack:
+            entry = self.stack.pop()
+            self.redo_stack.append(entry)
+            return entry
+        return None
 
-        def undo(self):
-            if self.stack:
-                entry = self.stack.pop()
-                self.redo_stack.append(entry)
-                return entry
-            return None
+    def redo(self):
+        if self.redo_stack:
+            entry = self.redo_stack.pop()
+            self.stack.append(entry)
+            return entry
+        return None
 
-        def redo(self):
-            if self.redo_stack:
-                entry = self.redo_stack.pop()
-                self.stack.append(entry)
-                return entry
-            return None
+    def top(self):
+        if self.stack:
+            return self.stack[-1]
+        return None
 
-        def top(self):
-            if self.stack:
-                return self.stack[-1]
-            return None
+    def clear(self):
+        self.stack.clear()
+        self.redo_stack.clear()
 
-        def clear(self):
-            self.stack.clear()
-            self.redo_stack.clear()
-
-        def get_all(self, marking_type):
-            return [entry['items'] for entry in self.stack if entry['type'] == marking_type]
+    def get_all(self, marking_type):
+        return [entry['items'] for entry in self.stack if entry['type'] == marking_type]
 
 class FireworkShowHelper:
     def __init__(self, main_window):
@@ -153,18 +146,76 @@ class FireworkShowHelper:
             ax.set_xticks([])
             ax.set_yticks([])
         if current_legend is not None:
-            if mw.segment_times is not None and isinstance(mw.segment_times, (list, tuple)):
-                self.handle_segments(mw.segment_times)
-            if mw.points is not None and isinstance(mw.points, (list, tuple)):
-                self.handle_interesting_points(mw.points)
-            if mw.onsets is not None and isinstance(mw.onsets, (list, tuple)):
-                self.handle_onsets(mw.onsets)
-            if mw.peaks is not None and isinstance(mw.peaks, (list, tuple)):
-                self.handle_peaks(mw.peaks)
+            # When redrawing after undo/redo, just redraw existing markings without adding to stack
+            self._redraw_markings_only()
         mw.waveform_canvas.draw_idle()
         if hasattr(mw, 'waveform_selector'):
             mw.waveform_selector.update_original_limits()
 
+    def _redraw_markings_only(self):
+        """Redraw markings without adding entries to the marking stack"""
+        mw = self.main_window
+        ax = mw.waveform_canvas.figure.axes[0]
+        
+        # Draw segments
+        if mw.segment_times is not None and isinstance(mw.segment_times, (list, tuple)):
+            for t in mw.segment_times:
+                if isinstance(t, (int, float)) and np.isscalar(t) and not isinstance(t, complex):
+                    ax.axvline(x=float(t), color="#ffd700", linestyle="--", linewidth=1.2, alpha=0.9, label=None)
+                elif isinstance(t, (np.ndarray, list, tuple)):
+                    for tt in np.atleast_1d(t):
+                        if isinstance(tt, (int, float)) and np.isscalar(tt) and not isinstance(tt, complex):
+                            ax.axvline(x=float(tt), color="#ffd700", linestyle="--", linewidth=1.2, alpha=0.9, label=None)
+        
+        # Draw interesting points
+        if mw.points is not None and isinstance(mw.points, (list, tuple, np.ndarray)):
+            for t in mw.points:
+                if isinstance(t, (int, float)) and np.isscalar(t) and not isinstance(t, complex):
+                    ax.axvline(x=float(t), color="#ff6f00", linestyle=":", linewidth=1.5, alpha=0.8, label=None)
+        
+        # Draw onsets
+        if mw.onsets is not None and isinstance(mw.onsets, (list, tuple, np.ndarray)):
+            for t in mw.onsets:
+                if isinstance(t, (int, float)) and np.isscalar(t) and not isinstance(t, complex):
+                    ax.axvline(x=float(t), color="#00ff6f", linestyle="-.", linewidth=1.5, alpha=0.8, label=None)
+        
+        # Draw peaks
+        if mw.peaks is not None and isinstance(mw.peaks, (list, tuple, np.ndarray)):
+            for t in mw.peaks:
+                if isinstance(t, (int, float)) and np.isscalar(t) and not isinstance(t, complex):
+                    ax.axvline(x=float(t), color="#ff00ff", linestyle="--", linewidth=1.5, alpha=0.8, label=None)
+        
+        # Update legend
+        legend_labels = []
+        if mw.segment_times is not None and len(mw.segment_times) > 0:
+            ax.axvline(x=0, color="#ffd700", linestyle="--", linewidth=1.2, alpha=0.9, label="Segment")
+            legend_labels.append("Segment")
+        if mw.points is not None and len(mw.points) > 0:
+            ax.axvline(x=0, color="#ff6f00", linestyle=":", linewidth=1.5, alpha=0.8, label="Interesting Point")
+            legend_labels.append("Interesting Point")
+        if mw.onsets is not None and len(mw.onsets) > 0:
+            ax.axvline(x=0, color="#00ff6f", linestyle="-.", linewidth=1.5, alpha=0.8, label="Onset")
+            legend_labels.append("Onset")
+        if mw.peaks is not None and len(mw.peaks) > 0:
+            ax.axvline(x=0, color="#ff00ff", linestyle="--", linewidth=1.5, alpha=0.8, label="Peak")
+            legend_labels.append("Peak")
+        
+        if legend_labels:
+            leg = ax.legend(
+                loc="upper right",
+                framealpha=0.3,
+                fontsize=7,
+                markerscale=0.7,
+                handlelength=1.2,
+                borderpad=0.3,
+                labelspacing=0.2,
+                handletextpad=0.3,
+                borderaxespad=0.2,
+            )
+            if leg:
+                leg.get_frame().set_alpha(0.3)
+
+    
     def update_firework_show_info(self):
         mw = self.main_window
         if mw.duration is not None:
@@ -325,6 +376,7 @@ class FireworkShowHelper:
                 )
                 if leg:
                     leg.get_frame().set_alpha(0.3)
+
         def show_onset_toast():
             toast = ToastDialog(f"Found {len(new_onsets)} onsets!", parent=mw)
             geo = mw.geometry()
@@ -371,6 +423,7 @@ class FireworkShowHelper:
                 )
                 if leg:
                     leg.get_frame().set_alpha(0.3)
+
         def show_peaks_toast():
             toast = ToastDialog(f"Found {len(new_peaks)} peaks!", parent=mw)
             geo = mw.geometry()
@@ -388,3 +441,67 @@ class FireworkShowHelper:
         mw.waveform_canvas.draw_idle()
         if hasattr(mw, 'waveform_selector'):
             mw.waveform_selector.update_original_limits()
+
+    def undo_last_marking(self):
+        mw = self.main_window
+        entry = self.marking_stack.undo()
+        if entry is None:
+            return
+        marking_type = entry['type']
+        items = entry['items']
+        # Remove the specific items that were added in the last action
+        if marking_type == 'segment' and hasattr(mw, 'segment_times') and mw.segment_times is not None:
+            mw.segment_times = [t for t in mw.segment_times if t not in items]
+            if not mw.segment_times:  # If list becomes empty, set to None for consistency
+                mw.segment_times = None
+        elif marking_type == 'interesting' and hasattr(mw, 'points') and mw.points is not None:
+            mw.points = [p for p in mw.points if p not in items]
+            if not mw.points:  # If list becomes empty, set to None for consistency
+                mw.points = None
+        elif marking_type == 'onset' and hasattr(mw, 'onsets') and mw.onsets is not None:
+            mw.onsets = [o for o in mw.onsets if o not in items]
+            if not mw.onsets:  # If list becomes empty, set to None for consistency
+                mw.onsets = None
+        elif marking_type == 'peak' and hasattr(mw, 'peaks') and mw.peaks is not None:
+            mw.peaks = [p for p in mw.peaks if p not in items]
+            if not mw.peaks:  # If list becomes empty, set to None for consistency
+                mw.peaks = None
+        # Redraw waveform to update markings
+        self.plot_waveform(current_legend=True)
+        self.update_firework_show_info()
+
+    def redo_last_marking(self):
+        mw = self.main_window
+        entry = self.marking_stack.redo()
+        if entry is None:
+            return
+        marking_type = entry['type']
+        items = entry['items']
+        # Add items back, avoiding duplicates
+        if marking_type == 'segment':
+            if not hasattr(mw, 'segment_times') or mw.segment_times is None:
+                mw.segment_times = []
+            for t in items:
+                if t not in mw.segment_times:
+                    mw.segment_times.append(t)
+        elif marking_type == 'interesting':
+            if not hasattr(mw, 'points') or mw.points is None:
+                mw.points = []
+            for p in items:
+                if p not in mw.points:
+                    mw.points.append(p)
+        elif marking_type == 'onset':
+            if not hasattr(mw, 'onsets') or mw.onsets is None:
+                mw.onsets = []
+            for o in items:
+                if o not in mw.onsets:
+                    mw.onsets.append(o)
+        elif marking_type == 'peak':
+            if not hasattr(mw, 'peaks') or mw.peaks is None:
+                mw.peaks = []
+            for p in items:
+                if p not in mw.peaks:
+                    mw.peaks.append(p)
+        # Redraw waveform to update markings
+        self.plot_waveform(current_legend=True)
+        self.update_firework_show_info()
