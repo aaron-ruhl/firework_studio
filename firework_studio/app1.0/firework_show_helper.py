@@ -153,10 +153,14 @@ class FireworkShowHelper:
             mw.waveform_selector.update_original_limits()
 
     def _redraw_markings_only(self):
-        """Redraw markings without adding entries to the marking stack"""
+        """Redraw markings without adding entries to the marking stack, preserving zoom/limits"""
         mw = self.main_window
         ax = mw.waveform_canvas.figure.axes[0]
-        
+
+        # Save current axis limits
+        xlim = ax.get_xlim()
+        ylim = ax.get_ylim()
+
         # Draw segments
         if mw.segment_times is not None and isinstance(mw.segment_times, (list, tuple)):
             for t in mw.segment_times:
@@ -166,25 +170,25 @@ class FireworkShowHelper:
                     for tt in np.atleast_1d(t):
                         if isinstance(tt, (int, float)) and np.isscalar(tt) and not isinstance(tt, complex):
                             ax.axvline(x=float(tt), color="#ffd700", linestyle="--", linewidth=1.2, alpha=0.9, label=None)
-        
+
         # Draw interesting points
         if mw.points is not None and isinstance(mw.points, (list, tuple, np.ndarray)):
             for t in mw.points:
                 if isinstance(t, (int, float)) and np.isscalar(t) and not isinstance(t, complex):
                     ax.axvline(x=float(t), color="#ff6f00", linestyle=":", linewidth=1.5, alpha=0.8, label=None)
-        
+
         # Draw onsets
         if mw.onsets is not None and isinstance(mw.onsets, (list, tuple, np.ndarray)):
             for t in mw.onsets:
                 if isinstance(t, (int, float)) and np.isscalar(t) and not isinstance(t, complex):
                     ax.axvline(x=float(t), color="#00ff6f", linestyle="-.", linewidth=1.5, alpha=0.8, label=None)
-        
+
         # Draw peaks
         if mw.peaks is not None and isinstance(mw.peaks, (list, tuple, np.ndarray)):
             for t in mw.peaks:
                 if isinstance(t, (int, float)) and np.isscalar(t) and not isinstance(t, complex):
                     ax.axvline(x=float(t), color="#ff00ff", linestyle="--", linewidth=1.5, alpha=0.8, label=None)
-        
+
         # Update legend
         legend_labels = []
         if mw.segment_times is not None and len(mw.segment_times) > 0:
@@ -199,7 +203,7 @@ class FireworkShowHelper:
         if mw.peaks is not None and len(mw.peaks) > 0:
             ax.axvline(x=0, color="#ff00ff", linestyle="--", linewidth=1.5, alpha=0.8, label="Peak")
             legend_labels.append("Peak")
-        
+
         if legend_labels:
             leg = ax.legend(
                 loc="upper right",
@@ -214,6 +218,10 @@ class FireworkShowHelper:
             )
             if leg:
                 leg.get_frame().set_alpha(0.3)
+
+        # Restore previous axis limits to preserve zoom
+        ax.set_xlim(xlim)
+        ax.set_ylim(ylim)
 
     
     def update_firework_show_info(self):
@@ -441,9 +449,13 @@ class FireworkShowHelper:
         mw.waveform_canvas.draw_idle()
         if hasattr(mw, 'waveform_selector'):
             mw.waveform_selector.update_original_limits()
-
+            
     def undo_last_marking(self):
         mw = self.main_window
+        ax = mw.waveform_canvas.figure.axes[0]
+        # Save current axis limits before undo
+        xlim = ax.get_xlim()
+        ylim = ax.get_ylim()
         entry = self.marking_stack.undo()
         if entry is None:
             return
@@ -452,26 +464,34 @@ class FireworkShowHelper:
         # Remove the specific items that were added in the last action
         if marking_type == 'segment' and hasattr(mw, 'segment_times') and mw.segment_times is not None:
             mw.segment_times = [t for t in mw.segment_times if t not in items]
-            if not mw.segment_times:  # If list becomes empty, set to None for consistency
+            if not mw.segment_times:
                 mw.segment_times = None
         elif marking_type == 'interesting' and hasattr(mw, 'points') and mw.points is not None:
             mw.points = [p for p in mw.points if p not in items]
-            if not mw.points:  # If list becomes empty, set to None for consistency
+            if not mw.points:
                 mw.points = None
         elif marking_type == 'onset' and hasattr(mw, 'onsets') and mw.onsets is not None:
             mw.onsets = [o for o in mw.onsets if o not in items]
-            if not mw.onsets:  # If list becomes empty, set to None for consistency
+            if not mw.onsets:
                 mw.onsets = None
         elif marking_type == 'peak' and hasattr(mw, 'peaks') and mw.peaks is not None:
             mw.peaks = [p for p in mw.peaks if p not in items]
-            if not mw.peaks:  # If list becomes empty, set to None for consistency
+            if not mw.peaks:
                 mw.peaks = None
         # Redraw waveform to update markings
         self.plot_waveform(current_legend=True)
+        # Restore axis limits to preserve zoom
+        ax.set_xlim(xlim)
+        ax.set_ylim(ylim)
+        mw.waveform_canvas.draw_idle()
         self.update_firework_show_info()
 
     def redo_last_marking(self):
         mw = self.main_window
+        ax = mw.waveform_canvas.figure.axes[0]
+        # Save current axis limits before redo
+        xlim = ax.get_xlim()
+        ylim = ax.get_ylim()
         entry = self.marking_stack.redo()
         if entry is None:
             return
@@ -504,4 +524,8 @@ class FireworkShowHelper:
                     mw.peaks.append(p)
         # Redraw waveform to update markings
         self.plot_waveform(current_legend=True)
+        # Restore axis limits to preserve zoom
+        ax.set_xlim(xlim)
+        ax.set_ylim(ylim)
+        mw.waveform_canvas.draw_idle()
         self.update_firework_show_info()

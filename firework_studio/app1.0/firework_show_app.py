@@ -1,29 +1,23 @@
-import numpy as np
+
 import os
-# Set matplotlib backend before any other matplotlib imports to prevent window flash
-import matplotlib
-matplotlib.use('Qt5Agg')  # Force Qt backend, no separate windows
-import matplotlib.pyplot as plt
-# Disable matplotlib interactive mode to prevent any window popups
-plt.ioff()  # Turn off interactive mode
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-from matplotlib.backends.backend_qt import NavigationToolbar2QT
-import librosa
+
 
 from PyQt6.QtCore import Qt, QTimer, QSize
 from PyQt6.QtGui import (
-    QColor, QAction, QPalette, QIcon, QShortcut, 
+    QColor, QPalette, QIcon, QShortcut, 
     QKeySequence
 )
 from PyQt6.QtWidgets import (
-    QMenu, QMainWindow, QWidget, QVBoxLayout, 
-    QHBoxLayout, QPushButton, QLabel, QSizePolicy, 
-    QStatusBar, QGroupBox, QComboBox, QMenuBar, 
-    QSpinBox, QInputDialog, QTabWidget, QLineEdit, 
-    QScrollArea, QApplication, QSpacerItem, QDockWidget,
-    QToolBar
+    QMainWindow, QWidget, QVBoxLayout, QToolBar,
+    QHBoxLayout, QPushButton, QLabel, QSizePolicy,
+    QStatusBar, QGroupBox, QComboBox, QSpinBox,
+    QTabWidget, QApplication
 )
+
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qt import NavigationToolbar2QT
+
 
 from firework_canvas_2 import FireworksCanvas
 from fireworks_preview import FireworkPreviewWidget
@@ -31,11 +25,9 @@ from loader import AudioLoader
 from toaster import ToastDialog
 from waveform_selection import WaveformSelectionTool
 from show_file_handler import ShowFileHandler
-from filters import AudioFilter
 from collapsible_widget import CollapsibleWidget
-from filter_dialog import FilterDialog
 from firework_show_helper import FireworkShowHelper
-from create_tab import CreateTabHelper
+from fireworks_create_tab import CreateTabHelper
 from fireworks_menu import MenuBarHelper
 
 '''THIS IS THE MAIN VIEW FOR THE FIREWORK STUDIO APPLICATION'''
@@ -140,7 +132,7 @@ class FireworkShowApp(QMainWindow):
         self.onsets = []  
 
         # Filter settings
-        self.filter = None  # Will be set to an instance of AudioFilter in loader.py
+        self.filter = None  # Will become set to an instance of AudioFilter in loader.py
         self.filter_type = None  
         self.filter_kwargs = {}  
         self.cutoff = None  
