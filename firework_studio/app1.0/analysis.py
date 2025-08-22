@@ -11,8 +11,9 @@ class AudioAnalysis(QThread):
     beats_ready = pyqtSignal(list)
     peaks_ready = pyqtSignal(list)
 
-    def __init__(self, audio_data, audio_datas, sr, duration, parent=None):
-        super().__init__(parent)
+    def __init__(self, audio_data, audio_datas, sr, duration, main_window=None):
+        super().__init__(main_window)
+        self.main_window = main_window
         self.audio_data = audio_data
         self.audio_datas = audio_datas
         self.sr = sr

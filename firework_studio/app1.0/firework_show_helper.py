@@ -5,9 +5,52 @@ from PyQt6.QtWidgets import QComboBox, QSpinBox
 from toaster import ToastDialog
 import threading
 
+class MarkingStack:
+        def __init__(self):
+            self.stack = []
+            self.redo_stack = []
+
+        def push(self, marking_type, new_items):
+            self.stack.append({'type': marking_type, 'items': list(new_items)})
+            self.redo_stack.clear()  # Clear redo history on new action
+
+        def pop(self):
+            if self.stack:
+                entry = self.stack.pop()
+                self.redo_stack.append(entry)
+                return entry
+            return None
+
+        def undo(self):
+            if self.stack:
+                entry = self.stack.pop()
+                self.redo_stack.append(entry)
+                return entry
+            return None
+
+        def redo(self):
+            if self.redo_stack:
+                entry = self.redo_stack.pop()
+                self.stack.append(entry)
+                return entry
+            return None
+
+        def top(self):
+            if self.stack:
+                return self.stack[-1]
+            return None
+
+        def clear(self):
+            self.stack.clear()
+            self.redo_stack.clear()
+
+        def get_all(self, marking_type):
+            return [entry['items'] for entry in self.stack if entry['type'] == marking_type]
+
 class FireworkShowHelper:
     def __init__(self, main_window):
         self.main_window = main_window
+        self.marking_stack = MarkingStack()
 
     def plot_spectrogram(self):
         def worker():
@@ -90,11 +133,8 @@ class FireworkShowHelper:
                 ax.plot(times, audio_to_plot, color="#8fb9bd", linewidth=1.2, alpha=0.95, antialiased=True)
             ax.set_facecolor("#000000")
             ax.tick_params(axis='y', colors='white')
-            if mw.segment_times is not None and isinstance(mw.segment_times, (list, tuple)):
-                for t in mw.segment_times:
-                    if t is not None and isinstance(t, (int, float)) and np.isfinite(t):
-                        ax.axvline(x=t, color="#ffd700", linestyle="--", linewidth=1.2, alpha=0.9)
             mw.waveform_canvas.draw_idle()
+            
             if hasattr(mw, 'waveform_selector'):
                 mw.waveform_selector.update_original_limits()
             if mw.duration is not None and mw.sr is not None:
@@ -165,6 +205,7 @@ class FireworkShowHelper:
         else:
             new_segments = [s for s in segment_times if s not in mw.segment_times]
             mw.segment_times.extend(new_segments)
+        self.marking_stack.push('segment', new_segments)
         ax = mw.waveform_canvas.figure.axes[0]
         if mw.segment_times is not None:
             for t in mw.segment_times:
@@ -215,6 +256,7 @@ class FireworkShowHelper:
         else:
             new_points = [p for p in points if p not in mw.points]
             mw.points.extend(new_points)
+        self.marking_stack.push('interesting', new_points)
         ax = mw.waveform_canvas.figure.axes[0]
         if mw.points is not None and isinstance(mw.points, (list, tuple, np.ndarray)):
             for t in mw.points:
@@ -260,6 +302,7 @@ class FireworkShowHelper:
         else:
             new_onsets = [o for o in onsets if o not in mw.onsets]
             mw.onsets.extend(new_onsets)
+        self.marking_stack.push('onset', new_onsets)
         ax = mw.waveform_canvas.figure.axes[0]
         if mw.onsets is not None and isinstance(mw.onsets, (list, tuple, np.ndarray)):
             for t in mw.onsets:
@@ -305,6 +348,7 @@ class FireworkShowHelper:
         else:
             new_peaks = [p for p in peaks if p not in mw.peaks]
             mw.peaks.extend(new_peaks)
+        self.marking_stack.push('peak', new_peaks)
         ax = mw.waveform_canvas.figure.axes[0]
         if mw.peaks is not None and isinstance(mw.peaks, (list, tuple, np.ndarray)):
             for t in mw.peaks:

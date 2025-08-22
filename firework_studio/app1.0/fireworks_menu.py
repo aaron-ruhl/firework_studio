@@ -142,10 +142,15 @@ class MenuBarHelper:
                         toast.show()
                         QTimer.singleShot(2500, toast.close)
                         return
+                    toast = ToastDialog("Loading segments...", parent=mw)
+                    geo = mw.geometry()
+                    x = geo.x() + geo.width() - toast.width() - 40
+                    y = geo.y() + geo.height() - toast.height() - 40
+                    toast.move(x, y)
+                    toast.show()
+                    QTimer.singleShot(1500, toast.close)
                     if mw.analyzer is not None:
-                        # Reset toast flag so handler can show toast
                         mw._segments_toast_shown = False
-                        # Ensure signal is connected directly
                         try:
                             mw.analyzer.segments_ready.disconnect()
                         except:
@@ -168,10 +173,15 @@ class MenuBarHelper:
                         toast.show()
                         QTimer.singleShot(2500, toast.close)
                         return
+                    toast = ToastDialog("Loading interesting points...", parent=mw)
+                    geo = mw.geometry()
+                    x = geo.x() + geo.width() - toast.width() - 40
+                    y = geo.y() + geo.height() - toast.height() - 40
+                    toast.move(x, y)
+                    toast.show()
+                    QTimer.singleShot(1500, toast.close)
                     if mw.analyzer is not None:
-                        # Reset toast flag so handler can show toast
                         mw._interesting_points_toast_shown = False
-                        # Ensure signal is connected directly
                         try:
                             mw.analyzer.interesting_points_ready.disconnect()
                         except:
@@ -194,10 +204,15 @@ class MenuBarHelper:
                         toast.show()
                         QTimer.singleShot(2500, toast.close)
                         return
+                    toast = ToastDialog("Loading onsets...", parent=mw)
+                    geo = mw.geometry()
+                    x = geo.x() + geo.width() - toast.width() - 40
+                    y = geo.y() + geo.height() - toast.height() - 40
+                    toast.move(x, y)
+                    toast.show()
+                    QTimer.singleShot(1500, toast.close)
                     if mw.analyzer is not None:
-                        # Reset toast flag so handler can show toast
                         mw._onsets_toast_shown = False
-                        # Ensure signal is connected directly
                         try:
                             mw.analyzer.onsets_ready.disconnect()
                         except:
@@ -220,10 +235,15 @@ class MenuBarHelper:
                         toast.show()
                         QTimer.singleShot(2500, toast.close)
                         return
+                    toast = ToastDialog("Loading local maxima...", parent=mw)
+                    geo = mw.geometry()
+                    x = geo.x() + geo.width() - toast.width() - 40
+                    y = geo.y() + geo.height() - toast.height() - 40
+                    toast.move(x, y)
+                    toast.show()
+                    QTimer.singleShot(1500, toast.close)
                     if mw.analyzer is not None:
-                        # Reset toast flag so handler can show toast
                         mw._peaks_toast_shown = False
-                        # Ensure signal is connected directly
                         try:
                             mw.analyzer.peaks_ready.disconnect()
                         except:
