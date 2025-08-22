@@ -114,7 +114,7 @@ class FireworkPreviewWidget(QWidget):
     def set_pattern(self, pattern):
         self.pattern = pattern
 
-    def add_time(self):
+    def add_time(self, specific_handle=None):
         if self.audio_data is None or self.sr is None:
             return
         if self.firework_times is None:
@@ -129,14 +129,17 @@ class FireworkPreviewWidget(QWidget):
 
         self.firework_times.append(firing_time)
         self.firework_times.sort()
-
-        handle = FiringHandles(
+        if specific_handle is None:
+            handle = FiringHandles(
             firing_time,
             color,
             number_firings=self.number_firings,
             pattern=self.pattern,
             display_number=0  # temporary, will set below
-        )
+            )
+        else:
+            handle = FiringHandles.from_list(specific_handle)
+            
         self.fireworks.append(handle)
         self.fireworks.sort(key=lambda h: h.firing_time)
 
