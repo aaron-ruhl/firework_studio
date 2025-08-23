@@ -71,7 +71,6 @@ class Firework:
         self.exploded = True
         base_color = self.get_current_color()
         distance_factor = 0.7
-        fade = 1.0
 
         def vibrant_color(color):
             hsv = color.toHsv()

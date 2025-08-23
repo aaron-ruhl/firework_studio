@@ -32,12 +32,7 @@ class FireworksCanvas(QOpenGLWidget):
 
     def add_firework(self, handle, x=None):
         margin = 40
-        if len(self.fireworks) >= 20:
-            self.particle_count = 5
-        elif len(self.fireworks) >= 10:
-            self.particle_count = 15
-        else:
-            self.particle_count = 50
+        self.particle_count = 50
         x = random.randint(margin, max(margin, self.width() - margin))
         color = getattr(handle, "firing_color", None)
         if isinstance(color, (tuple, list)) and len(color) == 3:
