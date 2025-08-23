@@ -252,6 +252,9 @@ class ShowFileHandler:
                         print(f"Error reconstructing handle: {e}")
                         loaded_handles.append(handle)
             if hasattr(self.main_window.preview_widget, "set_handles"):
+                # Clear undo history when loading a new file
+                if hasattr(self.main_window.preview_widget, "clear_undo_history"):
+                    self.main_window.preview_widget.clear_undo_history()
                 self.main_window.preview_widget.set_handles(loaded_handles)
 
             fw_canvas = self.main_window.fireworks_canvas

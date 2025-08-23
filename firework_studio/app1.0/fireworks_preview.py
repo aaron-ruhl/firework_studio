@@ -1,14 +1,48 @@
 from PyQt6.QtWidgets import QWidget, QMenu, QColorDialog, QInputDialog
 from PyQt6.QtCore import QTimer, QRect, Qt, QElapsedTimer
-from PyQt6.QtGui import QPainter, QColor, QIcon, QPixmap
+from PyQt6.QtGui import QPainter, QColor, QIcon, QPixmap, QAction
 
 import sounddevice as sd
 import random
 import threading
 
+import copy
 
 from fireworks_timeline import FireworkTimelineRenderer
 from handles import FiringHandles
+
+class HandlesStack:
+    def __init__(self):
+        self.undo_stack = []
+        self.redo_stack = []
+
+    def push(self, handles):
+        # Store a deep copy to avoid mutation issues
+        self.undo_stack.append(copy.deepcopy(handles))
+        self.redo_stack.clear()
+
+    def undo(self, current_handles):
+        if self.undo_stack:
+            self.redo_stack.append(copy.deepcopy(current_handles))
+            previous = self.undo_stack.pop()
+            return copy.deepcopy(previous)
+        return None
+
+    def redo(self, current_handles):
+        if self.redo_stack:
+            self.undo_stack.append(copy.deepcopy(current_handles))
+            next_state = self.redo_stack.pop()
+            return copy.deepcopy(next_state)
+        return None
+
+    def clear(self):
+        self.undo_stack.clear()
+        self.redo_stack.clear()
+
+    def top(self):
+        if self.undo_stack:
+            return copy.deepcopy(self.undo_stack[-1])
+        return None
 
 class FireworkPreviewWidget(QWidget):
     def __init__(self):
@@ -39,6 +73,9 @@ class FireworkPreviewWidget(QWidget):
         self.dragging_firing = False
         self.timeline_renderer = FireworkTimelineRenderer(self)
         self._elapsed_timer = QElapsedTimer()
+        self.handles_stack = HandlesStack()
+        self.undo_stack = self.handles_stack.undo_stack
+        self.redo_stack = self.handles_stack.redo_stack
 
     def set_show_data(self, audio_data, sr, segment_times, firework_times, duration):
         self.audio_data = audio_data
@@ -50,10 +87,15 @@ class FireworkPreviewWidget(QWidget):
 
     def reset_fireworks(self):
         self.fireworks = []
+        self.handles_stack.clear()  # Clear undo/redo history
         self.update()
 
     def get_handles(self):
         return self.fireworks
+
+    def clear_undo_history(self):
+        """Clear the undo/redo history. Should be called when loading a new file."""
+        self.handles_stack.clear()
 
     def set_handles(self, handles):
         self.fireworks = []
@@ -125,6 +167,9 @@ class FireworkPreviewWidget(QWidget):
         firing_time = self.current_time
         if firing_time < self.delay:
             return
+        
+        # Save current state before adding new firework
+        self.handles_stack.push(self.fireworks)
         color = QColor(random.randint(50, 255), random.randint(50, 255), random.randint(50, 255))
 
         self.firework_times.append(firing_time)
@@ -154,7 +199,6 @@ class FireworkPreviewWidget(QWidget):
             return
         # Use QElapsedTimer to track actual elapsed time
         if not hasattr(self, '_last_preview_time'):
-            from PyQt6.QtCore import QElapsedTimer
             self._elapsed_timer = QElapsedTimer()
             self._elapsed_timer.start()
             self._last_preview_time = self._elapsed_timer.elapsed()
@@ -186,6 +230,9 @@ class FireworkPreviewWidget(QWidget):
 
     def remove_selected_firing(self):
         if hasattr(self, 'selected_firing') and self.selected_firing is not None:
+            # Save current state before removing firework
+            self.handles_stack.push(self.fireworks)
+            
             idx = self.selected_firing
             if self.firework_times is not None and 0 <= idx < len(self.firework_times):
                 if not isinstance(self.firework_times, list):
@@ -254,7 +301,6 @@ class FireworkPreviewWidget(QWidget):
         self.audio_thread = None
         self.update()
 
-    # Always start playback from current_time
     def paintEvent(self, event):
         painter = QPainter(self)
         self.timeline_renderer.draw(painter)
@@ -299,9 +345,12 @@ class FireworkPreviewWidget(QWidget):
         for rect, idx in self.firing_handles:
             if rect.contains(event.position().toPoint()):
                 self.selected_firing = idx
-                self.dragging_firing = True
-                self.drag_offset = event.position().x() - rect.center().x()
-                self.setCursor(Qt.CursorShape.ClosedHandCursor)
+                if event.button() == Qt.MouseButton.LeftButton:
+                    # Save current state before starting drag operation
+                    self.handles_stack.push(self.fireworks)
+                    self.dragging_firing = True
+                    self.drag_offset = event.position().x() - rect.center().x()
+                    self.setCursor(Qt.CursorShape.ClosedHandCursor)
                 self.update()
                 if event.button() == Qt.MouseButton.RightButton:
                     self.show_firing_context_menu(event.globalPosition().toPoint(), idx)
@@ -463,7 +512,6 @@ class FireworkPreviewWidget(QWidget):
         menu = QMenu(self)
 
         # Display the firing number at the top as a disabled, bold action
-        from PyQt6.QtGui import QAction
         display_number_text = f"🔥 -- Firing #{handle.display_number} -- 🔥"
         display_number_action = QAction(display_number_text, self)
         font = display_number_action.font()
@@ -495,12 +543,16 @@ class FireworkPreviewWidget(QWidget):
                     initial_color = QColor(255, 255, 255)
             color = QColorDialog.getColor(initial_color, self, "Select Firework Color")
             if color.isValid():
+                # Save current state before changing color
+                self.handles_stack.push(self.fireworks)
                 # Store as tuple for serialization
                 handle.firing_color = (color.red(), color.green(), color.blue())
                 self.update()
         elif action == change_time_action:
             new_time, ok = QInputDialog.getDouble(self, "Change Firing Time", "Time (seconds):", handle.firing_time, 0, self.duration, 3)
             if ok:
+                # Save current state before changing time
+                self.handles_stack.push(self.fireworks)
                 handle.firing_time = float(new_time)  # Ensure it's a Python float
                 self.fireworks.sort(key=lambda h: h.firing_time)
                 self.firework_times = [h.firing_time for h in self.fireworks]
@@ -519,13 +571,27 @@ class FireworkPreviewWidget(QWidget):
             current = patterns.index(handle.pattern) if handle.pattern in patterns else 0
             pattern, ok = QInputDialog.getItem(self, "Change Pattern", "Pattern:", patterns, current, False)
             if ok:
+                # Save current state before changing pattern
+                self.handles_stack.push(self.fireworks)
                 handle.pattern = str(pattern)  # Ensure it's a Python string
                 self.update()
         elif action == change_number_action:
             num, ok = QInputDialog.getInt(self, "Change Number of Firings", "Number:", handle.number_firings, 1, 100, 1)
             if ok:
+                # Save current state before changing number of firings
+                self.handles_stack.push(self.fireworks)
                 handle.number_firings = int(num)  # Ensure it's a Python int
                 self.update()
         elif action == delete_action:
             self.selected_firing = idx
             self.remove_selected_firing()
+
+    def redo(self):
+        new_handles = self.handles_stack.redo(self.fireworks)
+        if new_handles is not None:
+            self.set_handles(new_handles)
+
+    def undo(self):
+        new_handles = self.handles_stack.undo(self.fireworks)
+        if new_handles is not None:
+            self.set_handles(new_handles)

@@ -715,7 +715,6 @@ class FireworkShowApp(QMainWindow):
                 self.firework_show_helper.update_firework_show_info()
             combo.currentIndexChanged.connect(on_pattern_changed)
             layout.addWidget(combo)
-            group_box.setVisible(False)
             return group_box
 
         self.pattern_selector = create_pattern_selector()
@@ -727,7 +726,7 @@ class FireworkShowApp(QMainWindow):
         ###########################################################
 
         def create_firework_count_spinner():
-            group_box = QGroupBox("Firework Count")
+            group_box = QGroupBox()
             group_box.setStyleSheet(button_style)
             layout = QHBoxLayout()
             group_box.setLayout(layout)
@@ -742,7 +741,6 @@ class FireworkShowApp(QMainWindow):
                 self.firework_show_helper.update_firework_show_info()
             spinner.valueChanged.connect(on_count_changed)
             layout.addWidget(spinner)
-            group_box.setVisible(False)  # Hide the group box initially
             return group_box
 
         self.firework_count_spinner_group = create_firework_count_spinner()
@@ -821,6 +819,20 @@ class FireworkShowApp(QMainWindow):
         self.load_btn.clicked.connect(lambda: self.audio_loader.handle_audio())
         self.load_btn.clicked.connect(self.firework_show_helper.update_firework_show_info)
 
+        # Create Undo and Redo buttons for preview_widget
+        self.undo_preview_btn = QPushButton()
+        self.undo_preview_btn.setIcon(QIcon(os.path.join("icons", "undo.png")))
+        self.undo_preview_btn.setStyleSheet(button_style)
+        self.undo_preview_btn.setToolTip("Undo preview action")
+        self.undo_preview_btn.clicked.connect(self.preview_widget.undo)
+
+        self.redo_preview_btn = QPushButton()
+        self.redo_preview_btn.setIcon(QIcon(os.path.join("icons", "redo.png")))
+        self.redo_preview_btn.setStyleSheet(button_style)
+        self.redo_preview_btn.setToolTip("Redo preview action")
+        self.redo_preview_btn.clicked.connect(self.preview_widget.redo)
+
+
         ############################################################
         #                                                          #
         #       Menu Bar                                           #
@@ -892,6 +904,8 @@ class FireworkShowApp(QMainWindow):
         toolbar.addSeparator()
         toolbar.addWidget(self.pattern_selector)
         toolbar.addWidget(self.firework_count_spinner_group)
+        toolbar.addWidget(self.undo_preview_btn)
+        toolbar.addWidget(self.redo_preview_btn)
 
         # Add a stretch to push right-aligned controls (if needed)
         spacer = QWidget()
