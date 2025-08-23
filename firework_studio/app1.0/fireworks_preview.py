@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QWidget, QMenu, QColorDialog, QInputDialog
-from PyQt6.QtCore import QTimer, QRect, Qt, QElapsedTimer
+from PyQt6.QtCore import QTimer, QRect, Qt, QElapsedTimer, pyqtSignal
 from PyQt6.QtGui import QPainter, QColor, QIcon, QPixmap, QAction
 
 import sounddevice as sd
@@ -45,6 +45,8 @@ class HandlesStack:
         return None
 
 class FireworkPreviewWidget(QWidget):
+    handles_changed = pyqtSignal(list)
+
     def __init__(self):
         super().__init__()
         self.setMinimumHeight(200)
@@ -89,6 +91,8 @@ class FireworkPreviewWidget(QWidget):
         self.fireworks = []
         self.handles_stack.clear()  # Clear undo/redo history
         self.update()
+        # Emit signal to notify that handles have changed
+        self.handles_changed.emit(self.fireworks)
 
     def get_handles(self):
         return self.fireworks
@@ -129,6 +133,9 @@ class FireworkPreviewWidget(QWidget):
         self.fireworks.sort(key=lambda h: h.firing_time)
         self.firework_times.sort()
         self.update()
+        
+        # Emit signal to notify that handles have changed
+        self.handles_changed.emit(self.fireworks)
 
     def reset_selected_region(self):
         if self.duration:
@@ -193,6 +200,9 @@ class FireworkPreviewWidget(QWidget):
             h.display_number = i + 1
 
         self.update()
+        
+        # Emit signal to notify that handles have changed
+        self.handles_changed.emit(self.fireworks)
 
     def advance_preview(self):
         if self.audio_data is None or self.sr is None or self.duration is None:
@@ -242,6 +252,9 @@ class FireworkPreviewWidget(QWidget):
                     del self.fireworks[idx]
             self.selected_firing = None
             self.update()
+            
+            # Emit signal to notify that handles have changed
+            self.handles_changed.emit(self.fireworks)
         return self.firework_times
     
     def start_preview(self):
@@ -470,6 +483,8 @@ class FireworkPreviewWidget(QWidget):
             self.dragging_firing = False
             self.setCursor(Qt.CursorShape.ClosedHandCursor)
             self.update()
+            # Emit signal to notify that handles have changed
+            self.handles_changed.emit(self.fireworks)
             return
 
         if hasattr(self, 'dragging_playhead') and self.dragging_playhead:
@@ -548,6 +563,8 @@ class FireworkPreviewWidget(QWidget):
                 # Store as tuple for serialization
                 handle.firing_color = (color.red(), color.green(), color.blue())
                 self.update()
+                # Emit signal to notify that handles have changed
+                self.handles_changed.emit(self.fireworks)
         elif action == change_time_action:
             new_time, ok = QInputDialog.getDouble(self, "Change Firing Time", "Time (seconds):", handle.firing_time, 0, self.duration, 3)
             if ok:
@@ -559,6 +576,8 @@ class FireworkPreviewWidget(QWidget):
                 for i, h in enumerate(self.fireworks):
                     h.display_number = i + 1
                 self.update()
+                # Emit signal to notify that handles have changed
+                self.handles_changed.emit(self.fireworks)
         elif action == change_pattern_action:
             patterns = [
                 "circle",
@@ -575,6 +594,8 @@ class FireworkPreviewWidget(QWidget):
                 self.handles_stack.push(self.fireworks)
                 handle.pattern = str(pattern)  # Ensure it's a Python string
                 self.update()
+                # Emit signal to notify that handles have changed
+                self.handles_changed.emit(self.fireworks)
         elif action == change_number_action:
             num, ok = QInputDialog.getInt(self, "Change Number of Firings", "Number:", handle.number_firings, 1, 100, 1)
             if ok:
@@ -582,6 +603,8 @@ class FireworkPreviewWidget(QWidget):
                 self.handles_stack.push(self.fireworks)
                 handle.number_firings = int(num)  # Ensure it's a Python int
                 self.update()
+                # Emit signal to notify that handles have changed
+                self.handles_changed.emit(self.fireworks)
         elif action == delete_action:
             self.selected_firing = idx
             self.remove_selected_firing()

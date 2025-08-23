@@ -78,7 +78,6 @@ class FireworkShowApp(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.firework_show_helper = FireworkShowHelper(self)
         # Set window properties first to prevent flash
         self.setWindowTitle("Firework Studio")
         # Set initial geometry to full screen to prevent small window flash
@@ -123,6 +122,7 @@ class FireworkShowApp(QMainWindow):
         self.filtered_firings = []
         self.paths = []
         self.padding = 0
+        self.firework_show_helper = FireworkShowHelper(self)
 
         # Audio analysis settings
         self.analyzer = None  
@@ -349,6 +349,9 @@ class FireworkShowApp(QMainWindow):
                 on_dragging_playhead("dragging_playhead")
             original_mouse_release_event(event)
         self.preview_widget.mouseReleaseEvent = custom_mouse_release_event
+        
+        # Connect the handles_changed signal to update firework show info
+        self.preview_widget.handles_changed.connect(lambda handles: self.firework_show_helper.update_firework_show_info())
 
         #############################################################
         #                                                          #

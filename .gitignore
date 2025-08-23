@@ -213,3 +213,5 @@ test1.mp3
 requirements.txt
 firework_studio/requirements.txt
 Scorpions 'Rock You Like A Hurricane'.mp3
+test_undo_redo.py
+.gitignore
