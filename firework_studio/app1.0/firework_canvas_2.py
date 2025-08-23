@@ -36,9 +36,9 @@ class FireworksCanvas(QOpenGLWidget):
         if len(self.fireworks) < 5:
             self.particle_count = 80
         elif len(self.fireworks) < 10:
-            self.particle_count = 50
+            self.particle_count = 45
         else:
-            self.particle_count = 30
+            self.particle_count = 25
 
         #keep fireworks from going off screen
         margin = 40
@@ -83,6 +83,23 @@ class FireworksCanvas(QOpenGLWidget):
             parent = parent.parentWidget()
         if preview_widget and hasattr(preview_widget, "current_time"):
             current_time = getattr(preview_widget, "current_time", 0)
+        
+        # Calculate dynamic fade multiplier based on number of fireworks
+        num_fireworks = len(self.fireworks)
+        if num_fireworks >= 15:
+            fade_multiplier = 3.0  # Very fast fading for many fireworks
+        elif num_fireworks >= 10:
+            fade_multiplier = 2.5  # Fast fading
+        elif num_fireworks >= 5:
+            fade_multiplier = 2.0  # Moderate fading
+        else:
+            fade_multiplier = 1.0  # Normal fading
+        
+        # Apply fade multiplier to all particles
+        for firework in self.fireworks:
+            for particle in firework.particles:
+                particle.set_dynamic_fade_multiplier(fade_multiplier)
+        
         # Vectorized update for fireworks
         self.fireworks = [fw for fw in self.fireworks if fw.update(current_time)]
         # Fire new fireworks if needed (keep detection logic unchanged)
