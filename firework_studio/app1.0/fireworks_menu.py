@@ -1,12 +1,12 @@
 import os
-from PyQt6.QtWidgets import QMenuBar, QMenu, QInputDialog
+
+from PyQt6.QtWidgets import QMenuBar, QMenu, QInputDialog, QVBoxLayout, QPushButton
 from PyQt6.QtGui import QIcon, QAction
 from PyQt6.QtCore import Qt, QTimer
+
 from toaster import ToastDialog
 from filter_dialog import FilterDialog
 from filters import AudioFilter
-
-
 
 class MenuBarHelper:
     def __init__(self, main_window, button_style, menu_style):
@@ -16,10 +16,15 @@ class MenuBarHelper:
         self.create_menus(self.main_window.analyzer)
     def update_status_bar(self):
         self.main_window.firework_show_helper.update_firework_show_info()
+        self.main_window.status_bar.showMessage(self.main_window.firework_show_info)
 
     def create_menus(self, analyzer):
         mw = self.main_window
-        # File Menu
+        
+        ############################
+        # File Menu                #
+        ############################
+
         if mw.menuBar() is None:
             mw.setMenuBar(QMenuBar(mw))
         file_menu = mw.menuBar().addMenu("&File") #type: ignore
@@ -43,13 +48,18 @@ class MenuBarHelper:
             clear_action.hovered.connect(self.update_status_bar)
             file_menu.addAction(clear_action)
 
+            file_menu.addSeparator()
+
             exit_action = QAction(QIcon(os.path.join("icons", "exit.png")), "Exit", mw)
             exit_action.setShortcut("Ctrl+Q")
             exit_action.triggered.connect(mw.close)
             exit_action.hovered.connect(self.update_status_bar)
             file_menu.addAction(exit_action)
 
-        # Edit Menu
+        ############################
+        # Edit Menu                #
+        ############################
+
         edit_menu = mw.menuBar().addMenu("&Edit") #type: ignore
         if edit_menu is not None:
             play_pause_action = QAction(QIcon(os.path.join("icons", "play.png")), "Play/Pause", mw)
@@ -107,6 +117,7 @@ class MenuBarHelper:
                 pad_action.hovered.connect(self.update_status_bar)
                 padding_menu.addAction(pad_action)
             custom_pad_action = QAction("Custom...", mw)
+
             def custom_pad_handler():
                 text, ok = QInputDialog.getText(
                     mw,
@@ -134,142 +145,147 @@ class MenuBarHelper:
             padding_menu.addAction(custom_pad_action)
             edit_menu.addMenu(padding_menu)
 
-            # Analysis Menu
-            analysis_menu = None
-            for menu in mw.menuBar().findChildren(QMenu):
-                if menu.title() == "&Analysis":
-                    analysis_menu = menu
-                    break
-            if analysis_menu is None:
-                analysis_menu = mw.menuBar().addMenu("&Analysis")
-            if analysis_menu is not None:
-                # Segment Audio
-                segment_action = QAction("Segment Audio", mw)
-                segment_action.setShortcut("Ctrl+M")
-                def segment_audio():
-                    if mw.audio_data is None or len(mw.audio_data) == 0:
-                        toast = ToastDialog("No audio data available for analysis.", parent=mw)
-                        geo = mw.geometry()
-                        x = geo.x() + geo.width() - toast.width() - 40
-                        y = geo.y() + geo.height() - toast.height() - 40
-                        toast.move(x, y)
-                        toast.show()
-                        QTimer.singleShot(2500, toast.close)
-                        return
-                    toast = ToastDialog("Loading segments...", parent=mw)
-                    geo = mw.geometry()
-                    x = geo.x() + geo.width() - toast.width() - 40
-                    y = geo.y() + geo.height() - toast.height() - 40
-                    toast.move(x, y)
-                    toast.show()
-                    QTimer.singleShot(1500, toast.close)
-                    if mw.analyzer is not None:
-                        mw._segments_toast_shown = False
-                        try:
-                            mw.analyzer.segments_ready.disconnect()
-                        except:
-                            pass
-                        mw.analyzer.segments_ready.connect(mw.firework_show_helper.handle_segments)
-                        mw.analyzer.analyze_segments()
-                segment_action.triggered.connect(segment_audio)
-                segment_action.hovered.connect(self.update_status_bar)
-                analysis_menu.addAction(segment_action)
+        ############################
+        # Analysis Menu            #
+        ############################
 
-                # Find Interesting Points
-                interesting_points_action = QAction("Find Interesting Points", mw)
-                interesting_points_action.setShortcut("Ctrl+I")
-                def find_interesting_points():
-                    if mw.audio_data is None or len(mw.audio_data) == 0:
-                        toast = ToastDialog("No audio data available for analysis.", parent=mw)
-                        geo = mw.geometry()
-                        x = geo.x() + geo.width() - toast.width() - 40
-                        y = geo.y() + geo.height() - toast.height() - 40
-                        toast.move(x, y)
-                        toast.show()
-                        QTimer.singleShot(2500, toast.close)
-                        return
-                    toast = ToastDialog("Loading interesting points...", parent=mw)
+        analysis_menu = None
+        for menu in mw.menuBar().findChildren(QMenu):
+            if menu.title() == "&Analysis":
+                analysis_menu = menu
+                break
+        if analysis_menu is None:
+            analysis_menu = mw.menuBar().addMenu("&Analysis")
+        if analysis_menu is not None:
+            # Segment Audio
+            segment_action = QAction("Segment Audio", mw)
+            segment_action.setShortcut("Ctrl+M")
+            def segment_audio():
+                if mw.audio_data is None or len(mw.audio_data) == 0:
+                    toast = ToastDialog("No audio data available for analysis.", parent=mw)
                     geo = mw.geometry()
                     x = geo.x() + geo.width() - toast.width() - 40
                     y = geo.y() + geo.height() - toast.height() - 40
                     toast.move(x, y)
                     toast.show()
-                    QTimer.singleShot(1500, toast.close)
-                    if mw.analyzer is not None:
-                        mw._interesting_points_toast_shown = False
-                        try:
-                            mw.analyzer.interesting_points_ready.disconnect()
-                        except:
-                            pass
-                        mw.analyzer.interesting_points_ready.connect(mw.firework_show_helper.handle_interesting_points)
-                        mw.analyzer.analyze_interesting_points()
-                interesting_points_action.triggered.connect(find_interesting_points)
-                interesting_points_action.hovered.connect(self.update_status_bar)
-                analysis_menu.addAction(interesting_points_action)
+                    QTimer.singleShot(2500, toast.close)
+                    return
+                toast = ToastDialog("Loading segments...", parent=mw)
+                geo = mw.geometry()
+                x = geo.x() + geo.width() - toast.width() - 40
+                y = geo.y() + geo.height() - toast.height() - 40
+                toast.move(x, y)
+                toast.show()
+                QTimer.singleShot(1500, toast.close)
+                if mw.analyzer is not None:
+                    mw._segments_toast_shown = False
+                    try:
+                        mw.analyzer.segments_ready.disconnect()
+                    except:
+                        pass
+                    mw.analyzer.segments_ready.connect(mw.firework_show_helper.handle_segments)
+                    mw.analyzer.analyze_segments()
+            segment_action.triggered.connect(segment_audio)
+            segment_action.hovered.connect(self.update_status_bar)
+            analysis_menu.addAction(segment_action)
 
-                # Find Onsets
-                onsets_action = QAction("Find Onsets", mw)
-                onsets_action.setShortcut("Ctrl+N")
-                def find_onsets():
-                    if mw.audio_data is None or len(mw.audio_data) == 0:
-                        toast = ToastDialog("No audio data available for analysis.", parent=mw)
-                        geo = mw.geometry()
-                        x = geo.x() + geo.width() - toast.width() - 40
-                        y = geo.y() + geo.height() - toast.height() - 40
-                        toast.move(x, y)
-                        toast.show()
-                        QTimer.singleShot(2500, toast.close)
-                        return
-                    toast = ToastDialog("Loading onsets...", parent=mw)
+            # Find Interesting Points
+            interesting_points_action = QAction("Find Interesting Points", mw)
+            interesting_points_action.setShortcut("Ctrl+I")
+            def find_interesting_points():
+                if mw.audio_data is None or len(mw.audio_data) == 0:
+                    toast = ToastDialog("No audio data available for analysis.", parent=mw)
                     geo = mw.geometry()
                     x = geo.x() + geo.width() - toast.width() - 40
                     y = geo.y() + geo.height() - toast.height() - 40
                     toast.move(x, y)
                     toast.show()
-                    QTimer.singleShot(1500, toast.close)
-                    if mw.analyzer is not None:
-                        mw._onsets_toast_shown = False
-                        try:
-                            mw.analyzer.onsets_ready.disconnect()
-                        except:
-                            pass
-                        mw.analyzer.onsets_ready.connect(mw.firework_show_helper.handle_onsets)
-                        mw.analyzer.analyze_onsets()
-                onsets_action.triggered.connect(find_onsets)
-                onsets_action.hovered.connect(self.update_status_bar)
-                analysis_menu.addAction(onsets_action)
+                    QTimer.singleShot(2500, toast.close)
+                    return
+                toast = ToastDialog("Loading interesting points...", parent=mw)
+                geo = mw.geometry()
+                x = geo.x() + geo.width() - toast.width() - 40
+                y = geo.y() + geo.height() - toast.height() - 40
+                toast.move(x, y)
+                toast.show()
+                QTimer.singleShot(1500, toast.close)
+                if mw.analyzer is not None:
+                    mw._interesting_points_toast_shown = False
+                    try:
+                        mw.analyzer.interesting_points_ready.disconnect()
+                    except:
+                        pass
+                    mw.analyzer.interesting_points_ready.connect(mw.firework_show_helper.handle_interesting_points)
+                    mw.analyzer.analyze_interesting_points()
+            interesting_points_action.triggered.connect(find_interesting_points)
+            interesting_points_action.hovered.connect(self.update_status_bar)
+            analysis_menu.addAction(interesting_points_action)
 
-                # Find Local Maxima
-                maxima_action = QAction("Find Local Maxima", mw)
-                maxima_action.setShortcut("Ctrl+X")
-                def find_local_maxima():
-                    if mw.audio_data is None or len(mw.audio_data) == 0:
-                        toast = ToastDialog("No audio data available for analysis.", parent=mw)
-                        geo = mw.geometry()
-                        x = geo.x() + geo.width() - toast.width() - 40
-                        y = geo.y() + geo.height() - toast.height() - 40
-                        toast.move(x, y)
-                        toast.show()
-                        QTimer.singleShot(2500, toast.close)
-                        return
-                    toast = ToastDialog("Loading local maxima...", parent=mw)
+            # Find Onsets
+            onsets_action = QAction("Find Onsets", mw)
+            onsets_action.setShortcut("Ctrl+N")
+            def find_onsets():
+                if mw.audio_data is None or len(mw.audio_data) == 0:
+                    toast = ToastDialog("No audio data available for analysis.", parent=mw)
                     geo = mw.geometry()
                     x = geo.x() + geo.width() - toast.width() - 40
                     y = geo.y() + geo.height() - toast.height() - 40
                     toast.move(x, y)
                     toast.show()
-                    QTimer.singleShot(1500, toast.close)
-                    if mw.analyzer is not None:
-                        mw._peaks_toast_shown = False
-                        try:
-                            mw.analyzer.peaks_ready.disconnect()
-                        except:
-                            pass
-                        mw.analyzer.peaks_ready.connect(mw.firework_show_helper.handle_peaks)
-                        mw.analyzer.analyze_maxima()
-                maxima_action.triggered.connect(find_local_maxima)
-                maxima_action.hovered.connect(self.update_status_bar)
-                analysis_menu.addAction(maxima_action)
+                    QTimer.singleShot(2500, toast.close)
+                    return
+                toast = ToastDialog("Loading onsets...", parent=mw)
+                geo = mw.geometry()
+                x = geo.x() + geo.width() - toast.width() - 40
+                y = geo.y() + geo.height() - toast.height() - 40
+                toast.move(x, y)
+                toast.show()
+                QTimer.singleShot(1500, toast.close)
+                if mw.analyzer is not None:
+                    mw._onsets_toast_shown = False
+                    try:
+                        mw.analyzer.onsets_ready.disconnect()
+                    except:
+                        pass
+                    mw.analyzer.onsets_ready.connect(mw.firework_show_helper.handle_onsets)
+                    mw.analyzer.analyze_onsets()
+            onsets_action.triggered.connect(find_onsets)
+            onsets_action.hovered.connect(self.update_status_bar)
+            analysis_menu.addAction(onsets_action)
+
+            # Find Local Maxima
+            maxima_action = QAction("Find Local Maxima", mw)
+            maxima_action.setShortcut("Ctrl+X")
+            def find_local_maxima():
+                if mw.audio_data is None or len(mw.audio_data) == 0:
+                    toast = ToastDialog("No audio data available for analysis.", parent=mw)
+                    geo = mw.geometry()
+                    x = geo.x() + geo.width() - toast.width() - 40
+                    y = geo.y() + geo.height() - toast.height() - 40
+                    toast.move(x, y)
+                    toast.show()
+                    QTimer.singleShot(2500, toast.close)
+                    return
+                toast = ToastDialog("Loading local maxima...", parent=mw)
+                geo = mw.geometry()
+                x = geo.x() + geo.width() - toast.width() - 40
+                y = geo.y() + geo.height() - toast.height() - 40
+                toast.move(x, y)
+                toast.show()
+                QTimer.singleShot(1500, toast.close)
+                if mw.analyzer is not None:
+                    mw._peaks_toast_shown = False
+                    try:
+                        mw.analyzer.peaks_ready.disconnect()
+                    except:
+                        pass
+                    mw.analyzer.peaks_ready.connect(mw.firework_show_helper.handle_peaks)
+                    mw.analyzer.analyze_maxima()
+            maxima_action.triggered.connect(find_local_maxima)
+            maxima_action.hovered.connect(self.update_status_bar)
+            analysis_menu.addAction(maxima_action)
+
+            analysis_menu.addSeparator()
 
             # Apply Filter
             apply_filter_action = QAction("Apply Filter...", mw)
@@ -320,54 +336,40 @@ class MenuBarHelper:
             apply_filter_action.hovered.connect(self.update_status_bar)
             analysis_menu.addAction(apply_filter_action)
 
-        # Help Menu
-        if not any(menu.title() == "&Help" for menu in mw.menuBar().findChildren(QMenu)):
+            ############################
+            # Help Menu                #
+            ############################
+            
             help_menu = mw.menuBar().addMenu("&Help")
             if help_menu is not None:
                 help_action = QAction("How to Use Firework Studio", mw)
                 help_action.setShortcut("F1")
                 def show_help_dialog():
                     help_text = (
-                        "<b>How to Load Multiple Audio Files:</b><br>"
-                        "Click the <b>Load Audio</b> button or use <b>Ctrl+L</b> to select and load audio files.<br>"
-                        "You can load more than one file, and it concatenates them in the same order they are displayed in the file dialog window.<br><br>"
-                        "<b>Changing Number of Firings and Pattern:</b><br>"
-                        "Use the <b>Up/Down arrow keys</b> to change the number of fireworks fired at each time.<br>"
-                        "Use the <b>Left/Right arrow keys</b> to change the firework pattern.<br><br>"
-                        "<b>Saving and Loading a Show:</b><br>"
-                        "Click the <b>Save</b> button or use <b>Ctrl+S</b> to save your show.<br>"
-                        "Click the <b>Load</b> button or use <b>Ctrl+O</b> to load a previously saved show.<br><br>"
-                        "<b>Preview Widget:</b><br>"
-                        "The preview widget lets you select a region of the audio by clicking and dragging.<br>"
-                        "Right-click on the preview widget to access context menu options for firings.<br>"
+                    "<b>How to Load Multiple Audio Files:</b><br>"
+                    "Click the <b>Load Audio</b> button or use <b>Ctrl+L</b> to select and load audio files.<br>"
+                    "You can load more than one file, and it concatenates them in the same order they are displayed in the file dialog window.<br><br>"
+                    "<b>Changing Number of Firings and Pattern:</b><br>"
+                    "Use the <b>Up/Down arrow keys</b> to change the number of fireworks fired at each time.<br>"
+                    "Use the <b>Left/Right arrow keys</b> to change the firework pattern.<br><br>"
+                    "<b>Saving and Loading a Show:</b><br>"
+                    "Click the <b>Save</b> button or use <b>Ctrl+S</b> to save your show.<br>"
+                    "Click the <b>Load</b> button or use <b>Ctrl+O</b> to load a previously saved show.<br><br>"
+                    "<b>Preview Widget:</b><br>"
+                    "The preview widget lets you select a region of the audio by clicking and dragging.<br>"
+                    "Right-click on the preview widget to access context menu options for firings.<br>"
                     )
                     dialog = ToastDialog(help_text, parent=mw)
                     dialog.setWindowTitle("Firework Studio Help")
                     dialog.setMinimumWidth(500)
                     dialog.setWindowFlags(dialog.windowFlags() | Qt.WindowType.WindowCloseButtonHint)
-                    dialog.fade_active = False  # Track if fade is running #type: ignore
-                    def fade_step(opacity):
-                        if not dialog.fade_active: #type: ignore
-                            return
-                        if opacity > 0:
-                            dialog.setWindowOpacity(opacity)
-                            QTimer.singleShot(50, lambda: fade_step(opacity - 0.04))
-                        else:
-                            dialog.close()
-                            dialog.setWindowOpacity(1.0)
-                    def cancel_fade(_event=None):
-                        dialog.fade_active = False #type: ignore
-                        dialog.setWindowOpacity(1.0)
-                    def start_fade():
-                        dialog.fade_active = True #type: ignore
-                        fade_step(1.0)
-                    def on_enter(event):
-                        cancel_fade(event)
-                    def on_leave(event):
-                        QTimer.singleShot(4000, start_fade)
-                        QTimer.singleShot(400, start_fade)
-                    dialog.enterEvent = on_enter
-                    dialog.leaveEvent = on_leave #type: ignore
+                    dialog.setWindowModality(Qt.WindowModality.ApplicationModal)
+                    # Add a close button to the dialog
+                    layout = dialog.layout() if dialog.layout() else QVBoxLayout(dialog)
+                    close_btn = QPushButton("Close", dialog)
+                    close_btn.clicked.connect(dialog.close)
+                    layout.addWidget(close_btn)
+                    dialog.setLayout(layout)
                     dialog.show()
                 help_action.triggered.connect(show_help_dialog)
                 help_action.hovered.connect(self.update_status_bar)
