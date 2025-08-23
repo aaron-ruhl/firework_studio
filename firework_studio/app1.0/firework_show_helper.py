@@ -4,6 +4,7 @@ from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QComboBox, QSpinBox
 from toaster import ToastDialog
 import threading
+import random
 
 class MarkingStack:
     def __init__(self):
@@ -44,6 +45,32 @@ class FireworkShowHelper:
     def __init__(self, main_window):
         self.main_window = main_window
         self.marking_stack = MarkingStack()
+
+    def _create_specific_handle_with_random_pattern(self, firing_time):
+        """Create a specific handle with a random pattern for automatic firing addition."""
+        patterns = [
+            ("Circle", "circle"),
+            ("Chrys", "chrysanthemum"),
+            ("Palm", "palm"),
+            ("Willow", "willow"),
+            ("Peony", "peony"),
+            ("Ring", "ring"),
+            ("Rainbow", "rainbow"),
+        ]
+        # Choose a random pattern
+        pattern_label, pattern_value = random.choice(patterns)
+        
+        # Create a specific handle list/tuple with the required parameters
+        # Based on the add_firing method in fireworks_preview.py, it expects:
+        # firing_time, color, number_firings, pattern, display_number
+        specific_handle = [
+            firing_time,
+            None,  # Color will be assigned automatically by add_firing
+            0,     # Display number will be assigned automatically
+            pattern_value,  # Random pattern
+            1      # Default number of firings
+        ]
+        return specific_handle
 
     def plot_spectrogram(self):
         def worker():
@@ -321,6 +348,20 @@ class FireworkShowHelper:
             new_points = [p for p in points if p not in mw.points]
             mw.points.extend(new_points)
         self.marking_stack.push('interesting', new_points)
+        
+        # Add firings for each new interesting point with random patterns
+        for point_time in new_points:
+            if isinstance(point_time, (int, float)) and np.isscalar(point_time) and not isinstance(point_time, complex):
+                # Check if firing time is valid (greater than delay)
+                if point_time >= mw.preview_widget.delay:
+                    # Save current time and set to point time for add_firing
+                    saved_time = mw.preview_widget.current_time
+                    mw.preview_widget.current_time = float(point_time)
+                    specific_handle = self._create_specific_handle_with_random_pattern(float(point_time))
+                    mw.preview_widget.add_firing(specific_handle=specific_handle)
+                    # Restore original time
+                    mw.preview_widget.current_time = saved_time
+        
         ax = mw.waveform_canvas.figure.axes[0]
         if mw.points is not None and isinstance(mw.points, (list, tuple, np.ndarray)):
             for t in mw.points:
@@ -367,6 +408,20 @@ class FireworkShowHelper:
             new_onsets = [o for o in onsets if o not in mw.onsets]
             mw.onsets.extend(new_onsets)
         self.marking_stack.push('onset', new_onsets)
+        
+        # Add firings for each new onset with random patterns
+        for onset_time in new_onsets:
+            if isinstance(onset_time, (int, float)) and np.isscalar(onset_time) and not isinstance(onset_time, complex):
+                # Check if firing time is valid (greater than delay)
+                if onset_time >= mw.preview_widget.delay:
+                    # Save current time and set to onset time for add_firing
+                    saved_time = mw.preview_widget.current_time
+                    mw.preview_widget.current_time = float(onset_time)
+                    specific_handle = self._create_specific_handle_with_random_pattern(float(onset_time))
+                    mw.preview_widget.add_firing(specific_handle=specific_handle)
+                    # Restore original time
+                    mw.preview_widget.current_time = saved_time
+        
         ax = mw.waveform_canvas.figure.axes[0]
         if mw.onsets is not None and isinstance(mw.onsets, (list, tuple, np.ndarray)):
             for t in mw.onsets:
@@ -414,6 +469,20 @@ class FireworkShowHelper:
             new_peaks = [p for p in peaks if p not in mw.peaks]
             mw.peaks.extend(new_peaks)
         self.marking_stack.push('peak', new_peaks)
+        
+        # Add firings for each new peak with random patterns
+        for peak_time in new_peaks:
+            if isinstance(peak_time, (int, float)) and np.isscalar(peak_time) and not isinstance(peak_time, complex):
+                # Check if firing time is valid (greater than delay)
+                if peak_time >= mw.preview_widget.delay:
+                    # Save current time and set to peak time for add_firing
+                    saved_time = mw.preview_widget.current_time
+                    mw.preview_widget.current_time = float(peak_time)
+                    specific_handle = self._create_specific_handle_with_random_pattern(float(peak_time))
+                    mw.preview_widget.add_firing(specific_handle=specific_handle)
+                    # Restore original time
+                    mw.preview_widget.current_time = saved_time
+        
         ax = mw.waveform_canvas.figure.axes[0]
         if mw.peaks is not None and isinstance(mw.peaks, (list, tuple, np.ndarray)):
             for t in mw.peaks:

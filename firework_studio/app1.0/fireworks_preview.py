@@ -198,6 +198,8 @@ class FireworkPreviewWidget(QWidget):
             display_number=0  # temporary, will set below
             )
         else:
+            if specific_handle[1] is None:
+                specific_handle[1] = color
             handle = FiringHandles.from_list(specific_handle)
             
         self.fireworks.append(handle)

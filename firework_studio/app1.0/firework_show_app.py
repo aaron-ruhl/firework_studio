@@ -591,6 +591,7 @@ class FireworkShowApp(QMainWindow):
             btn.setCheckable(True)
             btn.setIcon(QIcon(os.path.join("icons", "play.png")))
             btn.setStyleSheet(button_style)
+            btn.setToolTip("Play/Pause preview")
             return btn
 
         def toggle_icon(checked):
@@ -627,6 +628,7 @@ class FireworkShowApp(QMainWindow):
             btn.setIcon(QIcon(os.path.join("icons", "stop.png")))
             btn.setFixedSize(40, 40)
             btn.setStyleSheet(button_style)
+            btn.setToolTip("Stop preview and reset display")
             btn.clicked.connect(self.preview_widget.stop_preview)
             btn.clicked.connect(self.fireworks_canvas.reset_fireworks) # type: ignore
             def reset_play_pause():
@@ -652,6 +654,7 @@ class FireworkShowApp(QMainWindow):
             btn = QPushButton()
             btn.setIcon(QIcon(os.path.join("icons", "plus.png")))
             btn.setStyleSheet(button_style)
+            btn.setToolTip("Add firework firing at selected time")
             def add_firing_and_update_info():
                 if self.audio_data is None:
                     return
@@ -677,6 +680,7 @@ class FireworkShowApp(QMainWindow):
             btn = QPushButton()
             btn.setIcon(QIcon(os.path.join("icons", "delete.png")))
             btn.setStyleSheet(button_style)
+            btn.setToolTip("Delete selected firework firing")
             def remove_firing_and_update_info():
                 if self.audio_data is None:
                     return
@@ -699,16 +703,17 @@ class FireworkShowApp(QMainWindow):
             layout = QHBoxLayout()
             group_box.setLayout(layout)
             patterns = [
-                ("Circle", "circle"),
-                ("Chrys", "chrysanthemum"),
-                ("Palm", "palm"),
-                ("Willow", "willow"),
-                ("Peony", "peony"),
-                ("Ring", "ring"),
-                ("Rainbow", "rainbow"),
+            ("Circle", "circle"),
+            ("Chrys", "chrysanthemum"),
+            ("Palm", "palm"),
+            ("Willow", "willow"),
+            ("Peony", "peony"),
+            ("Ring", "ring"),
+            ("Rainbow", "rainbow"),
             ]
             combo = QComboBox()
             combo.setStyleSheet(button_style)
+            combo.setToolTip("Select firework pattern")
             for label, pattern in patterns:
                 combo.addItem(label, pattern)
             # Set default pattern
@@ -716,7 +721,7 @@ class FireworkShowApp(QMainWindow):
             def on_pattern_changed(index):
                 pattern = combo.itemData(index)
                 self.preview_widget.set_pattern(pattern)
-                self.firework_show_helper.update_firework_show_info()
+            self.firework_show_helper.update_firework_show_info()
             combo.currentIndexChanged.connect(on_pattern_changed)
             layout.addWidget(combo)
             return group_box
@@ -744,6 +749,7 @@ class FireworkShowApp(QMainWindow):
             spinner.setKeyboardTracking(False)
             spinner.setMinimumSize(50, 28)
             spinner.setMaximumSize(60, 28)
+            spinner.setToolTip("Set number of fireworks per firing")
             # Set default firework count
             def on_count_changed(value):
                 self.preview_widget.set_number_firings(value)
@@ -766,6 +772,7 @@ class FireworkShowApp(QMainWindow):
             btn = QPushButton()
             btn.setIcon(QIcon(os.path.join("icons", "clear-show.png")))
             btn.setStyleSheet(button_style)
+            btn.setToolTip("Clear all handles and reset show")
             # Also pause the show if playing
             btn.clicked.connect(self.clear_show)
             return btn
@@ -781,12 +788,14 @@ class FireworkShowApp(QMainWindow):
         def create_save_btn():
             btn = QPushButton()
             btn.setStyleSheet(button_style)
+            btn.setToolTip("Save current show")
             btn.clicked.connect(self.show_file_handler.save_show)
             return btn
 
         def create_load_show_btn():
             btn = QPushButton()
             btn.setStyleSheet(button_style)
+            btn.setToolTip("Load saved show")
             btn.clicked.connect(self.show_file_handler.load_show)
             return btn
         
@@ -797,17 +806,18 @@ class FireworkShowApp(QMainWindow):
         self.load_show_btn = create_load_show_btn()
         self.load_show_btn.setIcon(QIcon(os.path.join("icons", "load.png")))
         
-       ###########################################################
-       #                                                         #
-       #              Load Audio Button                          #
-       #                                                         #
-       ###########################################################
+           ###########################################################
+           #                                                         #
+           #              Load Audio Button                          #
+           #                                                         #
+           ###########################################################
 
         # Create a button to load audio files
         self.load_btn = QPushButton()
         self.load_btn.setIcon(QIcon(os.path.join("icons", "upload.png")))
         self.audio_loader = AudioLoader(self)
         self.load_btn.setStyleSheet(button_style)
+        self.load_btn.setToolTip("Load audio file")
 
         self.load_btn.clicked.connect(lambda: self.audio_loader.handle_audio())
         self.load_btn.clicked.connect(self.firework_show_helper.update_firework_show_info)
@@ -885,20 +895,20 @@ class FireworkShowApp(QMainWindow):
         # Add buttons to toolbar in logical order with spacers
         toolbar.addWidget(self.load_btn)
         toolbar.addSeparator()
-        toolbar.addWidget(self.save_btn)
-        toolbar.addWidget(self.load_show_btn)
-        toolbar.addSeparator()
         toolbar.addWidget(self.play_pause_btn)
         toolbar.addWidget(self.stop_btn)
         toolbar.addSeparator()
         toolbar.addWidget(self.add_firing_btn)
         toolbar.addWidget(self.delete_firing_btn)
-        toolbar.addWidget(self.clear_btn)
         toolbar.addSeparator()
         toolbar.addWidget(self.pattern_selector)
         toolbar.addWidget(self.firework_count_spinner_group)
         toolbar.addWidget(self.undo_preview_btn)
         toolbar.addWidget(self.redo_preview_btn)
+        toolbar.addSeparator()
+        toolbar.addWidget(self.save_btn)
+        toolbar.addWidget(self.load_show_btn)
+        toolbar.addWidget(self.clear_btn)
 
         # Add a stretch to push right-aligned controls (if needed)
         spacer = QWidget()
