@@ -766,22 +766,6 @@ class FireworkShowApp(QMainWindow):
             return btn
 
         self.clear_btn = create_clear_btn()
-        
-        ############################################################
-        #                                                          #
-        #                       Status Bar                         #
-        #                                                          #
-        ############################################################
-        # Add info label to display audio loading status
-        self.status_bar = QStatusBar()
-        self.setStatusBar(self.status_bar)
-        self.status_bar.showMessage(self.firework_show_info)
-        self.status_bar.repaint()  # Force repaint to ensure visibility
-
-        # Ensure status bar stays visible in fullscreen by raising it above other widgets
-        self.status_bar.raise_()
-        # Optionally, set a custom style for the status bar (without z-index, which is unsupported in Qt)
-        self.status_bar.setStyleSheet("QStatusBar { background: #23242b; color: #ffd700; }")
 
         #################################################################
         #                                                               # 
@@ -935,6 +919,22 @@ class FireworkShowApp(QMainWindow):
         QShortcut(QKeySequence("Right"), self, activated=lambda: self.pattern_selector.findChild(QComboBox).setCurrentIndex(
             min(self.pattern_selector.findChild(QComboBox).count() - 1, self.pattern_selector.findChild(QComboBox).currentIndex() + 1)
         ))  # type: ignore
+
+        ############################################################
+        #                                                          #
+        #                       Status Bar                         #
+        #                                                          #
+        ############################################################
+        # Add info label to display audio loading status
+        self.status_bar = QStatusBar()
+        self.setStatusBar(self.status_bar)
+        self.status_bar.showMessage(self.firework_show_info)
+        self.status_bar.repaint()  # Force repaint to ensure visibility
+
+        # Ensure status bar stays visible in fullscreen by raising it above other widgets
+        self.status_bar.raise_()
+        # Optionally, set a custom style for the status bar (without z-index, which is unsupported in Qt)
+        self.status_bar.setStyleSheet("QStatusBar { background: #23242b; color: #ffd700; }")
 
         #############################################################
         #                                                          #

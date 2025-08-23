@@ -7,12 +7,15 @@ from filter_dialog import FilterDialog
 from filters import AudioFilter
 
 
+
 class MenuBarHelper:
     def __init__(self, main_window, button_style, menu_style):
         self.main_window = main_window
         self.button_style = button_style
         self.menu_style = menu_style
         self.create_menus(self.main_window.analyzer)
+    def update_status_bar(self):
+        self.main_window.firework_show_helper.update_firework_show_info()
 
     def create_menus(self, analyzer):
         mw = self.main_window
@@ -25,21 +28,25 @@ class MenuBarHelper:
             save_action = QAction(QIcon(os.path.join("icons", "save.png")), "Save...", mw)
             save_action.setShortcut("Ctrl+S")
             save_action.triggered.connect(mw.save_btn.click)
+            save_action.hovered.connect(self.update_status_bar)
             file_menu.addAction(save_action)
 
             load_action = QAction(QIcon(os.path.join("icons", "load.png")), "Open...", mw)
             load_action.setShortcut("Ctrl+O")
             load_action.triggered.connect(mw.load_show_btn.click)
+            load_action.hovered.connect(self.update_status_bar)
             file_menu.addAction(load_action)
 
             clear_action = QAction(QIcon(os.path.join("icons", "clear-show.png")), "Clear Show", mw)
             clear_action.setShortcut("C")
             clear_action.triggered.connect(mw.clear_btn.click)
+            clear_action.hovered.connect(self.update_status_bar)
             file_menu.addAction(clear_action)
 
             exit_action = QAction(QIcon(os.path.join("icons", "exit.png")), "Exit", mw)
             exit_action.setShortcut("Ctrl+Q")
             exit_action.triggered.connect(mw.close)
+            exit_action.hovered.connect(self.update_status_bar)
             file_menu.addAction(exit_action)
 
         # Edit Menu
@@ -48,16 +55,19 @@ class MenuBarHelper:
             play_pause_action = QAction(QIcon(os.path.join("icons", "play.png")), "Play/Pause", mw)
             play_pause_action.setShortcut("Space")
             play_pause_action.triggered.connect(lambda: mw.play_pause_btn.toggle())
+            play_pause_action.hovered.connect(self.update_status_bar)
             edit_menu.addAction(play_pause_action)
 
             stop_action = QAction(QIcon(os.path.join("icons", "stop.png")), "Stop", mw)
             stop_action.setShortcut("S")
             stop_action.triggered.connect(mw.stop_btn.click)
+            stop_action.hovered.connect(self.update_status_bar)
             edit_menu.addAction(stop_action)
 
             load_audio_action = QAction(QIcon(os.path.join("icons", "upload.png")), "Load Audio...", mw)
             load_audio_action.setShortcut("Ctrl+L")
             load_audio_action.triggered.connect(mw.load_btn.click)
+            load_audio_action.hovered.connect(self.update_status_bar)
             edit_menu.addAction(load_audio_action)
 
             edit_menu.addSeparator()
@@ -65,11 +75,13 @@ class MenuBarHelper:
             add_firing_action = QAction(QIcon(os.path.join("icons", "plus.png")), "Add Firing", mw)
             add_firing_action.setShortcut("A")
             add_firing_action.triggered.connect(mw.add_firing_btn.click)
+            add_firing_action.hovered.connect(self.update_status_bar)
             edit_menu.addAction(add_firing_action)
 
             delete_firing_action = QAction(QIcon(os.path.join("icons", "delete.png")), "Delete Firing", mw)
             delete_firing_action.setShortcut("D")
             delete_firing_action.triggered.connect(mw.delete_firing_btn.click)
+            delete_firing_action.hovered.connect(self.update_status_bar)
             edit_menu.addAction(delete_firing_action)
 
             edit_menu.addSeparator()
@@ -92,6 +104,7 @@ class MenuBarHelper:
                         mw.audio_loader.handle_audio(reload=custom_check)
                     return handler
                 pad_action.triggered.connect(make_pad_handler())
+                pad_action.hovered.connect(self.update_status_bar)
                 padding_menu.addAction(pad_action)
             custom_pad_action = QAction("Custom...", mw)
             def custom_pad_handler():
@@ -117,6 +130,7 @@ class MenuBarHelper:
                         toast = ToastDialog(f"Invalid input for padding vector: {e}", parent=mw)
                         toast.show()
             custom_pad_action.triggered.connect(custom_pad_handler)
+            custom_pad_action.hovered.connect(self.update_status_bar)
             padding_menu.addAction(custom_pad_action)
             edit_menu.addMenu(padding_menu)
 
@@ -158,6 +172,7 @@ class MenuBarHelper:
                         mw.analyzer.segments_ready.connect(mw.firework_show_helper.handle_segments)
                         mw.analyzer.analyze_segments()
                 segment_action.triggered.connect(segment_audio)
+                segment_action.hovered.connect(self.update_status_bar)
                 analysis_menu.addAction(segment_action)
 
                 # Find Interesting Points
@@ -189,6 +204,7 @@ class MenuBarHelper:
                         mw.analyzer.interesting_points_ready.connect(mw.firework_show_helper.handle_interesting_points)
                         mw.analyzer.analyze_interesting_points()
                 interesting_points_action.triggered.connect(find_interesting_points)
+                interesting_points_action.hovered.connect(self.update_status_bar)
                 analysis_menu.addAction(interesting_points_action)
 
                 # Find Onsets
@@ -220,6 +236,7 @@ class MenuBarHelper:
                         mw.analyzer.onsets_ready.connect(mw.firework_show_helper.handle_onsets)
                         mw.analyzer.analyze_onsets()
                 onsets_action.triggered.connect(find_onsets)
+                onsets_action.hovered.connect(self.update_status_bar)
                 analysis_menu.addAction(onsets_action)
 
                 # Find Local Maxima
@@ -251,6 +268,7 @@ class MenuBarHelper:
                         mw.analyzer.peaks_ready.connect(mw.firework_show_helper.handle_peaks)
                         mw.analyzer.analyze_maxima()
                 maxima_action.triggered.connect(find_local_maxima)
+                maxima_action.hovered.connect(self.update_status_bar)
                 analysis_menu.addAction(maxima_action)
 
             # Apply Filter
@@ -299,6 +317,7 @@ class MenuBarHelper:
                             toast.show()
                             QTimer.singleShot(2500, toast.close)
             apply_filter_action.triggered.connect(open_filter_dialog)
+            apply_filter_action.hovered.connect(self.update_status_bar)
             analysis_menu.addAction(apply_filter_action)
 
         # Help Menu
@@ -351,4 +370,5 @@ class MenuBarHelper:
                     dialog.leaveEvent = on_leave #type: ignore
                     dialog.show()
                 help_action.triggered.connect(show_help_dialog)
+                help_action.hovered.connect(self.update_status_bar)
                 help_menu.addAction(help_action)
