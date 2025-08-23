@@ -350,7 +350,7 @@ class FireworkShowApp(QMainWindow):
             original_mouse_release_event(event)
         self.preview_widget.mouseReleaseEvent = custom_mouse_release_event
         
-        # Connect the handles_changed signal to update firework show info
+        # Connect signal to automatically update status bar when handles change
         self.preview_widget.handles_changed.connect(lambda handles: self.firework_show_helper.update_firework_show_info())
 
         #############################################################
