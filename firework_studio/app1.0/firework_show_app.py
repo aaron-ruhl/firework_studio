@@ -655,7 +655,7 @@ class FireworkShowApp(QMainWindow):
             def add_firing_and_update_info():
                 if self.audio_data is None:
                     return
-                self.firework_firing = self.preview_widget.add_time()
+                self.firework_firing = self.preview_widget.add_firing()
                 self.firework_show_helper.update_firework_show_info()
                 # Immediately update the status bar to reflect the new firing count
                 if hasattr(self, "status_bar") and self.status_bar is not None:

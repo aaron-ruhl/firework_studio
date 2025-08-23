@@ -96,35 +96,7 @@ class FireworkPreviewWidget(QWidget):
 
     def get_handles(self):
         return self.fireworks
-
-    def clear_undo_history(self):
-        """Clear the undo/redo history. Should be called when loading a new file."""
-        self.handles_stack.clear()
-
-    def redo(self):
-        new_handles = self.handles_stack.redo(self.fireworks)
-        if new_handles is not None:
-            # Store the exact handles without any processing to avoid color changes
-            self.fireworks = new_handles  # These are already deep copied from the stack
-            # Rebuild firework_times from the restored handles
-            self.firework_times = [h.firing_time for h in self.fireworks]
-            # Only call update to refresh the visual
-            self.update()
-            # Emit signal to notify that handles have changed
-            self.handles_changed.emit(self.fireworks)
-
-    def undo(self):
-        new_handles = self.handles_stack.undo(self.fireworks)
-        if new_handles is not None:
-            # Store the exact handles without any processing to avoid color changes  
-            self.fireworks = new_handles  # These are already deep copied from the stack
-            # Rebuild firework_times from the restored handles
-            self.firework_times = [h.firing_time for h in self.fireworks]
-            # Only call update to refresh the visual
-            self.update()
-            # Emit signal to notify that handles have changed
-            self.handles_changed.emit(self.fireworks)
-            
+   
     def set_handles(self, handles, emit_signal=True):
         fireworks = []
         firework_times = []
@@ -169,33 +141,31 @@ class FireworkPreviewWidget(QWidget):
         if emit_signal:
             self.handles_changed.emit(self.fireworks)
 
-    def reset_selected_region(self):
-        if self.duration:
-            self.selected_region = (0, self.duration)
-        else:
-            self.selected_region = tuple()
-        self.set_show_data(self.audio_data, self.sr, self.segment_times, self.firework_times, self.duration)
-        self.update()
-        
-    def set_selected_region(self, region):
-        if region and len(region) == 2:
-            start, end = region
-            if start < 0:
-                start = 0
-            if end > self.duration:
-                end = self.duration
-            self.selected_region = (start, end)
-        else:
-            self.selected_region = region
-        self.update()
+    def remove_selected_firing(self):
+        if hasattr(self, 'selected_firing') and self.selected_firing is not None:
+            # Save current state before removing firework
+            self.handles_stack.push(self.fireworks)
+            
+            idx = self.selected_firing
+            if self.firework_times is not None and 0 <= idx < len(self.firework_times):
+                if not isinstance(self.firework_times, list):
+                    self.firework_times = list(self.firework_times)
+                del self.firework_times[idx]
+                if self.fireworks is not None and len(self.fireworks) > idx:
+                    del self.fireworks[idx]
+            self.selected_firing = None
 
-    def set_number_firings(self, count):
-        self.number_firings = count
+            self.fireworks.sort(key=lambda h: h.firing_time)
+            # Update display_number for all handles to ensure uniqueness and order
+            for i, h in enumerate(self.fireworks):
+                h.display_number = i + 1
+            self.update()
 
-    def set_pattern(self, pattern):
-        self.pattern = pattern
-
-    def add_time(self, specific_handle=None):
+            # Emit signal to notify that handles have changed
+            self.handles_changed.emit(self.fireworks)
+        return self.firework_times
+    
+    def add_firing(self, specific_handle=None):
         if self.audio_data is None or self.sr is None:
             return
         if self.firework_times is None:
@@ -241,6 +211,60 @@ class FireworkPreviewWidget(QWidget):
         
         # Emit signal to notify that handles have changed
         self.handles_changed.emit(self.fireworks)
+        
+    def clear_undo_history(self):
+        """Clear the undo/redo history. Should be called when loading a new file."""
+        self.handles_stack.clear()
+
+    def redo(self):
+        new_handles = self.handles_stack.redo(self.fireworks)
+        if new_handles is not None:
+            # Store the exact handles without any processing to avoid color changes
+            self.fireworks = new_handles  # These are already deep copied from the stack
+            # Rebuild firework_times from the restored handles
+            self.firework_times = [h.firing_time for h in self.fireworks]
+            # Only call update to refresh the visual
+            self.update()
+            # Emit signal to notify that handles have changed
+            self.handles_changed.emit(self.fireworks)
+
+    def undo(self):
+        new_handles = self.handles_stack.undo(self.fireworks)
+        if new_handles is not None:
+            # Store the exact handles without any processing to avoid color changes  
+            self.fireworks = new_handles  # These are already deep copied from the stack
+            # Rebuild firework_times from the restored handles
+            self.firework_times = [h.firing_time for h in self.fireworks]
+            # Only call update to refresh the visual
+            self.update()
+            # Emit signal to notify that handles have changed
+            self.handles_changed.emit(self.fireworks)
+
+    def reset_selected_region(self):
+        if self.duration:
+            self.selected_region = (0, self.duration)
+        else:
+            self.selected_region = tuple()
+        self.set_show_data(self.audio_data, self.sr, self.segment_times, self.firework_times, self.duration)
+        self.update()
+        
+    def set_selected_region(self, region):
+        if region and len(region) == 2:
+            start, end = region
+            if start < 0:
+                start = 0
+            if end > self.duration:
+                end = self.duration
+            self.selected_region = (start, end)
+        else:
+            self.selected_region = region
+        self.update()
+
+    def set_number_firings(self, count):
+        self.number_firings = count
+
+    def set_pattern(self, pattern):
+        self.pattern = pattern
 
     def advance_preview(self):
         if self.audio_data is None or self.sr is None or self.duration is None:
@@ -275,25 +299,6 @@ class FireworkPreviewWidget(QWidget):
             # Reset timer tracking
             self._last_preview_time = None
         self.update()
-
-    def remove_selected_firing(self):
-        if hasattr(self, 'selected_firing') and self.selected_firing is not None:
-            # Save current state before removing firework
-            self.handles_stack.push(self.fireworks)
-            
-            idx = self.selected_firing
-            if self.firework_times is not None and 0 <= idx < len(self.firework_times):
-                if not isinstance(self.firework_times, list):
-                    self.firework_times = list(self.firework_times)
-                del self.firework_times[idx]
-                if self.fireworks is not None and len(self.fireworks) > idx:
-                    del self.fireworks[idx]
-            self.selected_firing = None
-            self.update()
-            
-            # Emit signal to notify that handles have changed
-            self.handles_changed.emit(self.fireworks)
-        return self.firework_times
     
     def start_preview(self):
         if self.audio_data is not None and self.sr is not None:
@@ -450,7 +455,7 @@ class FireworkPreviewWidget(QWidget):
         new_time = max(0, min(new_time, self.duration))
         saved_time = self.current_time
         self.current_time = new_time
-        self.add_time()
+        self.add_firing()
         self.current_time = saved_time
         self.update()
 
