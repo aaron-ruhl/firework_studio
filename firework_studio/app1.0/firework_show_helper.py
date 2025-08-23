@@ -18,14 +18,14 @@ class MarkingStack:
         if self.stack:
             entry = self.stack.pop()
             self.redo_stack.append(entry)
-            return entry
+            return entry if isinstance(entry, dict) else None
         return None
 
     def redo(self):
         if self.redo_stack:
             entry = self.redo_stack.pop()
             self.stack.append(entry)
-            return entry
+            return entry if isinstance(entry, dict) else None
         return None
 
     def top(self):
@@ -242,13 +242,18 @@ class FireworkShowHelper:
             spinner = mw.firework_count_spinner_group.findChild(QSpinBox)
             if spinner is not None:
                 number_firings = spinner.value()
+                
+        if mw.segment_times and isinstance(mw.segment_times, (list, tuple)) and len(mw.segment_times) > 1:
+            segment_count = len(mw.segment_times) + 1
+        else:
+            segment_count = 0
         mw.firework_show_info = (
             f"🎆 Pattern: {pattern} | "
             f"Amount: {number_firings} | "
             f"Firings: {firing_count} 🎆"
             f"   🎵 SR: {mw.sr if mw.sr is not None else 'N/A'} | "
             f"Duration: {duration_str} | "
-            f"Segments: {len(mw.segment_times) if mw.segment_times is not None else 0} "
+            f"Segments: {segment_count}"
             f"🎵"
         )
         if hasattr(mw, "status_bar") and mw.status_bar is not None:

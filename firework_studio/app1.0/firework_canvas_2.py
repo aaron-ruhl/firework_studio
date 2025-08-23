@@ -31,25 +31,23 @@ class FireworksCanvas(QOpenGLWidget):
         self.pattern = pattern
 
     def add_firework(self, handle, x=None):
-        margin = 40
-        self.particle_count = 50
-        x = random.randint(margin, max(margin, self.width() - margin))
-        color = getattr(handle, "firing_color", None)
-        if isinstance(color, (tuple, list)) and len(color) == 3:
-            explosion_color = QColor.fromRgbF(
-                max(0.0, min(1.0, color[0])),
-                max(0.0, min(1.0, color[1])),
-                max(0.0, min(1.0, color[2]))
-            )
+
+        # Dynamically adjust particle count based on number of fireworks to avoid lag
+        if len(self.fireworks) < 5:
+            self.particle_count = 80
+        elif len(self.fireworks) < 10:
+            self.particle_count = 50
         else:
-            explosion_color = QColor.fromRgbF(
-                random.uniform(0.0, 1.0),
-                random.uniform(0.0, 1.0),
-                random.uniform(0.0, 1.0)
-            )
+            self.particle_count = 30
+
+        #keep fireworks from going off screen
+        margin = 40
+        x = random.randint(margin, max(margin, self.width() - margin))
+
+        # create firework
         firework = Firework(
             x, self.height(),
-            explosion_color, handle.pattern,
+            handle.explosion_color, handle.pattern,
             handle.display_number,
             self.particle_count
         )
@@ -162,7 +160,7 @@ class FireworksCanvas(QOpenGLWidget):
                 for particle in firework.particles:
                     particle.resume()
                     px, py = particle.x, particle.y
-                    color = particle.get_color()
+                    color = firework.color
                     if isinstance(color, QColor):
                         color = color.getRgbF()[:3]
                     elif isinstance(color, (tuple, list)) and max(color) > 1.0:

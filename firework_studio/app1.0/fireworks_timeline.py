@@ -29,11 +29,6 @@ class FireworkTimelineRenderer:
             QColor(70, 10, 50),      # Deep rose
         ]
 
-    def _next_handle_color(self):
-        if not hasattr(self, '_handle_color_stack') or not self._handle_color_stack:
-            self._handle_color_stack = list(self.handle_colors)
-        return self._handle_color_stack.pop()
-    
     def get_width_and_height(self):
         return self.fireworks_preview.width(), self.fireworks_preview.height()
     
@@ -136,7 +131,26 @@ class FireworkTimelineRenderer:
             for idx in indices:
                 fw = self.fireworks_preview.fireworks[idx]
                 is_selected = hasattr(self.fireworks_preview, 'selected_firing') and self.fireworks_preview.selected_firing == idx
-                color = self.handle_colors[idx % len(self.handle_colors)]
+
+                # Use the color stored in the firing handle itself
+                if hasattr(fw, 'handle_color') and fw.handle_color is not None:
+                    if isinstance(fw.handle_color, QColor):
+                        color = fw.handle_color
+                    elif isinstance(fw.handle_color, (tuple, list)) and len(fw.handle_color) >= 3:
+                        color = QColor(fw.handle_color[0], fw.handle_color[1], fw.handle_color[2])
+                    else:
+                        # Fallback to palette color if handle color is invalid
+                        color_index = idx % len(self.handle_colors)
+                        color = self.handle_colors[color_index]
+                else:
+                    # Fallback to palette color if no color stored
+                    color_index = idx % len(self.handle_colors)
+                    color = self.handle_colors[color_index]
+                
+                # Override with selection color if selected
+                if is_selected:
+                    color = QColor(80, 80, 100)
+                
                 # Always use fw.firing_time for handle position, so it stays accurate regardless of zoom
                 x = self._time_to_x(fw.firing_time, left_margin, usable_w, draw_start, zoom_duration)
                 painter.setBrush(color)

@@ -101,6 +101,30 @@ class FireworkPreviewWidget(QWidget):
         """Clear the undo/redo history. Should be called when loading a new file."""
         self.handles_stack.clear()
 
+    def redo(self):
+        new_handles = self.handles_stack.redo(self.fireworks)
+        if new_handles is not None:
+            # Store the exact handles without any processing to avoid color changes
+            self.fireworks = new_handles  # These are already deep copied from the stack
+            # Rebuild firework_times from the restored handles
+            self.firework_times = [h.firing_time for h in self.fireworks]
+            # Only call update to refresh the visual
+            self.update()
+            # Emit signal to notify that handles have changed
+            self.handles_changed.emit(self.fireworks)
+
+    def undo(self):
+        new_handles = self.handles_stack.undo(self.fireworks)
+        if new_handles is not None:
+            # Store the exact handles without any processing to avoid color changes  
+            self.fireworks = new_handles  # These are already deep copied from the stack
+            # Rebuild firework_times from the restored handles
+            self.firework_times = [h.firing_time for h in self.fireworks]
+            # Only call update to refresh the visual
+            self.update()
+            # Emit signal to notify that handles have changed
+            self.handles_changed.emit(self.fireworks)
+            
     def set_handles(self, handles, emit_signal=True):
         fireworks = []
         firework_times = []
@@ -108,13 +132,16 @@ class FireworkPreviewWidget(QWidget):
         number_firings_default = self.number_firings
 
         for i, handle in enumerate(handles):
-            color = getattr(handle, "firing_color", None)
+            color = getattr(handle, "handle_color", None)
             if isinstance(color, QColor):
                 pass
-            elif isinstance(color, (tuple, list)) and len(color) == 3:
-                color = QColor(*color)
+            elif isinstance(color, (tuple, list)) and len(color) >= 3:
+                color = QColor(color[0], color[1], color[2])
             else:
-                color = QColor(random.randint(50, 255), random.randint(50, 255), random.randint(50, 255))
+                # Assign a color from the palette if no valid color exists
+                color_index = i % len(self.timeline_renderer.handle_colors)
+                palette_color = self.timeline_renderer.handle_colors[color_index]
+                color = QColor(palette_color.red(), palette_color.green(), palette_color.blue())
 
             pattern = getattr(handle, "pattern", pattern_default)
             number_firings = getattr(handle, "number_firings", number_firings_default)
@@ -182,10 +209,16 @@ class FireworkPreviewWidget(QWidget):
         
         # Save current state before adding new firework
         self.handles_stack.push(self.fireworks)
-        color = QColor(random.randint(50, 255), random.randint(50, 255), random.randint(50, 255))
+        
+        # Assign color from palette based on current number of fireworks
+        next_index = len(self.fireworks)
+        color_index = next_index % len(self.timeline_renderer.handle_colors)
+        palette_color = self.timeline_renderer.handle_colors[color_index]
+        color = QColor(palette_color.red(), palette_color.green(), palette_color.blue())
 
         self.firework_times.append(firing_time)
         self.firework_times.sort()
+
         if specific_handle is None:
             handle = FiringHandles(
             firing_time,
@@ -536,7 +569,7 @@ class FireworkPreviewWidget(QWidget):
                     pass
                 self.preview_timer.stop()
             return
-        
+       
     def show_firing_context_menu(self, global_pos, idx):
         handle = self.fireworks[idx] if 0 <= idx < len(self.fireworks) else None
         if handle is None:
@@ -555,7 +588,7 @@ class FireworkPreviewWidget(QWidget):
         menu.addSeparator()
 
         # Show color sample as a colored square in the menu
-        color = handle.firing_color if isinstance(handle.firing_color, QColor) else QColor(handle.firing_color)
+        color = handle.explosion_color if isinstance(handle.explosion_color, QColor) else QColor(handle.explosion_color)
         pixmap = QPixmap(16, 16)
         pixmap.fill(color)
         icon = QIcon(pixmap)
@@ -568,7 +601,7 @@ class FireworkPreviewWidget(QWidget):
         action = menu.exec(global_pos)
 
         if action == change_color_action:
-            initial_color = handle.firing_color
+            initial_color = handle.explosion_color
             if not isinstance(initial_color, QColor):
                 try:
                     initial_color = QColor(*initial_color) if isinstance(initial_color, (tuple, list)) else QColor(initial_color)
@@ -579,10 +612,11 @@ class FireworkPreviewWidget(QWidget):
                 # Save current state before changing color
                 self.handles_stack.push(self.fireworks)
                 # Store as tuple for serialization
-                handle.firing_color = (color.red(), color.green(), color.blue())
+                handle.explosion_color = (color.red(), color.green(), color.blue())
                 self.update()
                 # Emit signal to notify that handles have changed
                 self.handles_changed.emit(self.fireworks)
+
         elif action == change_time_action:
             new_time, ok = QInputDialog.getDouble(self, "Change Firing Time", "Time (seconds):", handle.firing_time, 0, self.duration, 3)
             if ok:
@@ -626,27 +660,3 @@ class FireworkPreviewWidget(QWidget):
         elif action == delete_action:
             self.selected_firing = idx
             self.remove_selected_firing()
-
-    def redo(self):
-        new_handles = self.handles_stack.redo(self.fireworks)
-        if new_handles is not None:
-            # Store the exact handles without any processing to avoid color changes
-            self.fireworks = new_handles  # These are already deep copied from the stack
-            # Rebuild firework_times from the restored handles
-            self.firework_times = [h.firing_time for h in self.fireworks]
-            # Only call update to refresh the visual
-            self.update()
-            # Emit signal to notify that handles have changed
-            self.handles_changed.emit(self.fireworks)
-
-    def undo(self):
-        new_handles = self.handles_stack.undo(self.fireworks)
-        if new_handles is not None:
-            # Store the exact handles without any processing to avoid color changes  
-            self.fireworks = new_handles  # These are already deep copied from the stack
-            # Rebuild firework_times from the restored handles
-            self.firework_times = [h.firing_time for h in self.fireworks]
-            # Only call update to refresh the visual
-            self.update()
-            # Emit signal to notify that handles have changed
-            self.handles_changed.emit(self.fireworks)
