@@ -739,6 +739,11 @@ class FireworkShowApp(QMainWindow):
             spinner.setMaximum(20)
             spinner.setValue(1)
             spinner.setStyleSheet(button_style)
+            spinner.setButtonSymbols(QSpinBox.ButtonSymbols.UpDownArrows)
+            spinner.setFocusPolicy(Qt.FocusPolicy.NoFocus)  # Prevent focus/cursor in value box
+            spinner.setKeyboardTracking(False)
+            spinner.setMinimumSize(50, 28)
+            spinner.setMaximumSize(60, 28)
             # Set default firework count
             def on_count_changed(value):
                 self.preview_widget.set_number_firings(value)
