@@ -705,6 +705,7 @@ class FireworkShowApp(QMainWindow):
                 ("Willow", "willow"),
                 ("Peony", "peony"),
                 ("Ring", "ring"),
+                ("Rainbow", "rainbow"),
             ]
             combo = QComboBox()
             combo.setStyleSheet(button_style)

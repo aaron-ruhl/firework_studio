@@ -49,7 +49,8 @@ class FireworksCanvas(QOpenGLWidget):
             x, self.height(),
             handle.explosion_color, handle.pattern,
             handle.display_number,
-            self.particle_count
+            self.particle_count,
+            handle=handle
         )
         self.fireworks.append(firework)
 
@@ -160,7 +161,7 @@ class FireworksCanvas(QOpenGLWidget):
                 for particle in firework.particles:
                     particle.resume()
                     px, py = particle.x, particle.y
-                    color = firework.color
+                    color = particle.get_color()
                     if isinstance(color, QColor):
                         color = color.getRgbF()[:3]
                     elif isinstance(color, (tuple, list)) and max(color) > 1.0:

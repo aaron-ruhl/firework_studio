@@ -35,9 +35,9 @@ class Firework:
         self.explode_callback = explode_callback  # External callback for threading
 
     def get_current_color(self):
-        # If handle is provided and has a color, ensure it's a QColor
-        if self.handle and hasattr(self.handle, 'color'):
-            color = self.handle.color
+        # If handle is provided and has an explosion color, use that
+        if self.handle and hasattr(self.handle, 'explosion_color'):
+            color = self.handle.explosion_color
             if not isinstance(color, QColor):
                 return QColor(*color) if isinstance(color, tuple) else QColor(color)
             return color
@@ -84,7 +84,8 @@ class Firework:
             tail_angles = np.random.uniform(0, 2 * np.pi, count)
             tail_speeds = np.random.uniform(0.8, 1.5, count)
             tail_lifetimes = np.random.randint(18, 36, count)
-            tail_color = vibrant_color(QColor(255, 255, 255, 180))
+            # Keep white flash particles pure white, don't apply vibrant_color
+            tail_color = QColor(255, 255, 255, 180)
             for angle, speed, lifetime in zip(tail_angles, tail_speeds, tail_lifetimes):
                 tail = Particle(self.x, self.y, angle, speed, tail_color, lifetime=lifetime)
                 tail.gravity = 0.04
@@ -107,22 +108,26 @@ class Firework:
                 # and making random_tail less frequent for palm
                 if random.random() < 0.5:  # Only add random_tail to half of trunks
                     self.particles.extend(random_tail())
+
         elif self.pattern == "palm":
             trunks = 8
             angles = np.linspace(0, 2 * np.pi, trunks, endpoint=False)
             angles += np.random.uniform(-0.08, 0.08, trunks)
             speeds = np.random.uniform(6.0, 7.5, trunks) * distance_factor
             for i in range(trunks):
-                trunk_color = vibrant_color(QColor(255, 255, 180, 220))
+                # White flash particles for the trunk effect
+                trunk_color = QColor(255, 255, 255, 220)
                 p1 = Particle(self.x, self.y, angles[i], speeds[i] * 0.7, trunk_color, lifetime=60)
-                p2 = Particle(self.x, self.y, angles[i], speeds[i], vibrant_color(QColor(60, 255, 120)), lifetime=130)
+                # Use user's chosen color for the main colorful explosion
+                p2 = Particle(self.x, self.y, angles[i], speeds[i], vibrant_color(base_color), lifetime=130)
                 p1.gravity = 0.08
                 p2.gravity = 0.09
                 self.particles.append(p1)
                 self.particles.append(p2)
                 burst_angles = angles[i] + np.random.uniform(-0.22, 0.22, 5)
                 burst_speeds = speeds[i] * np.random.uniform(0.65, 0.95, 5)
-                burst_color = vibrant_color(QColor(255, 200, 80))
+                # Use user's chosen color for burst particles too
+                burst_color = vibrant_color(base_color)
                 for burst_angle, burst_speed in zip(burst_angles, burst_speeds):
                     p3 = Particle(self.x, self.y, burst_angle, burst_speed, burst_color, lifetime=90)
                     p3.gravity = 0.07
@@ -138,7 +143,8 @@ class Firework:
             speeds = np.random.uniform(4.2, 5.2, self.particle_count) * distance_factor
             lifetimes = np.random.randint(220, 261, self.particle_count)
             fades = np.random.uniform(0.94, 0.97, self.particle_count)
-            willow_color = vibrant_color(QColor(255, 220, 120, 220))
+            # Use user's chosen color for willow effect
+            willow_color = vibrant_color(base_color)
             for angle, speed, lifetime, fade_val in zip(angles, speeds, lifetimes, fades):
                 p = Particle(self.x, self.y, angle, speed, willow_color, lifetime=lifetime)
                 p.gravity = 0.11
@@ -166,14 +172,17 @@ class Firework:
             speeds = np.full(self.particle_count, 5.2 * distance_factor)
             lifetimes = np.random.randint(120, 151, self.particle_count)
             fades = np.random.uniform(0.97, 0.99, self.particle_count)
-            ring_color = vibrant_color(QColor(80, 255, 255, 220))
+            # Use user's chosen color for ring effect
+            ring_color = vibrant_color(base_color)
             for angle, speed, lifetime, fade_val in zip(angles, speeds, lifetimes, fades):
                 p = Particle(self.x, self.y, angle, speed, ring_color, lifetime=lifetime)
                 p.gravity = 0.06
                 p.fade = fade_val
                 self.particles.append(p)
                 self.particles.extend(random_tail())
-        else:
+                
+        elif self.pattern == "rainbow":
+            # Special rainbow pattern that creates multi-colored particles
             angles = np.random.uniform(0, 2 * np.pi, self.particle_count)
             speeds = np.random.uniform(4.5, 6.0, self.particle_count) * distance_factor
             lifetimes = np.random.randint(120, 171, self.particle_count)
@@ -182,6 +191,20 @@ class Firework:
             rainbow_colors = [vibrant_color(QColor.fromHsv(hue, 220, 255)) for hue in hues]
             for angle, speed, lifetime, fade_val, color in zip(angles, speeds, lifetimes, fades, rainbow_colors):
                 p = Particle(self.x, self.y, angle, speed, color, lifetime=lifetime)
+                p.gravity = 0.07
+                p.fade = fade_val
+                self.particles.append(p)
+                self.particles.extend(random_tail())
+        else:
+            # Default circle pattern - use the explosion color instead of rainbow
+            angles = np.random.uniform(0, 2 * np.pi, self.particle_count)
+            speeds = np.random.uniform(4.5, 6.0, self.particle_count) * distance_factor
+            lifetimes = np.random.randint(120, 171, self.particle_count)
+            fades = np.random.uniform(0.96, 0.99, self.particle_count)
+            # Use the explosion color instead of rainbow colors
+            circle_color = vibrant_color(base_color)
+            for angle, speed, lifetime, fade_val in zip(angles, speeds, lifetimes, fades):
+                p = Particle(self.x, self.y, angle, speed, circle_color, lifetime=lifetime)
                 p.gravity = 0.07
                 p.fade = fade_val
                 self.particles.append(p)
