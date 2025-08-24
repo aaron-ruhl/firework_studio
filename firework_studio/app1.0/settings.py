@@ -575,27 +575,106 @@ class SettingsDialog(QDialog):
             self.update_points_settings()
             self.update_peak_settings()
 
+    def load_settings(self, settings_dict):
+        """Load settings from a dictionary into the dialog controls"""
+        try:
+            # Load segment settings
+            if 'segment' in settings_dict:
+                seg = settings_dict['segment']
+                self.n_mfcc_spin.setValue(seg.get('n_mfcc', 13))
+                self.min_segments_spin.setValue(seg.get('min_segments', 2))
+                self.max_segments_spin.setValue(seg.get('max_segments', 19))
+                self.dct_type_spin.setValue(seg.get('dct_type', 2))
+                self.n_fft_spin.setValue(seg.get('n_fft', 2048))
+                self.hop_length_segments_spin.setValue(seg.get('hop_length_segments', 512))
+            
+            # Load onset settings
+            if 'onset' in settings_dict:
+                onset = settings_dict['onset']
+                self.min_onsets_spin.setValue(onset.get('min_onsets', 5))
+                self.max_onsets_spin.setValue(onset.get('max_onsets', 20))
+                self.hop_length_onsets_spin.setValue(onset.get('hop_length_onsets', 512))
+                self.backtrack_box.setCurrentText("True" if onset.get('backtrack', True) else "False")
+                self.normalize_box.setCurrentText("True" if onset.get('normalize', False) else "False")
+            
+            # Load points settings
+            if 'points' in settings_dict:
+                points = settings_dict['points']
+                self.min_points_spin.setValue(points.get('min_points', 5))
+                self.max_points_spin.setValue(points.get('max_points', 20))
+                self.pre_max_spin.setValue(points.get('pre_max', 3))
+                self.post_max_spin.setValue(points.get('post_max', 3))
+                self.pre_avg_distance_spin.setValue(points.get('pre_avg_distance', 3))
+                self.post_avg_distance_spin.setValue(points.get('post_avg_distance', 5))
+                # Note: delta is stored as 0.5 but display shows delta * 10
+                self.delta_spin.setValue(int(points.get('delta', 0.5) * 10))
+                self.moving_avg_wait_spin.setValue(points.get('moving_avg_wait', 5))
+            
+            # Load peaks settings
+            if 'peaks' in settings_dict:
+                peaks = settings_dict['peaks']
+                self.min_peaks_spin.setValue(peaks.get('min_peaks', 1))
+                self.max_peaks_spin.setValue(peaks.get('max_peaks', 3))
+                
+                # Set scoring method
+                scoring = peaks.get('scoring', 'squared')
+                index = self.scoring_box.findText(scoring)
+                if index >= 0:
+                    self.scoring_box.setCurrentIndex(index)
+                
+                # Set custom function if it exists
+                custom_func = peaks.get('custom_scoring_method')
+                if custom_func is not None:
+                    # Convert function back to string representation if possible
+                    # This is a simplified approach - in practice you might want to store the string
+                    self.custom_function_edit.setText("")
+                else:
+                    self.custom_function_edit.setText("")
+                    
+        except Exception as e:
+            print(f"Error loading settings: {e}")
+            # If loading fails, continue with default values
+
 
 class SettingsManager:
     """Singleton class to manage settings across the application"""
     _instance = None
     _settings_dialog = None
+    _current_settings = None
     
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
+            cls._instance._current_settings = None
         return cls._instance
     
     def set_settings_dialog(self, dialog):
         """Set the current settings dialog instance"""
         self._settings_dialog = dialog
+        # Load previous settings into the dialog if they exist
+        if self._current_settings is not None:
+            dialog.load_settings(self._current_settings)
+    
+    def save_current_settings(self):
+        """Save the current settings from the active dialog"""
+        if self._settings_dialog is not None:
+            self._current_settings = self._settings_dialog.get_current_settings()
     
     def get_current_settings(self):
-        """Get current settings from the active dialog or fallback to defaults"""
+        """Get current settings from the active dialog or stored settings"""
         if self._settings_dialog is not None:
-            return self._settings_dialog.get_current_settings()
+            # Get live settings from dialog and store them
+            self._current_settings = self._settings_dialog.get_current_settings()
+            return self._current_settings
+        elif self._current_settings is not None:
+            # Return previously stored settings
+            return self._current_settings
         
-        # Return default settings if no dialog is available
+        # Return default settings if nothing is available
+        return self._get_default_settings()
+    
+    def _get_default_settings(self):
+        """Get default settings"""
         return {
             'segment': {
                 'n_mfcc': 13,

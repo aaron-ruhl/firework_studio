@@ -21,17 +21,29 @@ class MenuBarHelper:
 
     def open_settings_dialog(self):
         """Open the settings dialog window"""
-        settings_dialog = SettingsDialog(self.main_window)
-        
-        # Register this dialog with the SettingsManager
+        # Get the settings manager
         settings_manager = SettingsManager()
+        
+        # Store current analyzer settings before opening dialog
+        original_settings = None
+        if (hasattr(self.main_window, 'analyzer') and 
+            self.main_window.analyzer is not None):
+            original_settings = settings_manager.get_current_settings()
+        
+        # Create and show dialog
+        settings_dialog = SettingsDialog(self.main_window)
         settings_manager.set_settings_dialog(settings_dialog)
         
         result = settings_dialog.exec()
         if result == settings_dialog.DialogCode.Accepted:
-            # Settings were accepted, any changes have already been applied
-            # through the real-time signal connections
-            pass
+            # Settings were accepted - save them for next time
+            settings_manager.save_current_settings()
+        else:
+            # Settings were canceled - restore original settings to analyzer
+            if (original_settings is not None and 
+                hasattr(self.main_window, 'analyzer') and 
+                self.main_window.analyzer is not None):
+                settings_manager.apply_settings_to_analyzer(self.main_window.analyzer)
 
     def create_menus(self, analyzer):
         mw = self.main_window
