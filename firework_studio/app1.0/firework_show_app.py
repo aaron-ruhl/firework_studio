@@ -844,25 +844,25 @@ class FireworkShowApp(QMainWindow):
 
         # Segment Audio button
         self.segment_btn = QPushButton()
-        self.segment_btn.setIcon(QIcon(os.path.join("icons", "upload.png")))  # Using upload icon as placeholder
+        self.segment_btn.setIcon(QIcon(os.path.join("icons", "segment.png")))  # Using segment icon
         self.segment_btn.setStyleSheet(button_style)
         self.segment_btn.setToolTip("Segment Audio (Ctrl+M)")
 
         # Find Interesting Points button
         self.interesting_points_btn = QPushButton()
-        self.interesting_points_btn.setIcon(QIcon(os.path.join("icons", "plus.png")))  # Using plus icon as placeholder
+        self.interesting_points_btn.setIcon(QIcon(os.path.join("icons", "instrument.png")))  # Using instrument icon as placeholder
         self.interesting_points_btn.setStyleSheet(button_style)
         self.interesting_points_btn.setToolTip("Find Interesting Points (Ctrl+I)")
 
         # Find Onsets button
         self.onsets_btn = QPushButton()
-        self.onsets_btn.setIcon(QIcon(os.path.join("icons", "play.png")))  # Using play icon as placeholder
+        self.onsets_btn.setIcon(QIcon(os.path.join("icons", "transition.png")))  # Using transition icon as placeholder
         self.onsets_btn.setStyleSheet(button_style)
         self.onsets_btn.setToolTip("Find Onsets (Ctrl+N)")
 
         # Find Local Maxima button
         self.maxima_btn = QPushButton()
-        self.maxima_btn.setIcon(QIcon(os.path.join("icons", "stop.png")))  # Using stop icon as placeholder
+        self.maxima_btn.setIcon(QIcon(os.path.join("icons", "drum.png")))  # Using drums icon as placeholder
         self.maxima_btn.setStyleSheet(button_style)
         self.maxima_btn.setToolTip("Find Local Maxima (Ctrl+X)")
 
@@ -944,9 +944,10 @@ class FireworkShowApp(QMainWindow):
         toolbar.addWidget(self.firework_count_spinner_group)
         toolbar.addSeparator()
         toolbar.addWidget(self.segment_btn)
-        toolbar.addWidget(self.interesting_points_btn)
         toolbar.addWidget(self.onsets_btn)
+        toolbar.addWidget(self.interesting_points_btn)
         toolbar.addWidget(self.maxima_btn)
+        toolbar.addSeparator()
         toolbar.addWidget(self.undo_preview_btn)
         toolbar.addWidget(self.redo_preview_btn)
         toolbar.addSeparator()

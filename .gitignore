@@ -218,3 +218,7 @@ test_undo_redo.py
 icons/clear-show.png
 icons/load.png
 icons/play.png
+icons/drum.png
+icons/instrument.png
+icons/segment.png
+icons/transition.png
