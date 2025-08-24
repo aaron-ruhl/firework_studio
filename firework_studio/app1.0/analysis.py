@@ -179,9 +179,8 @@ class AudioAnalysis(QThread):
         if region_offset > 0:
             segment_times += librosa.samples_to_time(region_offset, sr=self.sr)
 
-        segments = [(segment_times[i], segment_times[i+1]) for i in range(len(segment_times)-1)]
-        segments.extend(segments)
-        return segments
+        # Return the boundary times directly, not doubled tuples
+        return segment_times.tolist()
 
     def find_interesting_points(self):
         '''Find points of interest in each audio signal and concatenate results, limited to selected_region if set'''
