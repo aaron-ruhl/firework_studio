@@ -7,6 +7,7 @@ from PyQt6.QtCore import Qt, QTimer
 from toaster import ToastDialog
 from filter_dialog import FilterDialog
 from filters import AudioFilter
+from settings import SettingsDialog
 
 class MenuBarHelper:
     def __init__(self, main_window, button_style, menu_style):
@@ -17,6 +18,15 @@ class MenuBarHelper:
     def update_status_bar(self):
         self.main_window.firework_show_helper.update_firework_show_info()
         self.main_window.status_bar.showMessage(self.main_window.firework_show_info)
+
+    def open_settings_dialog(self):
+        """Open the settings dialog window"""
+        settings_dialog = SettingsDialog(self.main_window)
+        result = settings_dialog.exec()
+        if result == settings_dialog.DialogCode.Accepted:
+            # Settings were accepted, any changes have already been applied
+            # through the real-time signal connections
+            pass
 
     def create_menus(self, analyzer):
         mw = self.main_window
@@ -49,6 +59,12 @@ class MenuBarHelper:
             file_menu.addAction(clear_action)
 
             file_menu.addSeparator()
+
+            settings_action = QAction(QIcon(os.path.join("icons", "settings.png")), "Settings", mw)
+            settings_action.setShortcut("Ctrl+Shift+S")
+            settings_action.triggered.connect(self.open_settings_dialog)
+            settings_action.hovered.connect(self.update_status_bar)
+            file_menu.addAction(settings_action)
 
             exit_action = QAction(QIcon(os.path.join("icons", "exit.png")), "Exit", mw)
             exit_action.setShortcut("Ctrl+Q")
