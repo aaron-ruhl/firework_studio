@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QWidget, QScrollArea,
+from PyQt6.QtWidgets import QWidget, QScrollArea
 
 class CreateTabHelper:
     def __init__(self, main_window):

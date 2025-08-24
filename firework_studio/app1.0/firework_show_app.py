@@ -1002,6 +1002,7 @@ class FireworkShowApp(QMainWindow):
         #        Overall UI Elements layout                        #
         #                                                          #
         #############################################################
+        
         # Delay showing the collapsible waveform until after the window is shown to avoid flash
         central_widget = QWidget()
         self.setCentralWidget(central_widget)

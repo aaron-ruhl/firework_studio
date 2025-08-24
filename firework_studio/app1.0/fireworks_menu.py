@@ -7,7 +7,7 @@ from PyQt6.QtCore import Qt, QTimer
 from toaster import ToastDialog
 from filter_dialog import FilterDialog
 from filters import AudioFilter
-from settings import SettingsDialog
+from settings import SettingsDialog, SettingsManager
 
 class MenuBarHelper:
     def __init__(self, main_window, button_style, menu_style):
@@ -22,6 +22,11 @@ class MenuBarHelper:
     def open_settings_dialog(self):
         """Open the settings dialog window"""
         settings_dialog = SettingsDialog(self.main_window)
+        
+        # Register this dialog with the SettingsManager
+        settings_manager = SettingsManager()
+        settings_manager.set_settings_dialog(settings_dialog)
+        
         result = settings_dialog.exec()
         if result == settings_dialog.DialogCode.Accepted:
             # Settings were accepted, any changes have already been applied
@@ -381,7 +386,7 @@ class MenuBarHelper:
                     dialog.setWindowFlags(dialog.windowFlags() | Qt.WindowType.WindowCloseButtonHint)
                     dialog.setWindowModality(Qt.WindowModality.ApplicationModal)
                     # Add a close button to the dialog
-                    layout = dialog.layout() if dialog.layout() else QVBoxLayout(dialog)
+                    layout = QVBoxLayout(dialog)
                     close_btn = QPushButton("Close", dialog)
                     close_btn.clicked.connect(dialog.close)
                     layout.addWidget(close_btn)

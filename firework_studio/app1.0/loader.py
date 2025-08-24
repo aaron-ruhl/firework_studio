@@ -9,6 +9,7 @@ from PyQt6.QtCore import QThread, pyqtSignal
 
 from analysis import AudioAnalysis
 from filters import AudioFilter
+from settings import SettingsManager
 
 
 class AudioLoaderThread(QThread):
@@ -79,77 +80,87 @@ class AudioLoader():
 
     def connect_analysis_signals(self):
         # As soon as data is loaded signals for analysis are connected
-        if hasattr(self.main_window, "analyzer") and self.main_window.analyzer is not None:
+        if hasattr(self.main_window, "analyzer") and self.main_window.analyzer is not None: # type: ignore
             if hasattr(self.main_window, "firework_show_helper"):
                 try:
                     # Disconnect existing connections to avoid duplicates
-                    self.main_window.analyzer.segments_ready.disconnect()
-                    self.main_window.analyzer.interesting_points_ready.disconnect()
-                    self.main_window.analyzer.onsets_ready.disconnect()
-                    self.main_window.analyzer.peaks_ready.disconnect()
+                    self.main_window.analyzer.segments_ready.disconnect() # type: ignore
+                    self.main_window.analyzer.interesting_points_ready.disconnect() # type: ignore
+                    self.main_window.analyzer.onsets_ready.disconnect() # type: ignore
+                    self.main_window.analyzer.peaks_ready.disconnect() # type: ignore
                 except:
                     pass  # Ignore if no connections exist
                 
                 # Connect the signals
-                self.main_window.analyzer.segments_ready.connect(self.main_window.firework_show_helper.handle_segments)
-                self.main_window.analyzer.interesting_points_ready.connect(self.main_window.firework_show_helper.handle_interesting_points)
-                self.main_window.analyzer.onsets_ready.connect(self.main_window.firework_show_helper.handle_onsets)
-                self.main_window.analyzer.peaks_ready.connect(self.main_window.firework_show_helper.handle_peaks)
-                self.main_window.connect_analysis_buttons()
+                self.main_window.analyzer.segments_ready.connect(self.main_window.firework_show_helper.handle_segments) # type: ignore
+                self.main_window.analyzer.interesting_points_ready.connect(self.main_window.firework_show_helper.handle_interesting_points) # type: ignore
+                self.main_window.analyzer.onsets_ready.connect(self.main_window.firework_show_helper.handle_onsets) # type: ignore
+                self.main_window.analyzer.peaks_ready.connect(self.main_window.firework_show_helper.handle_peaks) # type: ignore
+                self.main_window.connect_analysis_buttons() # type: ignore
 
-    def apply_create_tab_settings(self):
-        """Apply current create tab settings to the analyzer"""
-        if hasattr(self.main_window, "analyzer") and self.main_window.analyzer is not None:
+    def apply_initial_settings(self):
+        """Apply current settings to the analyzer for consistency"""
+        if hasattr(self.main_window, "analyzer") and self.main_window.analyzer is not None: # type: ignore
+            # Use the SettingsManager to get current settings
+            settings_manager = SettingsManager()
+            settings_manager.apply_settings_to_analyzer(self.main_window.analyzer) # type: ignore
+
+            # if create_tab_helper exists and has settings, use those as well just in case it is needed later
             if hasattr(self.main_window, "create_tab_helper"):
-                helper = self.main_window.create_tab_helper
+                helper = self.main_window.create_tab_helper # type: ignore
                 
-                # Apply segment settings
-                self.main_window.analyzer.set_segment_settings(
-                    n_mfcc=helper.n_mfcc_spin.value(),
-                    min_segments=helper.min_segments_spin.value(),
-                    max_segments=helper.max_segments_spin.value(),
-                    dct_type=helper.dct_type_spin.value(),
-                    n_fft=helper.n_fft_spin.value(),
-                    hop_length_segments=helper.hop_length_segments_spin.value()
-                )
+                # Apply segment settings if the helper has them
+                if hasattr(helper, 'n_mfcc_spin'):
+                    self.main_window.analyzer.set_segment_settings( # type: ignore
+                        n_mfcc=helper.n_mfcc_spin.value(),
+                        min_segments=helper.min_segments_spin.value(),
+                        max_segments=helper.max_segments_spin.value(),
+                        dct_type=helper.dct_type_spin.value(),
+                        n_fft=helper.n_fft_spin.value(),
+                        hop_length_segments=helper.hop_length_segments_spin.value()
+                    )
                 
-                # Apply onset settings
-                self.main_window.analyzer.set_onset_settings(
-                    min_onsets=helper.min_onsets_spin.value(),
-                    max_onsets=helper.max_onsets_spin.value(),
-                    hop_length_onsets=helper.hop_length_onsets_spin.value(),
-                    backtrack=helper.backtrack_box.currentText() == "True",
-                    normalize=helper.normalize_box.currentText() == "True"
-                )
+                # Apply onset settings if the helper has them
+                if hasattr(helper, 'min_onsets_spin'):
+                    self.main_window.analyzer.set_onset_settings(
+                        min_onsets=helper.min_onsets_spin.value(),
+                        max_onsets=helper.max_onsets_spin.value(),
+                        hop_length_onsets=helper.hop_length_onsets_spin.value(),
+                        backtrack=helper.backtrack_box.currentText() == "True",
+                        normalize=helper.normalize_box.currentText() == "True"
+                    )
                 
-                # Apply interesting points settings
-                self.main_window.analyzer.set_interesting_points_settings(
-                    min_points=helper.min_points_spin.value(),
-                    max_points=helper.max_points_spin.value(),
-                    pre_max=helper.pre_max_spin.value(),
-                    post_max=helper.post_max_spin.value(),
-                    pre_avg_distance=helper.pre_avg_distance_spin.value(),
-                    post_avg_distance=helper.post_avg_distance_spin.value(),
-                    delta=helper.delta_spin.value() * 0.1,
-                    moving_avg_wait=helper.moving_avg_wait_spin.value()
-                )
+                # Apply interesting points settings if the helper has them
+                if hasattr(helper, 'min_points_spin'):
+                    self.main_window.analyzer.set_interesting_points_settings( # type: ignore
+                        min_points=helper.min_points_spin.value(),
+                        max_points=helper.max_points_spin.value(),
+                        pre_max=helper.pre_max_spin.value(),
+                        post_max=helper.post_max_spin.value(),
+                        pre_avg_distance=helper.pre_avg_distance_spin.value(),
+                        post_avg_distance=helper.post_avg_distance_spin.value(),
+                        delta=helper.delta_spin.value() * 0.1,
+                        moving_avg_wait=helper.moving_avg_wait_spin.value()
+                    )
                 
-                # Apply peak settings
-                custom_func = None
-                text = helper.custom_function_edit.text().strip()
-                if text:
-                    try:
-                        if text.startswith("lambda"):
-                            custom_func = eval(text, {"__builtins__": {}}, {})
-                    except Exception:
-                        custom_func = None
-                
-                self.main_window.analyzer.set_peak_settings(
-                    min_peaks=helper.min_peaks_spin.value(),
-                    max_peaks=helper.max_peaks_spin.value(),
-                    scoring=helper.scoring_box.currentText(),
-                    custom_scoring_method=custom_func
-                )
+                # Apply peak settings if the helper has them
+                if hasattr(helper, 'min_peaks_spin'):
+                    custom_func = None
+                    if hasattr(helper, 'custom_function_edit'):
+                        text = helper.custom_function_edit.text().strip()
+                        if text:
+                            try:
+                                if text.startswith("lambda"):
+                                    custom_func = eval(text, {"__builtins__": {}}, {})
+                            except Exception:
+                                custom_func = None
+                    
+                    self.main_window.analyzer.set_peak_settings( # type: ignore
+                        min_peaks=helper.min_peaks_spin.value(),
+                        max_peaks=helper.max_peaks_spin.value(),
+                        scoring=helper.scoring_box.currentText(),
+                        custom_scoring_method=custom_func
+                    )
         
     def handle_audio(self, reload=False):
         # Start thread to load audio
@@ -186,11 +197,11 @@ class AudioLoader():
             self.main_window.preview_widget.set_show_data(audio_data, sr, self.segment_times, None, duration) #type: ignore
             self.main_window.firework_show_helper.plot_waveform() #type: ignore
             self.main_window.firework_show_helper.plot_spectrogram() #type: ignore
-            self.main_window.analyzer = AudioAnalysis(audio_data,audio_datas, sr, duration)
-            self.main_window.filter = AudioFilter(sr, audio_data)  # Initialize filter with sample rate and audio data
+            self.main_window.analyzer = AudioAnalysis(audio_data,audio_datas, sr, duration) # type: ignore
+            self.main_window.filter = AudioFilter(sr, audio_data) # type: ignore # Initialize filter with sample rate and audio data
 
             # Apply current create tab settings to the newly created analyzer
-            self.apply_create_tab_settings()
+            self.apply_initial_settings()
 
             self.connect_analysis_signals()
 

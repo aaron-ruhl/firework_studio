@@ -521,4 +521,130 @@ class SettingsDialog(QDialog):
                 custom_scoring_method=custom_func
             )
 
+    def get_current_settings(self):
+        """Get all current settings as a dictionary"""
+        custom_func = None
+        text = self.custom_function_edit.text().strip()
+        if text:
+            try:
+                if text.startswith("lambda"):
+                    custom_func = eval(text, {"__builtins__": {}}, {})
+            except Exception:
+                custom_func = None
+        
+        return {
+            'segment': {
+                'n_mfcc': self.n_mfcc_spin.value(),
+                'min_segments': self.min_segments_spin.value(),
+                'max_segments': self.max_segments_spin.value(),
+                'dct_type': self.dct_type_spin.value(),
+                'n_fft': self.n_fft_spin.value(),
+                'hop_length_segments': self.hop_length_segments_spin.value()
+            },
+            'onset': {
+                'min_onsets': self.min_onsets_spin.value(),
+                'max_onsets': self.max_onsets_spin.value(),
+                'hop_length_onsets': self.hop_length_onsets_spin.value(),
+                'backtrack': self.backtrack_box.currentText() == "True",
+                'normalize': self.normalize_box.currentText() == "True"
+            },
+            'points': {
+                'min_points': self.min_points_spin.value(),
+                'max_points': self.max_points_spin.value(),
+                'pre_max': self.pre_max_spin.value(),
+                'post_max': self.post_max_spin.value(),
+                'pre_avg_distance': self.pre_avg_distance_spin.value(),
+                'post_avg_distance': self.post_avg_distance_spin.value(),
+                'delta': self.delta_spin.value() * 0.1,
+                'moving_avg_wait': self.moving_avg_wait_spin.value()
+            },
+            'peaks': {
+                'min_peaks': self.min_peaks_spin.value(),
+                'max_peaks': self.max_peaks_spin.value(),
+                'scoring': self.scoring_box.currentText(),
+                'custom_scoring_method': custom_func
+            }
+        }
+
+    def apply_all_settings_to_analyzer(self):
+        """Apply all current dialog settings to the analyzer"""
+        if self.main_window.analyzer is not None:
+            # Apply all settings at once
+            self.update_segment_settings()
+            self.update_onset_settings()
+            self.update_points_settings()
+            self.update_peak_settings()
+
+
+class SettingsManager:
+    """Singleton class to manage settings across the application"""
+    _instance = None
+    _settings_dialog = None
     
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+    
+    def set_settings_dialog(self, dialog):
+        """Set the current settings dialog instance"""
+        self._settings_dialog = dialog
+    
+    def get_current_settings(self):
+        """Get current settings from the active dialog or fallback to defaults"""
+        if self._settings_dialog is not None:
+            return self._settings_dialog.get_current_settings()
+        
+        # Return default settings if no dialog is available
+        return {
+            'segment': {
+                'n_mfcc': 13,
+                'min_segments': 2,
+                'max_segments': 19,
+                'dct_type': 2,
+                'n_fft': 2048,
+                'hop_length_segments': 512
+            },
+            'onset': {
+                'min_onsets': 5,
+                'max_onsets': 20,
+                'hop_length_onsets': 512,
+                'backtrack': True,
+                'normalize': False
+            },
+            'points': {
+                'min_points': 5,
+                'max_points': 20,
+                'pre_max': 3,
+                'post_max': 3,
+                'pre_avg_distance': 3,
+                'post_avg_distance': 5,
+                'delta': 0.5,
+                'moving_avg_wait': 5
+            },
+            'peaks': {
+                'min_peaks': 1,
+                'max_peaks': 3,
+                'scoring': 'squared',
+                'custom_scoring_method': None
+            }
+        }
+    
+    def apply_settings_to_analyzer(self, analyzer):
+        """Apply current settings to the given analyzer"""
+        if analyzer is None:
+            return
+            
+        settings = self.get_current_settings()
+        
+        # Apply segment settings
+        analyzer.set_segment_settings(**settings['segment'])
+        
+        # Apply onset settings  
+        analyzer.set_onset_settings(**settings['onset'])
+        
+        # Apply interesting points settings
+        analyzer.set_interesting_points_settings(**settings['points'])
+        
+        # Apply peak settings
+        analyzer.set_peak_settings(**settings['peaks'])
