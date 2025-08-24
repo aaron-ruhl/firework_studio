@@ -158,8 +158,8 @@ class MenuBarHelper:
             analysis_menu = mw.menuBar().addMenu("&Analysis")
         if analysis_menu is not None:
             # Segment Audio
-            segment_action = QAction("Segment Audio", mw)
-            segment_action.setShortcut("Ctrl+M")
+            self.segment_action = QAction("Segment Audio", mw)
+            self.segment_action.setShortcut("Ctrl+M")
             def segment_audio():
                 if mw.audio_data is None or len(mw.audio_data) == 0:
                     toast = ToastDialog("No audio data available for analysis.", parent=mw)
@@ -185,13 +185,13 @@ class MenuBarHelper:
                         pass
                     mw.analyzer.segments_ready.connect(mw.firework_show_helper.handle_segments)
                     mw.analyzer.analyze_segments()
-            segment_action.triggered.connect(segment_audio)
-            segment_action.hovered.connect(self.update_status_bar)
-            analysis_menu.addAction(segment_action)
+            self.segment_action.triggered.connect(segment_audio)
+            self.segment_action.hovered.connect(self.update_status_bar)
+            analysis_menu.addAction(self.segment_action)
 
             # Find Interesting Points
-            interesting_points_action = QAction("Find Interesting Points", mw)
-            interesting_points_action.setShortcut("Ctrl+I")
+            self.interesting_points_action = QAction("Find Interesting Points", mw)
+            self.interesting_points_action.setShortcut("Ctrl+I")
             def find_interesting_points():
                 if mw.audio_data is None or len(mw.audio_data) == 0:
                     toast = ToastDialog("No audio data available for analysis.", parent=mw)
@@ -217,13 +217,13 @@ class MenuBarHelper:
                         pass
                     mw.analyzer.interesting_points_ready.connect(mw.firework_show_helper.handle_interesting_points)
                     mw.analyzer.analyze_interesting_points()
-            interesting_points_action.triggered.connect(find_interesting_points)
-            interesting_points_action.hovered.connect(self.update_status_bar)
-            analysis_menu.addAction(interesting_points_action)
+            self.interesting_points_action.triggered.connect(find_interesting_points)
+            self.interesting_points_action.hovered.connect(self.update_status_bar)
+            analysis_menu.addAction(self.interesting_points_action)
 
             # Find Onsets
-            onsets_action = QAction("Find Onsets", mw)
-            onsets_action.setShortcut("Ctrl+N")
+            self.onsets_action = QAction("Find Onsets", mw)
+            self.onsets_action.setShortcut("Ctrl+N")
             def find_onsets():
                 if mw.audio_data is None or len(mw.audio_data) == 0:
                     toast = ToastDialog("No audio data available for analysis.", parent=mw)
@@ -249,13 +249,13 @@ class MenuBarHelper:
                         pass
                     mw.analyzer.onsets_ready.connect(mw.firework_show_helper.handle_onsets)
                     mw.analyzer.analyze_onsets()
-            onsets_action.triggered.connect(find_onsets)
-            onsets_action.hovered.connect(self.update_status_bar)
-            analysis_menu.addAction(onsets_action)
+            self.onsets_action.triggered.connect(find_onsets)
+            self.onsets_action.hovered.connect(self.update_status_bar)
+            analysis_menu.addAction(self.onsets_action)
 
             # Find Local Maxima
-            maxima_action = QAction("Find Local Maxima", mw)
-            maxima_action.setShortcut("Ctrl+X")
+            self.maxima_action = QAction("Find Local Maxima", mw)
+            self.maxima_action.setShortcut("Ctrl+X")
             def find_local_maxima():
                 if mw.audio_data is None or len(mw.audio_data) == 0:
                     toast = ToastDialog("No audio data available for analysis.", parent=mw)
@@ -281,9 +281,9 @@ class MenuBarHelper:
                         pass
                     mw.analyzer.peaks_ready.connect(mw.firework_show_helper.handle_peaks)
                     mw.analyzer.analyze_maxima()
-            maxima_action.triggered.connect(find_local_maxima)
-            maxima_action.hovered.connect(self.update_status_bar)
-            analysis_menu.addAction(maxima_action)
+            self.maxima_action.triggered.connect(find_local_maxima)
+            self.maxima_action.hovered.connect(self.update_status_bar)
+            analysis_menu.addAction(self.maxima_action)
 
             analysis_menu.addSeparator()
 

@@ -434,7 +434,8 @@ class FireworkShowApp(QMainWindow):
                 if hasattr(action, "text") and action.text() in ["Back", "Forward"]:
                     action.setVisible(False)
 
-        # Add custom Undo and Redo buttons for marking actions
+
+        ''' Add custom Undo and Redo buttons for marking actions '''
         self.undo_btn = QPushButton()
         self.undo_btn.setIcon(QIcon(os.path.join("icons", "undo.png")))
         self.undo_btn.setStyleSheet(button_style)
@@ -451,7 +452,7 @@ class FireworkShowApp(QMainWindow):
         self.waveform_toolbar.addSeparator()
         self.waveform_toolbar.addWidget(self.undo_btn)
         self.waveform_toolbar.addWidget(self.redo_btn)
-                    
+
         # Ensure "Home" button always resets the waveform view, even after selection
         def reset_waveform_view():
             # Also clear selection tool region if needed
@@ -806,11 +807,11 @@ class FireworkShowApp(QMainWindow):
         self.load_show_btn = create_load_show_btn()
         self.load_show_btn.setIcon(QIcon(os.path.join("icons", "load.png")))
         
-           ###########################################################
-           #                                                         #
-           #              Load Audio Button                          #
-           #                                                         #
-           ###########################################################
+        ##################################################################
+        #                                                                #
+        #              Load Audio Button                                 #
+        #                                                                #
+        ##################################################################
 
         # Create a button to load audio files
         self.load_btn = QPushButton()
@@ -835,6 +836,45 @@ class FireworkShowApp(QMainWindow):
         self.redo_preview_btn.setToolTip("Redo preview action")
         self.redo_preview_btn.clicked.connect(self.preview_widget.redo)
 
+         #################################################################
+        #                                                                #
+        #    Add Analysis handles buttons                                  #
+        #                                                                #
+        ##################################################################
+
+        # Segment Audio button
+        self.segment_btn = QPushButton()
+        self.segment_btn.setIcon(QIcon(os.path.join("icons", "upload.png")))  # Using upload icon as placeholder
+        self.segment_btn.setStyleSheet(button_style)
+        self.segment_btn.setToolTip("Segment Audio (Ctrl+M)")
+
+        # Find Interesting Points button
+        self.interesting_points_btn = QPushButton()
+        self.interesting_points_btn.setIcon(QIcon(os.path.join("icons", "plus.png")))  # Using plus icon as placeholder
+        self.interesting_points_btn.setStyleSheet(button_style)
+        self.interesting_points_btn.setToolTip("Find Interesting Points (Ctrl+I)")
+
+        # Find Onsets button
+        self.onsets_btn = QPushButton()
+        self.onsets_btn.setIcon(QIcon(os.path.join("icons", "play.png")))  # Using play icon as placeholder
+        self.onsets_btn.setStyleSheet(button_style)
+        self.onsets_btn.setToolTip("Find Onsets (Ctrl+N)")
+
+        # Find Local Maxima button
+        self.maxima_btn = QPushButton()
+        self.maxima_btn.setIcon(QIcon(os.path.join("icons", "stop.png")))  # Using stop icon as placeholder
+        self.maxima_btn.setStyleSheet(button_style)
+        self.maxima_btn.setToolTip("Find Local Maxima (Ctrl+X)")
+
+        # Connect analysis buttons after self.analyzer is initialized
+        def connect_analysis_buttons():
+            if self.analyzer is not None and hasattr(self.menu_helper, 'segment_action'):
+                self.segment_btn.clicked.connect(self.menu_helper.segment_action.trigger)
+                self.interesting_points_btn.clicked.connect(self.menu_helper.interesting_points_action.trigger)
+                self.onsets_btn.clicked.connect(self.menu_helper.onsets_action.trigger)
+                self.maxima_btn.clicked.connect(self.menu_helper.maxima_action.trigger)
+
+        self.connect_analysis_buttons = connect_analysis_buttons
 
         ############################################################
         #                                                          #
@@ -900,15 +940,20 @@ class FireworkShowApp(QMainWindow):
         toolbar.addSeparator()
         toolbar.addWidget(self.add_firing_btn)
         toolbar.addWidget(self.delete_firing_btn)
-        toolbar.addSeparator()
         toolbar.addWidget(self.pattern_selector)
         toolbar.addWidget(self.firework_count_spinner_group)
+        toolbar.addSeparator()
+        toolbar.addWidget(self.segment_btn)
+        toolbar.addWidget(self.interesting_points_btn)
+        toolbar.addWidget(self.onsets_btn)
+        toolbar.addWidget(self.maxima_btn)
         toolbar.addWidget(self.undo_preview_btn)
         toolbar.addWidget(self.redo_preview_btn)
         toolbar.addSeparator()
         toolbar.addWidget(self.save_btn)
         toolbar.addWidget(self.load_show_btn)
         toolbar.addWidget(self.clear_btn)
+        
 
         # Add a stretch to push right-aligned controls (if needed)
         spacer = QWidget()
