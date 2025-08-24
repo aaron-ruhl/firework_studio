@@ -28,7 +28,9 @@ from show_file_handler import ShowFileHandler
 from collapsible_widget import CollapsibleWidget
 from firework_show_helper import FireworkShowHelper
 from fireworks_create_tab import CreateTabHelper
+from settings import SettingsManager
 from fireworks_menu import MenuBarHelper
+from PyQt6.QtWidgets import QSlider, QHBoxLayout, QWidget, QLabel
 
 '''THIS IS THE MAIN VIEW FOR THE FIREWORK STUDIO APPLICATION'''
 class FireworkShowApp(QMainWindow):
@@ -876,6 +878,30 @@ class FireworkShowApp(QMainWindow):
 
         self.connect_analysis_buttons = connect_analysis_buttons
 
+        # Initialize settings manager
+        self.settings_manager = SettingsManager()
+
+        # Create sliders for each analysis button
+        def create_analysis_slider(min_val=1, max_val=100, default_val=10, tooltip="Adjust analysis setting"):
+            slider_widget = QWidget()
+            layout = QHBoxLayout(slider_widget)
+            layout.setContentsMargins(0, 0, 0, 0)
+            layout.setSpacing(4)
+            slider = QSlider(Qt.Orientation.Horizontal)
+            slider.setMinimum(min_val)
+            slider.setMaximum(max_val)
+            slider.setValue(default_val)
+            slider.setFixedWidth(120)
+            slider.setStyleSheet(button_style)
+            slider.setToolTip(tooltip)
+            value_label = QLabel(str(slider.value()))
+            value_label.setStyleSheet("color: #ffd700; font-size: 12px;")
+            slider.valueChanged.connect(lambda v: value_label.setText(str(v)))
+            layout.addWidget(slider)
+            layout.addWidget(value_label)
+            return slider_widget, slider
+
+
         ############################################################
         #                                                          #
         #       Menu Bar                                           #
@@ -935,22 +961,56 @@ class FireworkShowApp(QMainWindow):
         # Add buttons to toolbar in logical order with spacers
         toolbar.addWidget(self.load_btn)
         toolbar.addSeparator()
+
+        # media/firework play/pause and stop
         toolbar.addWidget(self.play_pause_btn)
         toolbar.addWidget(self.stop_btn)
         toolbar.addSeparator()
+
+        # firing handle controls
         toolbar.addWidget(self.add_firing_btn)
         toolbar.addWidget(self.delete_firing_btn)
         toolbar.addWidget(self.pattern_selector)
         toolbar.addWidget(self.firework_count_spinner_group)
-        toolbar.addSeparator()
-        toolbar.addWidget(self.segment_btn)
-        toolbar.addWidget(self.onsets_btn)
-        toolbar.addWidget(self.interesting_points_btn)
-        toolbar.addWidget(self.maxima_btn)
+
+        # undo/redo buttons
         toolbar.addSeparator()
         toolbar.addWidget(self.undo_preview_btn)
         toolbar.addWidget(self.redo_preview_btn)
+
+        # Analysis buttons and sliders
         toolbar.addSeparator()
+        toolbar.addWidget(self.segment_btn)
+        
+        # Onsets button and slider
+        toolbar.addWidget(self.onsets_btn)
+        self.onsets_slider_widget, self.onsets_slider = create_analysis_slider(
+            min_val=1, max_val=20, 
+            default_val=self.settings_manager.get_min_onsets(),
+            tooltip="Adjust minimum onsets"
+        )
+        toolbar.addWidget(self.onsets_slider_widget)
+
+        # Interesting Points button and slider
+        toolbar.addWidget(self.interesting_points_btn)
+        self.interesting_points_slider_widget, self.interesting_points_slider = create_analysis_slider(
+            min_val=1, max_val=20, 
+            default_val=self.settings_manager.get_min_points(),
+            tooltip="Adjust minimum interesting points"
+        )
+        toolbar.addWidget(self.interesting_points_slider_widget)
+
+        # Maxima button and slider
+        toolbar.addWidget(self.maxima_btn)
+        self.maxima_slider_widget, self.maxima_slider = create_analysis_slider(
+            min_val=1, max_val=100, 
+            default_val=self.settings_manager.get_max_peaks(),
+            tooltip="Adjust maximum peaks"
+        )
+        toolbar.addWidget(self.maxima_slider_widget)
+        toolbar.addSeparator()
+
+        # Save/Load/Clear show buttons
         toolbar.addWidget(self.save_btn)
         toolbar.addWidget(self.load_show_btn)
         toolbar.addWidget(self.clear_btn)
@@ -964,6 +1024,11 @@ class FireworkShowApp(QMainWindow):
         # Make sure the toolbar is added to the window
         # Change from BottomToolBarArea to TopToolBarArea for visibility
         self.addToolBar(Qt.ToolBarArea.BottomToolBarArea, toolbar)
+
+        # Connect sliders to settings manager
+        self.onsets_slider.valueChanged.connect(self.settings_manager.set_min_onsets)
+        self.interesting_points_slider.valueChanged.connect(self.settings_manager.set_min_points)
+        self.maxima_slider.valueChanged.connect(self.settings_manager.set_max_peaks)
 
         ############################################################
         #                                                          #

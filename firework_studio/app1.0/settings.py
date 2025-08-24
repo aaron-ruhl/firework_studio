@@ -727,3 +727,58 @@ class SettingsManager:
         
         # Apply peak settings
         analyzer.set_peak_settings(**settings['peaks'])
+    
+    def get_min_onsets(self):
+        """Get current minimum onsets value"""
+        if self._settings_dialog is not None:
+            return self._settings_dialog.min_onsets_spin.value()
+        else:
+            settings = self.get_current_settings()
+            return settings['onset']['min_onsets']
+    
+    def set_min_onsets(self, value):
+        """Set minimum onsets value"""
+        if self._settings_dialog is not None:
+            self._settings_dialog.min_onsets_spin.setValue(value)
+            self._settings_dialog.max_onsets_spin.setValue(value)
+        else:
+            if self._current_settings is None:
+                self._current_settings = self._get_default_settings()
+            self._current_settings['onset']['min_onsets'] = value
+    
+    def get_min_points(self):
+        """Get current minimum interesting points value"""
+        if self._settings_dialog is not None:
+            return self._settings_dialog.min_points_spin.value()
+        else:
+            settings = self.get_current_settings()
+            return settings['points']['min_points']
+    
+    def set_min_points(self, value):
+        """Set minimum interesting points value"""
+        if self._settings_dialog is not None:
+            self._settings_dialog.min_points_spin.setValue(value)
+            self._settings_dialog.max_points_spin.setValue(value)
+        else:
+            if self._current_settings is None:
+                self._current_settings = self._get_default_settings()
+            self._current_settings['points']['min_points'] = value
+    
+    def get_max_peaks(self):
+        """Get current maximum peaks value"""
+        if self._settings_dialog is not None:
+            return self._settings_dialog.max_peaks_spin.value()
+        else:
+            settings = self.get_current_settings()
+            return settings['peaks']['max_peaks']
+    
+    # this also sets the minimum so that the slider works as user intends it to work
+    def set_max_peaks(self, value):
+        """Set maximum peaks value"""
+        if self._settings_dialog is not None:
+            self._settings_dialog.max_peaks_spin.setValue(value)
+            self._settings_dialog.min_peaks_spin.setValue(value)
+        else:
+            if self._current_settings is None:
+                self._current_settings = self._get_default_settings()
+            self._current_settings['peaks']['max_peaks'] = value
