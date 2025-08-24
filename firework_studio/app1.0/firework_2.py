@@ -5,7 +5,7 @@ from PyQt6.QtCore import QTimer
 from particle import Particle
 import numpy as np
 class Firework:
-    def __init__(self, x, y, color, pattern, display_number, particle_count, handle=None, explode_callback=None):
+    def __init__(self, x, y, color, pattern, display_number, particle_count, handle=None, explode_callback=None, canvas_height=None):
         self.x = x
         self.y = y
         # Ensure color is always a QColor instance
@@ -17,7 +17,10 @@ class Firework:
         self.display_number = display_number
         self.particles = []
         self.exploded = False
-        self.velocity_y = -random.uniform(10, 11)
+        
+        # Calculate dynamic velocity based on canvas height
+        self.velocity_y = self._calculate_velocity(canvas_height)
+        
         self.particle_count = particle_count
         self.delay = 2
         self.frozen = False
@@ -33,6 +36,40 @@ class Firework:
 
         self._remaining_time = 0
         self.explode_callback = explode_callback  # External callback for threading
+
+    def _calculate_velocity(self, canvas_height):
+        """Calculate appropriate velocity based on canvas height to prevent fireworks going too high"""
+        if canvas_height is None:
+            # Fallback to original velocity if canvas height not provided
+            return -random.uniform(10, 11)
+        
+        # Define target explosion height as a percentage of canvas height
+        # We want fireworks to explode at around 30-50% from the top of the canvas
+        target_explosion_ratio = random.uniform(0.3, 0.5)
+        target_height = canvas_height * target_explosion_ratio
+        
+        # Calculate required velocity to reach target height
+        # Using physics: v = sqrt(2 * g * h) where g is gravity (0.1) and h is height difference
+        height_to_travel = canvas_height - target_height
+        
+        # Base velocity calculation with some randomization
+        base_velocity = (2 * 0.1 * height_to_travel) ** 0.5
+        
+        # Add some randomization while keeping it proportional to canvas size
+        velocity_variation = base_velocity * 0.1  # 10% variation
+        final_velocity = base_velocity + random.uniform(-velocity_variation, velocity_variation)
+        
+        # Ensure minimum and maximum velocities for visual appeal
+        min_velocity = 3.0
+        max_velocity = canvas_height * 0.02  # Scale max velocity with canvas size
+        final_velocity = max(min_velocity, min(max_velocity, final_velocity))
+        
+        return -final_velocity  # Negative because we're going upward
+
+    def update_velocity_for_canvas_size(self, canvas_height):
+        """Update velocity when canvas size changes"""
+        if not self.exploded:
+            self.velocity_y = self._calculate_velocity(canvas_height)
 
     def get_current_color(self):
         # If handle is provided and has an explosion color, use that

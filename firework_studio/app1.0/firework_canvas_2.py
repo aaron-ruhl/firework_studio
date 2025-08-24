@@ -10,6 +10,7 @@ import random
 from firework_2 import Firework  
 from PyQt6.QtGui import QColor
 import numpy as np
+
 class FireworksCanvas(QOpenGLWidget):
     def __init__(self):
         super().__init__()
@@ -50,7 +51,8 @@ class FireworksCanvas(QOpenGLWidget):
             handle.explosion_color, handle.pattern,
             handle.display_number,
             self.particle_count,
-            handle=handle
+            handle=handle,
+            canvas_height=self.height()
         )
         self.fireworks.append(firework)
 
@@ -138,6 +140,16 @@ class FireworksCanvas(QOpenGLWidget):
         glLoadIdentity()
         glOrtho(0, w, h, 0, -1, 1)
         glMatrixMode(GL_MODELVIEW)
+        
+        # Update existing fireworks with new canvas dimensions
+        self._update_fireworks_for_new_size(h)
+
+    def _update_fireworks_for_new_size(self, new_height):
+        """Update existing fireworks when canvas is resized"""
+        for firework in self.fireworks:
+            if not firework.exploded:
+                # Recalculate velocity for unexploded fireworks
+                firework.velocity_y = firework._calculate_velocity(new_height)
 
     def draw_background(self):
         if self.background == "night":

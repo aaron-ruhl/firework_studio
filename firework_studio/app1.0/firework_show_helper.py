@@ -271,7 +271,7 @@ class FireworkShowHelper:
                 number_firings = spinner.value()
                 
         if mw.segment_times and isinstance(mw.segment_times, (list, tuple)) and len(mw.segment_times) > 1:
-            segment_count = len(mw.segment_times) + 1
+            segment_count = len(mw.segment_times)  # N boundaries define N segments
         else:
             segment_count = 0
         mw.firework_show_info = (
@@ -296,7 +296,10 @@ class FireworkShowHelper:
         else:
             new_segments = [s for s in segment_times if s not in mw.segment_times]
             mw.segment_times.extend(new_segments)
+        
         self.marking_stack.push('segment', new_segments)
+
+        # Add markings to current waveform
         ax = mw.waveform_canvas.figure.axes[0]
         if mw.segment_times is not None:
             for t in mw.segment_times:
@@ -324,7 +327,9 @@ class FireworkShowHelper:
                 if leg:
                     leg.get_frame().set_alpha(0.3)
         def show_segments_toast():
-            toast = ToastDialog(f"Found {len(new_segments)//2 + 1} segments!", parent=mw)
+            # Calculate correct segment count: N boundaries define N-1 segments
+            total_segments = len(mw.segment_times) if mw.segment_times and len(mw.segment_times) > 1 else 0
+            toast = ToastDialog(f"Found {total_segments} segments!", parent=mw)
             geo = mw.geometry()
             x = geo.x() + geo.width() - toast.width() - 40
             y = geo.y() + geo.height() - toast.height() - 40
@@ -334,10 +339,10 @@ class FireworkShowHelper:
         if hasattr(mw, "_segments_toast_shown") and not mw._segments_toast_shown:
             show_segments_toast()
             mw._segments_toast_shown = True
-        self.update_firework_show_info()
         mw.waveform_canvas.draw_idle()
         if hasattr(mw, 'waveform_selector'):
             mw.waveform_selector.update_original_limits()
+        self.update_firework_show_info()
 
     def handle_interesting_points(self, points):
         mw = self.main_window
@@ -349,7 +354,7 @@ class FireworkShowHelper:
             mw.points.extend(new_points)
         self.marking_stack.push('interesting', new_points)
         
-        # Add firings for each new interesting point with random patterns
+        # Add firing handles for each new interesting point with random patterns
         for point_time in new_points:
             if isinstance(point_time, (int, float)) and np.isscalar(point_time) and not isinstance(point_time, complex):
                 # Check if firing time is valid (greater than delay)
@@ -361,7 +366,8 @@ class FireworkShowHelper:
                     mw.preview_widget.add_firing(specific_handle=specific_handle)
                     # Restore original time
                     mw.preview_widget.current_time = saved_time
-        
+
+        # Add markings to current waveform
         ax = mw.waveform_canvas.figure.axes[0]
         if mw.points is not None and isinstance(mw.points, (list, tuple, np.ndarray)):
             for t in mw.points:
@@ -409,7 +415,7 @@ class FireworkShowHelper:
             mw.onsets.extend(new_onsets)
         self.marking_stack.push('onset', new_onsets)
         
-        # Add firings for each new onset with random patterns
+        # Add firing handles for each new onset with random patterns
         for onset_time in new_onsets:
             if isinstance(onset_time, (int, float)) and np.isscalar(onset_time) and not isinstance(onset_time, complex):
                 # Check if firing time is valid (greater than delay)
@@ -421,7 +427,8 @@ class FireworkShowHelper:
                     mw.preview_widget.add_firing(specific_handle=specific_handle)
                     # Restore original time
                     mw.preview_widget.current_time = saved_time
-        
+
+        # Add markings to current waveform
         ax = mw.waveform_canvas.figure.axes[0]
         if mw.onsets is not None and isinstance(mw.onsets, (list, tuple, np.ndarray)):
             for t in mw.onsets:

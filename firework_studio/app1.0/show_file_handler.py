@@ -269,7 +269,7 @@ class ShowFileHandler:
 
             # Apply current create tab settings and connect to the newly created analyzer
             self.main_window.audio_loader.connect_analysis_signals()
-            self.main_window.audio_loader.apply_create_tab_settings()
+            self.main_window.audio_loader.apply_initial_settings()
 
             self.main_window.firework_show_helper.plot_waveform()
             self.main_window.firework_show_helper.plot_spectrogram()
