@@ -107,22 +107,37 @@ class AudioAnalysis(QThread):
             self.peaks_ready.emit(peaks)
         
     def analyze_segments(self):
+        # Don't start if thread is already running
+        if self.isRunning():
+            return
         self.task = "segments"
         self.start()
 
     def analyze_interesting_points(self):
+        # Don't start if thread is already running
+        if self.isRunning():
+            return
         self.task = "interesting_points"
         self.start()
 
     def analyze_onsets(self):
+        # Don't start if thread is already running
+        if self.isRunning():
+            return
         self.task = "onsets"
         self.start()
 
     def analyze_beats(self):
+        # Don't start if thread is already running
+        if self.isRunning():
+            return
         self.task = "beats"
         self.start()
 
     def analyze_maxima(self):
+        # Don't start if thread is already running
+        if self.isRunning():
+            return
         self.task = "maxima"
         self.start()
 

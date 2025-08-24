@@ -197,6 +197,13 @@ class AudioLoader():
             self.main_window.preview_widget.set_show_data(audio_data, sr, self.segment_times, None, duration) #type: ignore
             self.main_window.firework_show_helper.plot_waveform() #type: ignore
             self.main_window.firework_show_helper.plot_spectrogram() #type: ignore
+            
+            # Clean up existing analyzer thread if it exists
+            if hasattr(self.main_window, 'analyzer') and self.main_window.analyzer is not None: # type: ignore
+                if self.main_window.analyzer.isRunning(): # type: ignore
+                    self.main_window.analyzer.quit() # type: ignore
+                    self.main_window.analyzer.wait() # type: ignore
+            
             self.main_window.analyzer = AudioAnalysis(audio_data,audio_datas, sr, duration) # type: ignore
             self.main_window.filter = AudioFilter(sr, audio_data) # type: ignore # Initialize filter with sample rate and audio data
 
