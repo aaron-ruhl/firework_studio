@@ -873,6 +873,9 @@ class FireworkShowApp(QMainWindow):
 
         # Initialize settings manager
         self.settings_manager = SettingsManager()
+        
+        # Load saved settings from file if they exist
+        self.settings_manager.load_settings_from_file()
 
         # Create sliders for each analysis button
         def create_analysis_slider(min_val=1, max_val=100, default_val=10, tooltip="Adjust analysis setting"):
@@ -893,6 +896,90 @@ class FireworkShowApp(QMainWindow):
             layout.addWidget(slider)
             layout.addWidget(value_label)
             return slider_widget, slider
+
+        def create_dual_analysis_slider(min_val=1, max_val=100, default_min=5, default_max=20, 
+                                      label_text="Analysis", tooltip_min="Adjust minimum", tooltip_max="Adjust maximum"):
+            """Create a vertical stack of two sliders for min/max control"""
+            slider_widget = QWidget()
+            main_layout = QVBoxLayout(slider_widget)
+            main_layout.setContentsMargins(2, 2, 2, 2)
+            main_layout.setSpacing(2)
+            
+            # Label for the slider group
+            group_label = QLabel(label_text)
+            group_label.setStyleSheet("color: #ffd700; font-size: 10px; font-weight: bold;")
+            group_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            main_layout.addWidget(group_label)
+            
+            # Min slider (top)
+            min_container = QWidget()
+            min_layout = QHBoxLayout(min_container)
+            min_layout.setContentsMargins(0, 0, 0, 0)
+            min_layout.setSpacing(4)
+            
+            min_slider = QSlider(Qt.Orientation.Horizontal)
+            min_slider.setMinimum(min_val)
+            min_slider.setMaximum(max_val)
+            min_slider.setValue(default_min)
+            min_slider.setFixedWidth(100)
+            min_slider.setStyleSheet(button_style)
+            min_slider.setToolTip(tooltip_min)
+            
+            min_label = QLabel("Min:")
+            min_label.setStyleSheet("color: #ffd700; font-size: 9px;")
+            min_label.setFixedWidth(25)
+            
+            min_value_label = QLabel(str(min_slider.value()))
+            min_value_label.setStyleSheet("color: #ffd700; font-size: 10px;")
+            min_value_label.setFixedWidth(20)
+            min_slider.valueChanged.connect(lambda v: min_value_label.setText(str(v)))
+            
+            min_layout.addWidget(min_label)
+            min_layout.addWidget(min_slider)
+            min_layout.addWidget(min_value_label)
+            main_layout.addWidget(min_container)
+            
+            # Max slider (bottom)
+            max_container = QWidget()
+            max_layout = QHBoxLayout(max_container)
+            max_layout.setContentsMargins(0, 0, 0, 0)
+            max_layout.setSpacing(4)
+            
+            max_slider = QSlider(Qt.Orientation.Horizontal)
+            max_slider.setMinimum(min_val)
+            max_slider.setMaximum(max_val)
+            max_slider.setValue(default_max)
+            max_slider.setFixedWidth(100)
+            max_slider.setStyleSheet(button_style)
+            max_slider.setToolTip(tooltip_max)
+            
+            max_label = QLabel("Max:")
+            max_label.setStyleSheet("color: #ffd700; font-size: 9px;")
+            max_label.setFixedWidth(25)
+            
+            max_value_label = QLabel(str(max_slider.value()))
+            max_value_label.setStyleSheet("color: #ffd700; font-size: 10px;")
+            max_value_label.setFixedWidth(20)
+            max_slider.valueChanged.connect(lambda v: max_value_label.setText(str(v)))
+            
+            max_layout.addWidget(max_label)
+            max_layout.addWidget(max_slider)
+            max_layout.addWidget(max_value_label)
+            main_layout.addWidget(max_container)
+            
+            # Ensure min <= max constraint
+            def update_min_constraint(value):
+                if value > max_slider.value():
+                    max_slider.setValue(value)
+            
+            def update_max_constraint(value):
+                if value < min_slider.value():
+                    min_slider.setValue(value)
+            
+            min_slider.valueChanged.connect(update_min_constraint)
+            max_slider.valueChanged.connect(update_max_constraint)
+            
+            return slider_widget, min_slider, max_slider
 
 
         ############################################################
@@ -975,30 +1062,39 @@ class FireworkShowApp(QMainWindow):
         toolbar.addSeparator()
         toolbar.addWidget(self.segment_btn)
         
-        # Onsets button and slider
+        # Onsets button and dual slider
         toolbar.addWidget(self.onsets_btn)
-        self.onsets_slider_widget, self.onsets_slider = create_analysis_slider(
-            min_val=1, max_val=20, 
-            default_val=self.settings_manager.get_min_onsets(),
-            tooltip="Adjust minimum onsets"
+        self.onsets_slider_widget, self.onsets_min_slider, self.onsets_max_slider = create_dual_analysis_slider(
+            min_val=1, max_val=10, 
+            default_min=self.settings_manager.get_min_onsets(),
+            default_max=self.settings_manager.get_max_onsets(),
+            label_text="Onsets",
+            tooltip_min="Adjust minimum onsets",
+            tooltip_max="Adjust maximum onsets"
         )
         toolbar.addWidget(self.onsets_slider_widget)
 
-        # Interesting Points button and slider
+        # Interesting Points button and dual slider
         toolbar.addWidget(self.interesting_points_btn)
-        self.interesting_points_slider_widget, self.interesting_points_slider = create_analysis_slider(
-            min_val=1, max_val=20, 
-            default_val=self.settings_manager.get_min_points(),
-            tooltip="Adjust minimum interesting points"
+        self.interesting_points_slider_widget, self.interesting_points_min_slider, self.interesting_points_max_slider = create_dual_analysis_slider(
+            min_val=1, max_val=10, 
+            default_min=self.settings_manager.get_min_points(),
+            default_max=self.settings_manager.get_max_points(),
+            label_text="Points",
+            tooltip_min="Adjust minimum interesting points",
+            tooltip_max="Adjust maximum interesting points"
         )
         toolbar.addWidget(self.interesting_points_slider_widget)
 
-        # Maxima button and slider
+        # Peaks button and dual slider
         toolbar.addWidget(self.maxima_btn)
-        self.maxima_slider_widget, self.maxima_slider = create_analysis_slider(
-            min_val=1, max_val=100, 
-            default_val=self.settings_manager.get_max_peaks(),
-            tooltip="Adjust maximum peaks"
+        self.maxima_slider_widget, self.maxima_min_slider, self.maxima_max_slider = create_dual_analysis_slider(
+            min_val=1, max_val=10, 
+            default_min=self.settings_manager.get_min_peaks(),
+            default_max=self.settings_manager.get_max_peaks(),
+            label_text="Peaks",
+            tooltip_min="Adjust minimum peaks",
+            tooltip_max="Adjust maximum peaks"
         )
         toolbar.addWidget(self.maxima_slider_widget)
         toolbar.addSeparator()
@@ -1019,9 +1115,17 @@ class FireworkShowApp(QMainWindow):
         self.addToolBar(Qt.ToolBarArea.BottomToolBarArea, toolbar)
 
         # Connect sliders to settings manager
-        self.onsets_slider.valueChanged.connect(self.settings_manager.set_min_onsets)
-        self.interesting_points_slider.valueChanged.connect(self.settings_manager.set_min_points)
-        self.maxima_slider.valueChanged.connect(self.settings_manager.set_max_peaks)
+        # Onsets sliders
+        self.onsets_min_slider.valueChanged.connect(lambda value: self.settings_manager.set_min_onsets_and_apply(value, getattr(self, 'analyzer', None)))
+        self.onsets_max_slider.valueChanged.connect(lambda value: self.settings_manager.set_max_onsets_and_apply(value, getattr(self, 'analyzer', None)))
+        
+        # Interesting Points sliders
+        self.interesting_points_min_slider.valueChanged.connect(lambda value: self.settings_manager.set_min_points_and_apply(value, getattr(self, 'analyzer', None)))
+        self.interesting_points_max_slider.valueChanged.connect(lambda value: self.settings_manager.set_max_points_and_apply(value, getattr(self, 'analyzer', None)))
+        
+        # Peaks sliders
+        self.maxima_min_slider.valueChanged.connect(lambda value: self.settings_manager.set_min_peaks_and_apply(value, getattr(self, 'analyzer', None)))
+        self.maxima_max_slider.valueChanged.connect(lambda value: self.settings_manager.set_max_peaks_and_apply(value, getattr(self, 'analyzer', None)))
 
         ############################################################
         #                                                          #
@@ -1130,3 +1234,11 @@ class FireworkShowApp(QMainWindow):
 
     def showEvent(self, event):
         super().showEvent(event)
+
+    def closeEvent(self, event):
+        """Save settings when the application is closing"""
+        try:
+            self.settings_manager.save_settings_to_file()
+        except Exception as e:
+            print(f"Error saving settings on close: {e}")
+        super().closeEvent(event)

@@ -21,8 +21,11 @@ class MenuBarHelper:
 
     def open_settings_dialog(self):
         """Open the settings dialog window"""
-        # Get the settings manager
-        settings_manager = SettingsManager()
+        # Use the existing settings manager from the main window
+        settings_manager = self.main_window.settings_manager
+        
+        # Sync current toolbar slider values with settings manager
+        settings_manager.sync_with_toolbar_sliders(self.main_window)
         
         # Store current analyzer settings before opening dialog
         original_settings = None
@@ -38,12 +41,19 @@ class MenuBarHelper:
         if result == settings_dialog.DialogCode.Accepted:
             # Settings were accepted - save them for next time
             settings_manager.save_current_settings()
+            # Update toolbar sliders to reflect any changes made in dialog
+            settings_manager.update_toolbar_sliders(self.main_window)
         else:
             # Settings were canceled - restore original settings to analyzer
             if (original_settings is not None and 
                 hasattr(self.main_window, 'analyzer') and 
                 self.main_window.analyzer is not None):
                 settings_manager.apply_settings_to_analyzer(self.main_window.analyzer)
+            # Also restore toolbar sliders to their previous values
+            settings_manager.update_toolbar_sliders(self.main_window)
+        
+        # Clear the dialog reference so getters use stored settings instead
+        settings_manager.clear_settings_dialog()
 
     def create_menus(self, analyzer):
         mw = self.main_window

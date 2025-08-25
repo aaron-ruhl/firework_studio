@@ -265,14 +265,14 @@ class SettingsDialog(QDialog):
         onset_group = QGroupBox("Onset Settings")
         onset_layout = QVBoxLayout()
         self.min_onsets_spin = QSpinBox()
-        self.min_onsets_spin.setRange(1, 100)
+        self.min_onsets_spin.setRange(1, 10)
         self.min_onsets_spin.setValue(5)
         self.min_onsets_spin.setPrefix("Min: ")
         self.min_onsets_spin.setStyleSheet("font-size: 10px;")
         onset_layout.addWidget(self.min_onsets_spin)
         self.max_onsets_spin = QSpinBox()
-        self.max_onsets_spin.setRange(1, 100)
-        self.max_onsets_spin.setValue(20)
+        self.max_onsets_spin.setRange(1, 10)
+        self.max_onsets_spin.setValue(10)
         self.max_onsets_spin.setPrefix("Max: ")
         self.max_onsets_spin.setStyleSheet("font-size: 10px;")
         onset_layout.addWidget(self.max_onsets_spin)
@@ -317,20 +317,20 @@ class SettingsDialog(QDialog):
         points_group = QGroupBox("Interesting Points Settings")
         points_layout = QVBoxLayout()
         self.min_points_spin = QSpinBox()
-        self.min_points_spin.setRange(1, 100)
+        self.min_points_spin.setRange(1, 10)
         self.min_points_spin.setValue(5)
         self.min_points_spin.setPrefix("Min: ")
         self.min_points_spin.setStyleSheet("font-size: 10px;")
         points_layout.addWidget(self.min_points_spin)
         self.max_points_spin = QSpinBox()
-        self.max_points_spin.setRange(1, 100)
+        self.max_points_spin.setRange(1, 10)
         self.max_points_spin.setValue(20)
         self.max_points_spin.setPrefix("Max: ")
         self.max_points_spin.setStyleSheet("font-size: 10px;")
         points_layout.addWidget(self.max_points_spin)
         self.pre_max_spin = QSpinBox()
         self.pre_max_spin.setRange(0, 20)
-        self.pre_max_spin.setValue(3)
+        self.pre_max_spin.setValue(10)
         self.pre_max_spin.setPrefix("PreMax: ")
         self.pre_max_spin.setStyleSheet("font-size: 10px;")
         points_layout.addWidget(self.pre_max_spin)
@@ -373,13 +373,13 @@ class SettingsDialog(QDialog):
         peak_group = QGroupBox("Peak Settings")
         peak_layout = QVBoxLayout()
         self.min_peaks_spin = QSpinBox()
-        self.min_peaks_spin.setRange(1, 100)
+        self.min_peaks_spin.setRange(1, 10)
         self.min_peaks_spin.setValue(1)
         self.min_peaks_spin.setPrefix("Min: ")
         self.min_peaks_spin.setStyleSheet("font-size: 10px;")
         peak_layout.addWidget(self.min_peaks_spin)
         self.max_peaks_spin = QSpinBox()
-        self.max_peaks_spin.setRange(1, 1000)
+        self.max_peaks_spin.setRange(1, 10)
         self.max_peaks_spin.setValue(3)
         self.max_peaks_spin.setPrefix("Max: ")
         self.max_peaks_spin.setStyleSheet("font-size: 10px;")
@@ -645,7 +645,7 @@ class SettingsManager:
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
-            cls._instance._current_settings = None
+            cls._instance._current_settings = cls._instance._get_default_settings()
         return cls._instance
     
     def set_settings_dialog(self, dialog):
@@ -654,6 +654,10 @@ class SettingsManager:
         # Load previous settings into the dialog if they exist
         if self._current_settings is not None:
             dialog.load_settings(self._current_settings)
+    
+    def clear_settings_dialog(self):
+        """Clear the settings dialog reference"""
+        self._settings_dialog = None
     
     def save_current_settings(self):
         """Save the current settings from the active dialog"""
@@ -686,14 +690,14 @@ class SettingsManager:
             },
             'onset': {
                 'min_onsets': 5,
-                'max_onsets': 20,
+                'max_onsets': 10,
                 'hop_length_onsets': 512,
                 'backtrack': True,
                 'normalize': False
             },
             'points': {
                 'min_points': 5,
-                'max_points': 20,
+                'max_points': 10,
                 'pre_max': 3,
                 'post_max': 3,
                 'pre_avg_distance': 3,
@@ -703,7 +707,7 @@ class SettingsManager:
             },
             'peaks': {
                 'min_peaks': 1,
-                'max_peaks': 3,
+                'max_peaks': 10,
                 'scoring': 'squared',
                 'custom_scoring_method': None
             }
@@ -736,15 +740,52 @@ class SettingsManager:
             settings = self.get_current_settings()
             return settings['onset']['min_onsets']
     
+    def get_max_onsets(self):
+        """Get current maximum onsets value"""
+        if self._settings_dialog is not None:
+            return self._settings_dialog.max_onsets_spin.value()
+        else:
+            settings = self.get_current_settings()
+            return settings['onset']['max_onsets']
+    
     def set_min_onsets(self, value):
         """Set minimum onsets value"""
         if self._settings_dialog is not None:
             self._settings_dialog.min_onsets_spin.setValue(value)
-            self._settings_dialog.max_onsets_spin.setValue(value)
+            # Don't automatically set max_onsets - let user control that separately
         else:
             if self._current_settings is None:
                 self._current_settings = self._get_default_settings()
             self._current_settings['onset']['min_onsets'] = value
+            # Also update max_onsets if it's less than min_onsets to maintain validity
+            if self._current_settings['onset']['max_onsets'] < value:
+                self._current_settings['onset']['max_onsets'] = value
+    
+    def set_min_onsets_and_apply(self, value, analyzer=None):
+        """Set minimum onsets value and apply to analyzer if available"""
+        self.set_min_onsets(value)
+        if analyzer is not None:
+            settings = self.get_current_settings()
+            analyzer.set_onset_settings(**settings['onset'])
+    
+    def set_max_onsets(self, value):
+        """Set maximum onsets value"""
+        if self._settings_dialog is not None:
+            self._settings_dialog.max_onsets_spin.setValue(value)
+        else:
+            if self._current_settings is None:
+                self._current_settings = self._get_default_settings()
+            self._current_settings['onset']['max_onsets'] = value
+            # Also update min_onsets if it's greater than max_onsets to maintain validity
+            if self._current_settings['onset']['min_onsets'] > value:
+                self._current_settings['onset']['min_onsets'] = value
+    
+    def set_max_onsets_and_apply(self, value, analyzer=None):
+        """Set maximum onsets value and apply to analyzer if available"""
+        self.set_max_onsets(value)
+        if analyzer is not None:
+            settings = self.get_current_settings()
+            analyzer.set_onset_settings(**settings['onset'])
     
     def get_min_points(self):
         """Get current minimum interesting points value"""
@@ -754,15 +795,52 @@ class SettingsManager:
             settings = self.get_current_settings()
             return settings['points']['min_points']
     
+    def get_max_points(self):
+        """Get current maximum interesting points value"""
+        if self._settings_dialog is not None:
+            return self._settings_dialog.max_points_spin.value()
+        else:
+            settings = self.get_current_settings()
+            return settings['points']['max_points']
+    
     def set_min_points(self, value):
         """Set minimum interesting points value"""
         if self._settings_dialog is not None:
             self._settings_dialog.min_points_spin.setValue(value)
-            self._settings_dialog.max_points_spin.setValue(value)
+            # Don't automatically set max_points - let user control that separately
         else:
             if self._current_settings is None:
                 self._current_settings = self._get_default_settings()
             self._current_settings['points']['min_points'] = value
+            # Also update max_points if it's less than min_points to maintain validity
+            if self._current_settings['points']['max_points'] < value:
+                self._current_settings['points']['max_points'] = value
+    
+    def set_min_points_and_apply(self, value, analyzer=None):
+        """Set minimum interesting points value and apply to analyzer if available"""
+        self.set_min_points(value)
+        if analyzer is not None:
+            settings = self.get_current_settings()
+            analyzer.set_interesting_points_settings(**settings['points'])
+    
+    def set_max_points(self, value):
+        """Set maximum interesting points value"""
+        if self._settings_dialog is not None:
+            self._settings_dialog.max_points_spin.setValue(value)
+        else:
+            if self._current_settings is None:
+                self._current_settings = self._get_default_settings()
+            self._current_settings['points']['max_points'] = value
+            # Also update min_points if it's greater than max_points to maintain validity
+            if self._current_settings['points']['min_points'] > value:
+                self._current_settings['points']['min_points'] = value
+    
+    def set_max_points_and_apply(self, value, analyzer=None):
+        """Set maximum interesting points value and apply to analyzer if available"""
+        self.set_max_points(value)
+        if analyzer is not None:
+            settings = self.get_current_settings()
+            analyzer.set_interesting_points_settings(**settings['points'])
     
     def get_max_peaks(self):
         """Get current maximum peaks value"""
@@ -772,13 +850,123 @@ class SettingsManager:
             settings = self.get_current_settings()
             return settings['peaks']['max_peaks']
     
-    # this also sets the minimum so that the slider works as user intends it to work
+    def get_min_peaks(self):
+        """Get current minimum peaks value"""
+        if self._settings_dialog is not None:
+            return self._settings_dialog.min_peaks_spin.value()
+        else:
+            settings = self.get_current_settings()
+            return settings['peaks']['min_peaks']
+    
     def set_max_peaks(self, value):
         """Set maximum peaks value"""
         if self._settings_dialog is not None:
             self._settings_dialog.max_peaks_spin.setValue(value)
-            self._settings_dialog.min_peaks_spin.setValue(value)
+            # Don't automatically set min_peaks - let user control that separately
         else:
             if self._current_settings is None:
                 self._current_settings = self._get_default_settings()
             self._current_settings['peaks']['max_peaks'] = value
+            # Also update min_peaks if it's greater than max_peaks to maintain validity
+            if self._current_settings['peaks']['min_peaks'] > value:
+                self._current_settings['peaks']['min_peaks'] = value
+    
+    def set_max_peaks_and_apply(self, value, analyzer=None):
+        """Set maximum peaks value and apply to analyzer if available"""
+        self.set_max_peaks(value)
+        if analyzer is not None:
+            settings = self.get_current_settings()
+            analyzer.set_peak_settings(**settings['peaks'])
+    
+    def set_min_peaks(self, value):
+        """Set minimum peaks value"""
+        if self._settings_dialog is not None:
+            self._settings_dialog.min_peaks_spin.setValue(value)
+        else:
+            if self._current_settings is None:
+                self._current_settings = self._get_default_settings()
+            self._current_settings['peaks']['min_peaks'] = value
+            # Also update max_peaks if it's less than min_peaks to maintain validity
+            if self._current_settings['peaks']['max_peaks'] < value:
+                self._current_settings['peaks']['max_peaks'] = value
+    
+    def set_min_peaks_and_apply(self, value, analyzer=None):
+        """Set minimum peaks value and apply to analyzer if available"""
+        self.set_min_peaks(value)
+        if analyzer is not None:
+            settings = self.get_current_settings()
+            analyzer.set_peak_settings(**settings['peaks'])
+    
+    def sync_with_toolbar_sliders(self, main_window):
+        """Synchronize settings with toolbar slider values"""
+        if hasattr(main_window, 'onsets_min_slider'):
+            current_min_onsets = main_window.onsets_min_slider.value()
+            self.set_min_onsets(current_min_onsets)
+        
+        if hasattr(main_window, 'onsets_max_slider'):
+            current_max_onsets = main_window.onsets_max_slider.value()
+            self.set_max_onsets(current_max_onsets)
+        
+        if hasattr(main_window, 'interesting_points_min_slider'):
+            current_min_points = main_window.interesting_points_min_slider.value()
+            self.set_min_points(current_min_points)
+        
+        if hasattr(main_window, 'interesting_points_max_slider'):
+            current_max_points = main_window.interesting_points_max_slider.value()
+            self.set_max_points(current_max_points)
+        
+        if hasattr(main_window, 'maxima_min_slider'):
+            current_min_peaks = main_window.maxima_min_slider.value()
+            self.set_min_peaks(current_min_peaks)
+        
+        if hasattr(main_window, 'maxima_max_slider'):
+            current_max_peaks = main_window.maxima_max_slider.value()
+            self.set_max_peaks(current_max_peaks)
+    
+    def update_toolbar_sliders(self, main_window):
+        """Update toolbar slider values from current settings"""
+        if hasattr(main_window, 'onsets_min_slider'):
+            main_window.onsets_min_slider.setValue(self.get_min_onsets())
+        
+        if hasattr(main_window, 'onsets_max_slider'):
+            main_window.onsets_max_slider.setValue(self.get_max_onsets())
+        
+        if hasattr(main_window, 'interesting_points_min_slider'):
+            main_window.interesting_points_min_slider.setValue(self.get_min_points())
+        
+        if hasattr(main_window, 'interesting_points_max_slider'):
+            main_window.interesting_points_max_slider.setValue(self.get_max_points())
+        
+        if hasattr(main_window, 'maxima_min_slider'):
+            main_window.maxima_min_slider.setValue(self.get_min_peaks())
+        
+        if hasattr(main_window, 'maxima_max_slider'):
+            main_window.maxima_max_slider.setValue(self.get_max_peaks())
+    
+    def save_settings_to_file(self, filename="firework_settings.json"):
+        """Save current settings to a JSON file"""
+        import json
+        import os
+        try:
+            settings = self.get_current_settings()
+            settings_file = os.path.join(os.path.expanduser("~"), ".firework_studio", filename)
+            os.makedirs(os.path.dirname(settings_file), exist_ok=True)
+            with open(settings_file, 'w') as f:
+                json.dump(settings, f, indent=2)
+        except Exception as e:
+            print(f"Error saving settings to file: {e}")
+    
+    def load_settings_from_file(self, filename="firework_settings.json"):
+        """Load settings from a JSON file"""
+        import json
+        import os
+        try:
+            settings_file = os.path.join(os.path.expanduser("~"), ".firework_studio", filename)
+            if os.path.exists(settings_file):
+                with open(settings_file, 'r') as f:
+                    loaded_settings = json.load(f)
+                self._current_settings = loaded_settings
+                return True
+        except Exception as e:
+            print(f"Error loading settings from file: {e}")
+        return False
