@@ -438,22 +438,15 @@ class FireworkShowApp(QMainWindow):
 
 
         ''' Add custom Undo and Redo buttons for marking actions '''
-        self.undo_btn = QPushButton()
-        self.undo_btn.setIcon(QIcon(os.path.join("icons", "undo.png")))
-        self.undo_btn.setStyleSheet(button_style)
-        self.undo_btn.setToolTip("Undo last marking")
-        self.undo_btn.clicked.connect(self.firework_show_helper.undo_last_marking)
-
-        self.redo_btn = QPushButton()
-        self.redo_btn.setIcon(QIcon(os.path.join("icons", "redo.png")))
-        self.redo_btn.setStyleSheet(button_style)
-        self.redo_btn.setToolTip("Redo last marking")
-        self.redo_btn.clicked.connect(self.firework_show_helper.redo_last_marking)
+        self.clear_btn = QPushButton()
+        self.clear_btn.setIcon(QIcon(os.path.join("icons", "clear.png")))
+        self.clear_btn.setStyleSheet(button_style)
+        self.clear_btn.setToolTip("Clear all markings")
+        self.clear_btn.clicked.connect(self.firework_show_helper.clear_all_markings)
 
         # Add these buttons to the waveform toolbar
         self.waveform_toolbar.addSeparator()
-        self.waveform_toolbar.addWidget(self.undo_btn)
-        self.waveform_toolbar.addWidget(self.redo_btn)
+        self.waveform_toolbar.addWidget(self.clear_btn)
 
         # Ensure "Home" button always resets the waveform view, even after selection
         def reset_waveform_view():

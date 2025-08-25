@@ -178,6 +178,86 @@ class FireworkShowHelper:
         mw.waveform_canvas.draw_idle()
         if hasattr(mw, 'waveform_selector'):
             mw.waveform_selector.update_original_limits()
+            
+    def undo_last_marking(self):
+        mw = self.main_window
+        ax = mw.waveform_canvas.figure.axes[0]
+        # Save current axis limits before undo
+        xlim = ax.get_xlim()
+        ylim = ax.get_ylim()
+        entry = self.marking_stack.undo()
+        if entry is None:
+            return
+        marking_type = entry['type']
+        items = entry['items']
+        # Remove the specific items that were added in the last action
+        if marking_type == 'segment' and hasattr(mw, 'segment_times') and mw.segment_times is not None:
+            mw.segment_times = [t for t in mw.segment_times if t not in items]
+            if not mw.segment_times:
+                mw.segment_times = None
+        elif marking_type == 'interesting' and hasattr(mw, 'points') and mw.points is not None:
+            mw.points = [p for p in mw.points if p not in items]
+            if not mw.points:
+                mw.points = None
+        elif marking_type == 'onset' and hasattr(mw, 'onsets') and mw.onsets is not None:
+            mw.onsets = [o for o in mw.onsets if o not in items]
+            if not mw.onsets:
+                mw.onsets = None
+        elif marking_type == 'peak' and hasattr(mw, 'peaks') and mw.peaks is not None:
+            mw.peaks = [p for p in mw.peaks if p not in items]
+            if not mw.peaks:
+                mw.peaks = None
+        # Redraw waveform to update markings
+        self.plot_waveform(current_legend=True)
+        # Restore axis limits to preserve zoom
+        ax.set_xlim(xlim)
+        ax.set_ylim(ylim)
+        mw.waveform_canvas.draw_idle()
+        self.update_firework_show_info()
+
+    def redo_last_marking(self):
+        mw = self.main_window
+        ax = mw.waveform_canvas.figure.axes[0]
+        # Save current axis limits before redo
+        xlim = ax.get_xlim()
+        ylim = ax.get_ylim()
+        entry = self.marking_stack.redo()
+        if entry is None:
+            return
+        marking_type = entry['type']
+        items = entry['items']
+        # Add items back, avoiding duplicates
+        if marking_type == 'segment':
+            if not hasattr(mw, 'segment_times') or mw.segment_times is None:
+                mw.segment_times = []
+            for t in items:
+                if t not in mw.segment_times:
+                    mw.segment_times.append(t)
+        elif marking_type == 'interesting':
+            if not hasattr(mw, 'points') or mw.points is None:
+                mw.points = []
+            for p in items:
+                if p not in mw.points:
+                    mw.points.append(p)
+        elif marking_type == 'onset':
+            if not hasattr(mw, 'onsets') or mw.onsets is None:
+                mw.onsets = []
+            for o in items:
+                if o not in mw.onsets:
+                    mw.onsets.append(o)
+        elif marking_type == 'peak':
+            if not hasattr(mw, 'peaks') or mw.peaks is None:
+                mw.peaks = []
+            for p in items:
+                if p not in mw.peaks:
+                    mw.peaks.append(p)
+        # Redraw waveform to update markings
+        self.plot_waveform(current_legend=True)
+        # Restore axis limits to preserve zoom
+        ax.set_xlim(xlim)
+        ax.set_ylim(ylim)
+        mw.waveform_canvas.draw_idle()
+        self.update_firework_show_info()
 
     def _redraw_markings_only(self):
         """Redraw markings without adding entries to the marking stack, preserving zoom/limits"""
@@ -250,7 +330,19 @@ class FireworkShowHelper:
         ax.set_xlim(xlim)
         ax.set_ylim(ylim)
 
-    
+    def clear_all_markings(self):
+        mw = self.main_window
+        # Clear all marking data
+        mw.segment_times = None
+        mw.points = None
+        mw.onsets = None
+        mw.peaks = None
+        self.marking_stack.clear()
+        # Redraw waveform without markings
+        self.plot_waveform(current_legend=True)
+        # Update firework show info
+        self.update_firework_show_info()
+        
     def update_firework_show_info(self):
         mw = self.main_window
         if mw.duration is not None:
@@ -530,83 +622,3 @@ class FireworkShowHelper:
         mw.waveform_canvas.draw_idle()
         if hasattr(mw, 'waveform_selector'):
             mw.waveform_selector.update_original_limits()
-            
-    def undo_last_marking(self):
-        mw = self.main_window
-        ax = mw.waveform_canvas.figure.axes[0]
-        # Save current axis limits before undo
-        xlim = ax.get_xlim()
-        ylim = ax.get_ylim()
-        entry = self.marking_stack.undo()
-        if entry is None:
-            return
-        marking_type = entry['type']
-        items = entry['items']
-        # Remove the specific items that were added in the last action
-        if marking_type == 'segment' and hasattr(mw, 'segment_times') and mw.segment_times is not None:
-            mw.segment_times = [t for t in mw.segment_times if t not in items]
-            if not mw.segment_times:
-                mw.segment_times = None
-        elif marking_type == 'interesting' and hasattr(mw, 'points') and mw.points is not None:
-            mw.points = [p for p in mw.points if p not in items]
-            if not mw.points:
-                mw.points = None
-        elif marking_type == 'onset' and hasattr(mw, 'onsets') and mw.onsets is not None:
-            mw.onsets = [o for o in mw.onsets if o not in items]
-            if not mw.onsets:
-                mw.onsets = None
-        elif marking_type == 'peak' and hasattr(mw, 'peaks') and mw.peaks is not None:
-            mw.peaks = [p for p in mw.peaks if p not in items]
-            if not mw.peaks:
-                mw.peaks = None
-        # Redraw waveform to update markings
-        self.plot_waveform(current_legend=True)
-        # Restore axis limits to preserve zoom
-        ax.set_xlim(xlim)
-        ax.set_ylim(ylim)
-        mw.waveform_canvas.draw_idle()
-        self.update_firework_show_info()
-
-    def redo_last_marking(self):
-        mw = self.main_window
-        ax = mw.waveform_canvas.figure.axes[0]
-        # Save current axis limits before redo
-        xlim = ax.get_xlim()
-        ylim = ax.get_ylim()
-        entry = self.marking_stack.redo()
-        if entry is None:
-            return
-        marking_type = entry['type']
-        items = entry['items']
-        # Add items back, avoiding duplicates
-        if marking_type == 'segment':
-            if not hasattr(mw, 'segment_times') or mw.segment_times is None:
-                mw.segment_times = []
-            for t in items:
-                if t not in mw.segment_times:
-                    mw.segment_times.append(t)
-        elif marking_type == 'interesting':
-            if not hasattr(mw, 'points') or mw.points is None:
-                mw.points = []
-            for p in items:
-                if p not in mw.points:
-                    mw.points.append(p)
-        elif marking_type == 'onset':
-            if not hasattr(mw, 'onsets') or mw.onsets is None:
-                mw.onsets = []
-            for o in items:
-                if o not in mw.onsets:
-                    mw.onsets.append(o)
-        elif marking_type == 'peak':
-            if not hasattr(mw, 'peaks') or mw.peaks is None:
-                mw.peaks = []
-            for p in items:
-                if p not in mw.peaks:
-                    mw.peaks.append(p)
-        # Redraw waveform to update markings
-        self.plot_waveform(current_legend=True)
-        # Restore axis limits to preserve zoom
-        ax.set_xlim(xlim)
-        ax.set_ylim(ylim)
-        mw.waveform_canvas.draw_idle()
-        self.update_firework_show_info()
