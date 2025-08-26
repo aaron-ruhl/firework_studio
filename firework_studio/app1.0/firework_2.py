@@ -167,6 +167,7 @@ class Firework:
                 # Only add random_tail to some trunks to reduce white particles
                 if i % 2 == 0:
                     self.particles.extend(random_tail())
+                    
         elif self.pattern == "willow":
             spread = np.pi * 0.8
             base_angle = np.pi / 2
@@ -183,6 +184,7 @@ class Firework:
                 p.fade = fade_val
                 self.particles.append(p)
                 self.particles.extend(random_tail())
+
         elif self.pattern == "peony":
             angles = np.linspace(0, 2 * np.pi, self.particle_count, endpoint=False)
             angles += np.random.uniform(-0.02, 0.02, self.particle_count)
@@ -199,6 +201,7 @@ class Firework:
                 p.fade = fade_val
                 self.particles.append(p)
                 self.particles.extend(random_tail())
+
         elif self.pattern == "ring":
             angles = np.linspace(0, 2 * np.pi, self.particle_count, endpoint=False)
             speeds = np.full(self.particle_count, 5.2 * distance_factor)
