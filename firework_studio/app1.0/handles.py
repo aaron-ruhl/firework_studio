@@ -75,6 +75,7 @@ class FiringHandles:
                 chosen = random.choice(color_choices)
                 qcolor = QColor.fromRgbF(*chosen)
                 self.explosion_color_list.append(qcolor)
+
         elif self.number_firings > current_color_length:
             # Add more colors, using the last color or a random color
             if self.explosion_color_list:

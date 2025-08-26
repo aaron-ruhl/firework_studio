@@ -20,7 +20,6 @@ class FireworksCanvas(QOpenGLWidget):
         self.timer.timeout.connect(self.update_animation)
         self.timer.start(16)  # ~60 FPS
         self.particle_count = 50
-        self.firework_color = (1.0, 0.0, 0.0)
         self.background = "night"
         self.fired_times = set()
         self._fireworks_enabled = True
@@ -117,8 +116,26 @@ class FireworksCanvas(QOpenGLWidget):
             ]
             for handle in to_fire:
                 for idx in range(handle.number_firings):
-                    handle.pattern = handle.pattern_list[idx]
-                    self.add_firework(handle)
+                    # Get pattern and color for this specific shot
+                    shot_pattern = handle.pattern_list[idx] if idx < len(handle.pattern_list) else handle.pattern
+                    
+                    # Handle explosion color list safely
+                    if hasattr(handle, 'explosion_color_list') and handle.explosion_color_list and idx < len(handle.explosion_color_list):
+                        shot_color = handle.explosion_color_list[idx]
+                    else:
+                        shot_color = handle.explosion_color
+                    
+                    # Create a temporary handle-like object for this specific shot
+                    # Don't modify the original handle to avoid side effects
+                    temp_handle = type('TempHandle', (), {
+                        'explosion_color': shot_color,
+                        'pattern': shot_pattern,
+                        'display_number': handle.display_number,
+                        'firing_time': handle.firing_time,
+                        'number_firings': 1  # Each shot is individual
+                    })()
+                    
+                    self.add_firework(temp_handle)
                 self.fired_times.add((handle.firing_time, 0))
         self.update()
 

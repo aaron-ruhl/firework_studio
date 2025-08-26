@@ -118,13 +118,19 @@ class FireworkPreviewWidget(QWidget):
             pattern = getattr(handle, "pattern", pattern_default)
             number_firings = getattr(handle, "number_firings", number_firings_default)
             firing_time = float(getattr(handle, "firing_time", 0))
+            
+            # Preserve pattern_list and explosion_color_list if they exist
+            pattern_list = getattr(handle, "pattern_list", None)
+            explosion_color_list = getattr(handle, "explosion_color_list", None)
 
             fw_handle = FiringHandles(
                 firing_time,
                 color,
                 number_firings=int(number_firings),
                 pattern=str(pattern),
-                display_number=i + 1
+                display_number=i + 1,
+                pattern_list=pattern_list,
+                explosion_color_list=explosion_color_list
             )
             fireworks.append(fw_handle)
             firework_times.append(firing_time)
@@ -191,11 +197,11 @@ class FireworkPreviewWidget(QWidget):
 
         if specific_handle is None:
             handle = FiringHandles(
-            firing_time,
-            color,
-            number_firings=self.number_firings,
-            pattern=self.pattern,
-            display_number=0  # temporary, will set below
+                firing_time,
+                color,
+                display_number=0,  # temporary, will set below
+                pattern=self.pattern,
+                number_firings=self.number_firings
             )
         else:
             if specific_handle[1] is None:
