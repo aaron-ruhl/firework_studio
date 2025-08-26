@@ -45,7 +45,7 @@ class Firework:
         
         # Define target explosion height as a percentage of canvas height
         # We want fireworks to explode at around 30-50% from the top of the canvas
-        target_explosion_ratio = random.uniform(0.3, 0.5)
+        target_explosion_ratio = random.uniform(0.2, 0.3)
         target_height = canvas_height * target_explosion_ratio
         
         # Calculate required velocity to reach target height
@@ -65,11 +65,6 @@ class Firework:
         final_velocity = max(min_velocity, min(max_velocity, final_velocity))
         
         return -final_velocity  # Negative because we're going upward
-
-    def update_velocity_for_canvas_size(self, canvas_height):
-        """Update velocity when canvas size changes"""
-        if not self.exploded:
-            self.velocity_y = self._calculate_velocity(canvas_height)
 
     def get_current_color(self):
         # If handle is provided and has an explosion color, use that

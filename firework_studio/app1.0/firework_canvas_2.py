@@ -116,7 +116,8 @@ class FireworksCanvas(QOpenGLWidget):
                 )
             ]
             for handle in to_fire:
-                for _ in range(handle.number_firings):
+                for idx in range(handle.number_firings):
+                    handle.pattern = handle.pattern_list[idx]
                     self.add_firework(handle)
                 self.fired_times.add((handle.firing_time, 0))
         self.update()
@@ -141,15 +142,8 @@ class FireworksCanvas(QOpenGLWidget):
         glOrtho(0, w, h, 0, -1, 1)
         glMatrixMode(GL_MODELVIEW)
         
-        # Update existing fireworks with new canvas dimensions
-        self._update_fireworks_for_new_size(h)
-
-    def _update_fireworks_for_new_size(self, new_height):
-        """Update existing fireworks when canvas is resized"""
-        for firework in self.fireworks:
-            if not firework.exploded:
-                # Recalculate velocity for unexploded fireworks
-                firework.velocity_y = firework._calculate_velocity(new_height)
+        # Don't update existing fireworks - let them maintain their current trajectory
+        # Only new fireworks will use the updated canvas dimensions
 
     def draw_background(self):
         if self.background == "night":

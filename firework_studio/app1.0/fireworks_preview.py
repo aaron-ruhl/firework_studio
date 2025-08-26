@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QWidget, QMenu, QColorDialog, QInputDialog
+from PyQt6.QtWidgets import QWidget, QMenu, QColorDialog, QInputDialog, QDialog, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QPushButton, QListWidget, QListWidgetItem
 from PyQt6.QtCore import QTimer, QRect, Qt, QElapsedTimer, pyqtSignal
 from PyQt6.QtGui import QPainter, QColor, QIcon, QPixmap, QAction
 
@@ -576,6 +576,159 @@ class FireworkPreviewWidget(QWidget):
                     pass
                 self.preview_timer.stop()
             return
+
+    def edit_pattern_list_dialog(self, handle):
+        """Show a dialog to edit the pattern list and color list for multi-shot fireworks"""
+        dialog = QDialog(self)
+        dialog.setWindowTitle(f"Edit Patterns & Colors - Firing #{handle.display_number}")
+        dialog.setModal(True)
+        dialog.resize(500, 400)
+        
+        layout = QVBoxLayout(dialog)
+        
+        # Instructions
+        instructions = QLabel(f"Configure patterns and colors for {handle.number_firings} firework shots:")
+        layout.addWidget(instructions)
+        
+        # List widget to show current patterns and colors
+        pattern_list_widget = QListWidget()
+        
+        # Available patterns
+        available_patterns = [
+            "circle",
+            "chrysanthemum", 
+            "palm",
+            "willow",
+            "peony",
+            "ring",
+        ]
+        
+        # Ensure explosion_color_list exists and has the right size
+        if not hasattr(handle, 'explosion_color_list') or not handle.explosion_color_list:
+            handle.explosion_color_list = []
+            color_choices = [
+                (0.0, 0.5, 1.0),   # blue
+                (0.0, 1.0, 0.0),   # green
+                (1.0, 0.0, 0.0),   # red
+                (1.0, 1.0, 0.0),   # yellow
+                (1.0, 0.5, 0.0),   # orange
+                (0.5, 0.0, 1.0),   # purple
+                (1.0, 0.0, 1.0),   # magenta
+                (0.0, 1.0, 1.0),   # cyan
+            ]
+            for _ in range(handle.number_firings):
+                chosen = random.choice(color_choices)
+                handle.explosion_color_list.append(QColor.fromRgbF(*chosen))
+        
+        # Populate the list with current patterns and colors
+        for i in range(handle.number_firings):
+            pattern = handle.pattern_list[i] if i < len(handle.pattern_list) else "circle"
+            color = handle.explosion_color_list[i] if i < len(handle.explosion_color_list) else QColor(255, 255, 255)
+            
+            # Create a colored square icon for the color
+            pixmap = QPixmap(16, 16)
+            pixmap.fill(color)
+            icon = QIcon(pixmap)
+            
+            item = QListWidgetItem(icon, f"Shot {i+1}: {pattern}")
+            item.setData(Qt.ItemDataRole.UserRole, i)  # Store the index
+            pattern_list_widget.addItem(item)
+        
+        layout.addWidget(pattern_list_widget)
+        
+        # Controls for editing
+        controls_layout = QVBoxLayout()
+        
+        # Pattern controls
+        pattern_row = QHBoxLayout()
+        pattern_combo = QComboBox()
+        pattern_combo.addItems(available_patterns)
+        change_pattern_button = QPushButton("Change Pattern")
+        
+        pattern_row.addWidget(QLabel("Pattern:"))
+        pattern_row.addWidget(pattern_combo)
+        pattern_row.addWidget(change_pattern_button)
+        controls_layout.addLayout(pattern_row)
+        
+        # Color controls
+        color_row = QHBoxLayout()
+        change_color_button = QPushButton("Change Color")
+        color_row.addWidget(QLabel("Color:"))
+        color_row.addWidget(change_color_button)
+        controls_layout.addLayout(color_row)
+        
+        def change_selected_pattern():
+            current_item = pattern_list_widget.currentItem()
+            if current_item:
+                shot_index = current_item.data(Qt.ItemDataRole.UserRole)
+                new_pattern = pattern_combo.currentText()
+                # Ensure pattern_list is large enough
+                while len(handle.pattern_list) <= shot_index:
+                    handle.pattern_list.append("circle")
+                handle.pattern_list[shot_index] = new_pattern
+                
+                # Update the display
+                color = handle.explosion_color_list[shot_index] if shot_index < len(handle.explosion_color_list) else QColor(255, 255, 255)
+                pixmap = QPixmap(16, 16)
+                pixmap.fill(color)
+                icon = QIcon(pixmap)
+                current_item.setIcon(icon)
+                current_item.setText(f"Shot {shot_index+1}: {new_pattern}")
+        
+        def change_selected_color():
+            current_item = pattern_list_widget.currentItem()
+            if current_item:
+                shot_index = current_item.data(Qt.ItemDataRole.UserRole)
+                current_color = handle.explosion_color_list[shot_index] if shot_index < len(handle.explosion_color_list) else QColor(255, 255, 255)
+                
+                color = QColorDialog.getColor(current_color, dialog, "Select Shot Color")
+                if color.isValid():
+                    # Ensure explosion_color_list is large enough
+                    while len(handle.explosion_color_list) <= shot_index:
+                        handle.explosion_color_list.append(QColor(255, 255, 255))
+                    handle.explosion_color_list[shot_index] = color
+                    
+                    # Update the display
+                    pattern = handle.pattern_list[shot_index] if shot_index < len(handle.pattern_list) else "circle"
+                    pixmap = QPixmap(16, 16)
+                    pixmap.fill(color)
+                    icon = QIcon(pixmap)
+                    current_item.setIcon(icon)
+                    current_item.setText(f"Shot {shot_index+1}: {pattern}")
+        
+        change_pattern_button.clicked.connect(change_selected_pattern)
+        change_color_button.clicked.connect(change_selected_color)
+        
+        layout.addLayout(controls_layout)
+        
+        # Dialog buttons
+        buttons_layout = QHBoxLayout()
+        ok_button = QPushButton("OK")
+        cancel_button = QPushButton("Cancel")
+        
+        def accept_changes():
+            # Save current state before applying changes
+            self.handles_stack.push(self.fireworks)
+            # Update the main explosion_color for backward compatibility
+            if handle.explosion_color_list:
+                handle.explosion_color = handle.explosion_color_list[0]
+            dialog.accept()
+            self.update()
+            # Emit signal to notify that handles have changed
+            self.handles_changed.emit(self.fireworks)
+        
+        def reject_changes():
+            dialog.reject()
+        
+        ok_button.clicked.connect(accept_changes)
+        cancel_button.clicked.connect(reject_changes)
+        
+        buttons_layout.addWidget(ok_button)
+        buttons_layout.addWidget(cancel_button)
+        layout.addLayout(buttons_layout)
+        
+        # Show the dialog
+        dialog.exec()
        
     def show_firing_context_menu(self, global_pos, idx):
         handle = self.fireworks[idx] if 0 <= idx < len(self.fireworks) else None
@@ -595,13 +748,18 @@ class FireworkPreviewWidget(QWidget):
         menu.addSeparator()
 
         # Show color sample as a colored square in the menu
-        color = handle.explosion_color if isinstance(handle.explosion_color, QColor) else QColor(handle.explosion_color)
+        if isinstance(handle.explosion_color, QColor):
+            color = handle.explosion_color
+        elif isinstance(handle.explosion_color, (tuple, list)) and len(handle.explosion_color) >= 3:
+            color = QColor(*handle.explosion_color[:3])  # Unpack the tuple/list
+        else:
+            color = QColor(255, 255, 255)  # Default white
         pixmap = QPixmap(16, 16)
         pixmap.fill(color)
         icon = QIcon(pixmap)
-        change_color_action = menu.addAction(icon, f"Change Color (Current: {color.name()})")
+        change_color_action = menu.addAction(icon, f"Change all firing Colors (Current: {color.name()})")
         change_time_action = menu.addAction(f"Change Time (Current: {handle.firing_time:.3f}s)")
-        change_pattern_action = menu.addAction(f"Change Pattern (Current: {handle.pattern})")
+        change_pattern_list_action = menu.addAction(f"Edit Patterns and Colors ({len(handle.pattern_list)} shots)")
         change_number_action = menu.addAction(f"Change Number of Firings (Current: {handle.number_firings})")
         delete_action = menu.addAction("Delete Firing")
 
@@ -620,6 +778,14 @@ class FireworkPreviewWidget(QWidget):
                 self.handles_stack.push(self.fireworks)
                 # Store as tuple for serialization
                 handle.explosion_color = (color.red(), color.green(), color.blue())
+                
+                # Update explosion_color_list to maintain consistency
+                if not hasattr(handle, 'explosion_color_list') or not handle.explosion_color_list:
+                    handle.explosion_color_list = [color] * handle.number_firings
+                else:
+                    # Update all colors in the list to the new color
+                    handle.explosion_color_list = [color] * handle.number_firings
+                
                 self.update()
                 # Emit signal to notify that handles have changed
                 self.handles_changed.emit(self.fireworks)
@@ -637,30 +803,15 @@ class FireworkPreviewWidget(QWidget):
                 self.update()
                 # Emit signal to notify that handles have changed
                 self.handles_changed.emit(self.fireworks)
-        elif action == change_pattern_action:
-            patterns = [
-                "circle",
-                "chrysanthemum",
-                "palm",
-                "willow",
-                "peony",
-                "ring",
-            ]
-            current = patterns.index(handle.pattern) if handle.pattern in patterns else 0
-            pattern, ok = QInputDialog.getItem(self, "Change Pattern", "Pattern:", patterns, current, False)
-            if ok:
-                # Save current state before changing pattern
-                self.handles_stack.push(self.fireworks)
-                handle.pattern = str(pattern)  # Ensure it's a Python string
-                self.update()
-                # Emit signal to notify that handles have changed
-                self.handles_changed.emit(self.fireworks)
+        elif action == change_pattern_list_action:
+            self.edit_pattern_list_dialog(handle)
         elif action == change_number_action:
             num, ok = QInputDialog.getInt(self, "Change Number of Firings", "Number:", handle.number_firings, 1, 100, 1)
             if ok:
                 # Save current state before changing number of firings
                 self.handles_stack.push(self.fireworks)
                 handle.number_firings = int(num)  # Ensure it's a Python int
+                handle.update_pattern_list_size()  # Update pattern_list to match new size
                 self.update()
                 # Emit signal to notify that handles have changed
                 self.handles_changed.emit(self.fireworks)
