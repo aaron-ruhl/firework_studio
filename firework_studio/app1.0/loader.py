@@ -209,7 +209,6 @@ class AudioLoader():
 
             # Apply current create tab settings to the newly created analyzer
             self.apply_initial_settings()
-
             self.connect_analysis_signals()
 
             basenames = [os.path.basename(p) for p in paths]
