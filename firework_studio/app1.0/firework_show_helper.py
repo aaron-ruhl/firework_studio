@@ -338,8 +338,16 @@ class FireworkShowHelper:
         mw.onsets = None
         mw.peaks = None
         self.marking_stack.clear()
+        # Preserve waveform selector region if available
+        selector_region = None
+        if hasattr(mw, 'waveform_selector') and hasattr(mw.waveform_selector, 'get_region'):
+            selector_region = mw.waveform_selector.get_region()
         # Redraw waveform without markings
         self.plot_waveform(current_legend=True)
+        # Restore waveform selector region if available
+        if selector_region is not None and hasattr(mw, 'waveform_selector') and hasattr(mw.waveform_selector, 'set_region'):
+            mw.waveform_selector.set_region(*selector_region)
+        self.main_window.waveform_selector.zoom_to_selection()
         # Update firework show info
         self.update_firework_show_info()
         
