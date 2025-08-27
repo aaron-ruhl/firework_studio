@@ -143,44 +143,83 @@ class AudioAnalysis(QThread):
 
     def find_segments(self):
         '''Segment each audio into distinct portions and concatenate results, limited to selected_region if set'''
-        
         segments = []
         if self.audio_data is None or len(self.audio_data) == 0:
             return segments
 
-        if self.selected_region is not None and isinstance(self.selected_region, (tuple, list)) and len(self.selected_region) == 2:
-            start_time, end_time = self.selected_region
-            selected_duration = end_time - start_time
-            start_idx = int(start_time * self.sr)
-            end_idx = int(end_time * self.sr)
-            audio_data_region = self.audio_data[start_idx:end_idx]
-            region_offset = start_idx
+        # Helper to process one audio region
+        def process_audio_region(audio_data_region, region_offset, duration):
+            if len(audio_data_region) == 0:
+                return []
+            mfcc = librosa.feature.mfcc(
+                y=audio_data_region, sr=self.sr, n_mfcc=self.n_mfcc,
+                dct_type=self.dct_type, n_fft=self.n_fft,
+                hop_length=self.hop_length_segments
+            )
+            # Use matrix multiplication for similarity, avoid np.dot for large arrays
+            similarity = mfcc.T @ mfcc
+            max_sim = np.max(similarity)
+            if max_sim > 0:
+                similarity /= max_sim
+
+            target_segments = max(self.min_segments, min(self.max_segments, int(duration // 4)))
+            if target_segments < 2:
+                target_segments = 2
+
+            segment_boundaries = librosa.segment.agglomerative(similarity, k=target_segments)
+            segment_times = librosa.frames_to_time(segment_boundaries, sr=self.sr)
+            segment_times += region_offset
+            return segment_times.tolist()
+
+        # If we have multiple audio files, analyze each separately
+        if self.audio_datas is not None and len(self.audio_datas) > 1:
+            cumulative_offset = 0
+            for individual_audio in self.audio_datas:
+                if len(individual_audio) == 0:
+                    cumulative_offset += librosa.get_duration(y=individual_audio, sr=self.sr)
+                    continue
+
+                individual_duration = librosa.get_duration(y=individual_audio, sr=self.sr)
+                # Region filtering
+                if self.selected_region is not None and isinstance(self.selected_region, (tuple, list)) and len(self.selected_region) == 2:
+                    start_time, end_time = self.selected_region
+                    segment_start = cumulative_offset
+                    segment_end = cumulative_offset + individual_duration
+                    if end_time < segment_start or start_time > segment_end:
+                        cumulative_offset += individual_duration
+                        continue
+                    region_start_in_segment = max(0, start_time - segment_start)
+                    region_end_in_segment = min(individual_duration, end_time - segment_start)
+                    start_idx = int(region_start_in_segment * self.sr)
+                    end_idx = int(region_end_in_segment * self.sr)
+                    audio_data_region = individual_audio[start_idx:end_idx]
+                    region_offset = cumulative_offset + region_start_in_segment
+                    duration = region_end_in_segment - region_start_in_segment
+                else:
+                    audio_data_region = individual_audio
+                    region_offset = cumulative_offset
+                    duration = individual_duration
+
+                segments.extend(process_audio_region(audio_data_region, region_offset, duration))
+                cumulative_offset += individual_duration
         else:
-            audio_data_region = self.audio_data
-            region_offset = 0
+            # Single-audio analysis
+            if self.selected_region is not None and isinstance(self.selected_region, (tuple, list)) and len(self.selected_region) == 2:
+                start_time, end_time = self.selected_region
+                selected_duration = end_time - start_time
+                start_idx = int(start_time * self.sr)
+                end_idx = int(end_time * self.sr)
+                audio_data_region = self.audio_data[start_idx:end_idx]
+                region_offset = librosa.samples_to_time(start_idx, sr=self.sr)
+                duration = selected_duration
+            else:
+                audio_data_region = self.audio_data
+                region_offset = 0
+                duration = self.duration
 
-        mfcc = librosa.feature.mfcc(y=audio_data_region, sr=self.sr, n_mfcc=self.n_mfcc,dct_type=self.dct_type, n_fft=self.n_fft, hop_length=self.hop_length_segments)
-
-        similarity = np.dot(mfcc.T, mfcc)
-        similarity = similarity / np.max(similarity)
-
-        # Set duration to selected_region if available
-        duration = self.duration if self.selected_region is None else selected_duration
-        # Use min_segments and max_segments to decide how many segments to draw
-        min_segments = self.min_segments
-        max_segments = self.max_segments
-        target_segments = max(min_segments, min(max_segments, int(duration // 4)))
-        if target_segments < 2:
-            target_segments = 2
-
-        segment_boundaries = librosa.segment.agglomerative(similarity, k=target_segments,)
-        segment_times = librosa.frames_to_time(segment_boundaries, sr=self.sr)
-        # Offset times if region is used
-        if region_offset > 0:
-            segment_times += librosa.samples_to_time(region_offset, sr=self.sr)
-
-        # Return the boundary times directly, not doubled tuples
-        return segment_times.tolist()
+            segments.extend(process_audio_region(audio_data_region, region_offset, duration))
+            
+        return segments
 
     def find_interesting_points(self):
         '''Find points of interest in each audio signal and concatenate results, limited to selected_region if set'''

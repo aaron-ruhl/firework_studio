@@ -211,6 +211,9 @@ class AudioLoader():
             self.apply_initial_settings()
             self.connect_analysis_signals()
 
+            # Automatically run segment analysis when audio is loaded
+            self.main_window.analyzer.analyze_segments()
+
             basenames = [os.path.basename(p) for p in paths]
             toast = ToastDialog(f"Loaded audio: {', '.join(basenames)}", parent=self.main_window)
             geo = self.main_window.geometry() #type: ignore
