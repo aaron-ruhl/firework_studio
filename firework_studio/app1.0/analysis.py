@@ -171,9 +171,8 @@ class AudioAnalysis(QThread):
             segment_times += region_offset
             return segment_times.tolist()
 
-        # If we have multiple audio files, analyze each separately (using multithreading for speed)
+        # If we have multiple audio files, analyze each separately 
         if self.audio_datas is not None and len(self.audio_datas) > 1:
-            import concurrent.futures
             cumulative_offsets = []
             durations = []
             for individual_audio in self.audio_datas:
@@ -181,19 +180,18 @@ class AudioAnalysis(QThread):
                 cumulative_offsets.append(sum(durations))
                 durations.append(individual_duration)
 
-            def process_individual_audio(args):
-                idx, individual_audio = args
+            for idx, individual_audio in enumerate(self.audio_datas):
                 cumulative_offset = cumulative_offsets[idx]
                 individual_duration = durations[idx]
                 if len(individual_audio) == 0:
-                    return []
+                    continue
                 # Region filtering
                 if self.selected_region is not None and isinstance(self.selected_region, (tuple, list)) and len(self.selected_region) == 2:
                     start_time, end_time = self.selected_region
                     segment_start = cumulative_offset
                     segment_end = cumulative_offset + individual_duration
                     if end_time < segment_start or start_time > segment_end:
-                        return []
+                        continue
                     region_start_in_segment = max(0, start_time - segment_start)
                     region_end_in_segment = min(individual_duration, end_time - segment_start)
                     start_idx = int(region_start_in_segment * self.sr)
@@ -201,17 +199,12 @@ class AudioAnalysis(QThread):
                     audio_data_region = individual_audio[start_idx:end_idx]
                     region_offset = cumulative_offset + region_start_in_segment
                     duration = region_end_in_segment - region_start_in_segment
-                    return process_audio_region(audio_data_region, region_offset, duration)
+                    segments.extend(process_audio_region(audio_data_region, region_offset, duration))
                 else:
                     audio_data_region = individual_audio
                     region_offset = cumulative_offset
                     duration = individual_duration
-                    return process_audio_region(audio_data_region, region_offset, duration)
-
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                results = executor.map(process_individual_audio, enumerate(self.audio_datas))
-                for segment_times in results:
-                    segments.extend(segment_times)
+                    segments.extend(process_audio_region(audio_data_region, region_offset, duration))
         else:
             # Single-audio analysis
             if self.selected_region is not None and isinstance(self.selected_region, (tuple, list)) and len(self.selected_region) == 2:
