@@ -201,11 +201,12 @@ class AudioAnalysis(QThread):
                     audio_data_region = individual_audio[start_idx:end_idx]
                     region_offset = cumulative_offset + region_start_in_segment
                     duration = region_end_in_segment - region_start_in_segment
+                    return process_audio_region(audio_data_region, region_offset, duration)
                 else:
                     audio_data_region = individual_audio
                     region_offset = cumulative_offset
                     duration = individual_duration
-                return process_audio_region(audio_data_region, region_offset, duration)
+                    return process_audio_region(audio_data_region, region_offset, duration)
 
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 results = executor.map(process_individual_audio, enumerate(self.audio_datas))
@@ -299,7 +300,7 @@ class AudioAnalysis(QThread):
         # Set the min and max amount of onsets based on settings
         target_onsets = max(self.min_onsets, min(self.max_onsets, int(duration // 3)))
         if len(onset_times) > target_onsets:
-            indices = np.linspace(0, len(onset_times) - 1, target_onsets, dtype=int)
+            indices = np.linspace(1, len(onset_times) - 2, target_onsets, dtype=int) #LEAVE OUT THE FIRST AND LAST ONE
             sampled_onsets = [onset_times[i] for i in indices]
             onsets.extend(sampled_onsets)
         else:
