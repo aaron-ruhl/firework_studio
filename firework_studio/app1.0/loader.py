@@ -211,8 +211,9 @@ class AudioLoader():
             self.apply_initial_settings()
             self.connect_analysis_signals()
 
-            # Automatically run segment analysis when audio is loaded
-            self.main_window.analyzer.analyze_segments()
+            # Activate the analyze segments button so it will show messages
+            if hasattr(self.main_window, "segment_btn"):
+                self.main_window.segment_btn.click()
 
             basenames = [os.path.basename(p) for p in paths]
             toast = ToastDialog(f"Loaded audio: {', '.join(basenames)}", parent=self.main_window)
