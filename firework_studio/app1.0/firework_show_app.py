@@ -855,11 +855,11 @@ class FireworkShowApp(QMainWindow):
         self.onsets_btn.setStyleSheet(button_style)
         self.onsets_btn.setToolTip("Find Onsets (Ctrl+N)")
 
-        # Find Local Maxima button
+        # Find Drums button
         self.maxima_btn = QPushButton()
         self.maxima_btn.setIcon(QIcon(os.path.join("icons", "drum.png")))  # Using drums icon as placeholder
         self.maxima_btn.setStyleSheet(button_style)
-        self.maxima_btn.setToolTip("Find Local Maxima (Ctrl+X)")
+        self.maxima_btn.setToolTip("Drums (Ctrl+X)")
 
         # Connect analysis buttons after self.analyzer is initialized
         def connect_analysis_buttons():
@@ -1218,9 +1218,16 @@ class FireworkShowApp(QMainWindow):
         tab_widget.addTab(self.fireworks_canvas_container, "Preview")
         tab_widget.addTab(create_tab_widget, "Create")
         
+        
         # Add to main layout with stretch=1 so it takes remaining space and grows/shrinks
         layout.addWidget(tab_widget, stretch=1)
 
+    #############################################################
+    #                                                          #
+    #        Helper functions (needs to be cleaned)            #
+    #                                                          #
+    #############################################################
+    
     def reset_filter_to_original(self):
         """Reset audio filter and restore original audio data."""
         if self.filter and self.filter.original_audio is not None:

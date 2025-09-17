@@ -45,6 +45,7 @@ class HandlesStack:
         return None
 
 class FireworkPreviewWidget(QWidget):
+    '''This is the timeline with all of the firework handles displayed onto it that sits above fireworks canvas'''
     handles_changed = pyqtSignal(list)
 
     def __init__(self):
@@ -405,7 +406,6 @@ class FireworkPreviewWidget(QWidget):
         self.selected_firing = None
         self.dragging_firing = False
 
-        handle_clicked = False
         for rect, idx in self.firing_handles:
             if rect.contains(event.position().toPoint()):
                 self.selected_firing = idx
@@ -420,27 +420,7 @@ class FireworkPreviewWidget(QWidget):
                 if event.button() == Qt.MouseButton.RightButton:
                     self.show_firing_context_menu(event.globalPosition().toPoint(), idx)
                     self.dragging_firing = False
-                handle_clicked = True
-        # If right click and not on a handle, move playhead to clicked position
-        if event.button() == Qt.MouseButton.RightButton and not handle_clicked:
-            x = event.position().x()
-            x = max(left_margin, min(x, w - right_margin))
-            new_time = (x - left_margin) / usable_w * zoom_duration + draw_start
-            new_time = max(0, min(new_time, self.duration))
-            self.current_time = new_time
-            self.dragging_playhead = False
-            self.setCursor(Qt.CursorShape.ArrowCursor)
-            self.update()
-            # Only stop preview if it was running
-            if self.preview_timer and self.preview_timer.isActive():
-                try:
-                    if sd.get_stream() is not None:
-                        sd.stop(ignore_errors=True)
-                except RuntimeError:
-                    pass
-                self.preview_timer.stop()
-                self.preview_timer.stop()
-            self.update()
+    
 
     def mouseDoubleClickEvent(self, event):
         # Add firing at double-clicked position

@@ -42,6 +42,7 @@ class MarkingStack:
         return [entry['items'] for entry in self.stack if entry['type'] == marking_type]
 
 class FireworkShowHelper:
+    '''This is where the plots are made and markings are added to a stack as they are added by user'''
     def __init__(self, main_window):
         self.main_window = main_window
         self.marking_stack = MarkingStack()
@@ -614,7 +615,7 @@ class FireworkShowHelper:
                     leg.get_frame().set_alpha(0.3)
 
         def show_peaks_toast():
-            toast = ToastDialog(f"Found {len(new_peaks)} peaks!", parent=mw)
+            toast = ToastDialog(f"Found {len(new_peaks)} Drums!", parent=mw)
             geo = mw.geometry()
             x = geo.x() + geo.width() - toast.width() - 40
             y = geo.y() + geo.height() - toast.height() - 40

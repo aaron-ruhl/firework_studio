@@ -82,7 +82,7 @@ class FilterDialog(QDialog):
         # Restore original audio data to main window
         mw = self.main_window
         if mw is not None and hasattr(mw, 'reset_filter_to_original') and callable(getattr(mw, 'reset_filter_to_original', None)):
-            if mw.reset_filter_to_original():
+            if reset_filter_to_original():
                 # Show a toast notification
                 toast = ToastDialog("Audio filter reset to original!", parent=mw)
                 geo = mw.geometry()

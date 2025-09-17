@@ -296,8 +296,8 @@ class MenuBarHelper:
             self.onsets_action.hovered.connect(self.update_status_bar)
             analysis_menu.addAction(self.onsets_action)
 
-            # Find Local Maxima
-            self.maxima_action = QAction("Find Local Maxima", mw)
+            # Find Drums
+            self.maxima_action = QAction("Find Drums", mw)
             self.maxima_action.setShortcut("Ctrl+X")
             def find_local_maxima():
                 if mw.audio_data is None or len(mw.audio_data) == 0:
@@ -309,7 +309,7 @@ class MenuBarHelper:
                     toast.show()
                     QTimer.singleShot(2500, toast.close)
                     return
-                toast = ToastDialog("Loading local maxima...", parent=mw)
+                toast = ToastDialog("Loading drums...", parent=mw)
                 geo = mw.geometry()
                 x = geo.x() + geo.width() - toast.width() - 40
                 y = geo.y() + geo.height() - toast.height() - 40
@@ -391,20 +391,43 @@ class MenuBarHelper:
                     help_text = (
                     "<b>How to Load Multiple Audio Files:</b><br>"
                     "Click the <b>Load Audio</b> button or use <b>Ctrl+L</b> to select and load audio files.<br>"
-                    "You can load more than one file, and it concatenates them in the same order they are displayed in the file dialog window.<br><br>"
+                    "You can load more than one file, and it concatenates them in the same order they are displayed in the file dialog window.<br>"
+                    "So just add a number to begin of each filename and they will be in the correct order if you highlight them and load.<br>"
+                    "Padding is added at the beginning of each song. This can be adjust within the edit menu after loading audio.<br><br>"
+
+                    "<b>Waveform Canvas:</b><br>"
+                    "The <b>waveform</b> at top of app is hidden by default.<br>"
+                    "Press the rightwards pointing triangle to show it; and must have an audio file loaded.<br>"
+                    "This widget lets you <b>select a region of the audio by clicking and dragging</b> This can be zoomed in/out using zoom/home buttons.<br>"
+                    "In addition <b>filters</b> may be used to analyze audio at specific frequencies such as low bass drum sounds.<br>"
+                    "Try adding a filter! They can be reset back to normal again and have absolutely no effect on audio that is heard in app.<br>"
+                    "More than one filter is not recommended because you are filtering already filtered audio.<br><br>"
+
+                    "<b>Automatic Firework Show Creation:</b><br>"
+                    "<b>Whatever the user drags the blue highlighted area over on the waveform will be analyzed</b>.<br>"
+                    "Once each of the songs are segmented, highlight each segmented region within each song and add either onsets, interesting points,<br> or drums."
+                    "The segmenting tool just gives you some places to start and keeps it organized. This should start automatically when audio is loading.<br>"
+                    "\"Drums\" tries to emphasize peaks only and the scoring mechanism used can be adjusted in settings.<br>"
+                    "\"Onsets\" is trying to find onset events in the audio signal.<br>"
+                    "\"Interesting points\" is similar to the drums button but is more selective and is exactly what it sounds like.<br>"
+                    "<b>Use the sliders to control how many handles are added and play around with it to make your ultimate show!</b><br>"
+                    "The user is given the option to undo any handle actions with the undo and redo buttons.<br><br>"
+
                     "<b>Changing Number of Firings and Pattern:</b><br>"
-                    "Use the <b>Up/Down arrow keys</b> to change the number of fireworks fired at each time.<br>"
-                    "Use the <b>Left/Right arrow keys</b> to change the firework pattern.<br><br>"
+                    "Right-click on the preview widget to access context menu options for firings.<br>"
+                    "Use the right click context menu on each handle within the preview timeline to adjust properties.<br>"
+                    "Alternatively, the user can manually select the type of firework and add them by double-clicking on timeline with handles.<br>"
+                    "Handles can also be dragged and a nudge technique is in the works.<br><br>"
+
                     "<b>Saving and Loading a Show:</b><br>"
                     "Click the <b>Save</b> button or use <b>Ctrl+S</b> to save your show.<br>"
                     "Click the <b>Load</b> button or use <b>Ctrl+O</b> to load a previously saved show.<br><br>"
-                    "<b>Preview Widget:</b><br>"
-                    "The preview widget lets you select a region of the audio by clicking and dragging.<br>"
-                    "Right-click on the preview widget to access context menu options for firings.<br>"
+            
                     )
                     dialog = ToastDialog(help_text, parent=mw)
                     dialog.setWindowTitle("Firework Studio Help")
                     dialog.setMinimumWidth(500)
+                    dialog.setMinimumHeight(1000)
                     dialog.setWindowFlags(dialog.windowFlags() | Qt.WindowType.WindowCloseButtonHint)
                     dialog.setWindowModality(Qt.WindowModality.ApplicationModal)
                     # Add a close button to the dialog
